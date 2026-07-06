@@ -118,14 +118,20 @@ final class YooY_Mock_Image_Provider implements YooY_Image_Provider_Interface, Y
         $ratio      = $params['aspect_ratio'] ?? '1:1';
         $base       = $resolution;
 
-        return match ($ratio) {
-            '16:9' => (int) round($base * 16 / 9) . 'x' . $base,
-            '9:16' => $base . 'x' . (int) round($base * 16 / 9),
-            '4:5'  => $base . 'x' . (int) round($base * 5 / 4),
-            '3:2'  => (int) round($base * 3 / 2) . 'x' . $base,
-            '2:3'  => $base . 'x' . (int) round($base * 3 / 2),
-            default => $base . 'x' . $base,
-        };
+        switch ($ratio) {
+            case '16:9':
+                return (int) round($base * 16 / 9) . 'x' . $base;
+            case '9:16':
+                return $base . 'x' . (int) round($base * 16 / 9);
+            case '4:5':
+                return $base . 'x' . (int) round($base * 5 / 4);
+            case '3:2':
+                return (int) round($base * 3 / 2) . 'x' . $base;
+            case '2:3':
+                return $base . 'x' . (int) round($base * 3 / 2);
+            default:
+                return $base . 'x' . $base;
+        }
     }
 
     private function estimate_credits(array $params): int {

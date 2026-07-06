@@ -55,12 +55,18 @@ final class YooY_Video_API_Router {
         foreach ($map as $id => $file) {
             if (!file_exists($file)) continue;
             require_once $file;
-            $class = match ($id) {
-                'mock'    => 'YooY_Mock_Video_Provider',
-                'runway'  => 'YooY_Runway_Provider',
-                'topview' => 'YooY_Topview_Provider',
-                default   => null,
-            };
+            $class = null;
+            switch ($id) {
+                case 'mock':
+                    $class = 'YooY_Mock_Video_Provider';
+                    break;
+                case 'runway':
+                    $class = 'YooY_Runway_Provider';
+                    break;
+                case 'topview':
+                    $class = 'YooY_Topview_Provider';
+                    break;
+            }
             if ($class && class_exists($class)) {
                 $this->providers[$id] = new $class();
             }

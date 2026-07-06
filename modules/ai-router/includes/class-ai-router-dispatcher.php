@@ -54,21 +54,21 @@ final class YooY_AI_Router_Dispatcher {
         if ($type === 'image') {
             $module = $this->core->module('image-studio');
             if ($module instanceof YooY_Module_Image_Studio) {
-                return $module->poll_job($user_id, $provider, $job_id);
+                return $module->poll_provider_job($user_id, $provider, $job_id);
             }
         }
 
         if ($type === 'video') {
             $module = $this->core->module('video-studio');
             if ($module instanceof YooY_Module_Video_Studio) {
-                return $module->poll_job($user_id, $provider, $job_id);
+                return $module->poll_provider_job($user_id, $provider, $job_id);
             }
         }
 
         if ($type === 'music') {
             $module = $this->core->module('music-studio');
             if ($module instanceof YooY_Module_Music_Studio) {
-                return $module->poll_job($user_id, $provider, $job_id);
+                return $module->poll_provider_job($user_id, $provider, $job_id);
             }
         }
 

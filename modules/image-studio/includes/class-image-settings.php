@@ -127,11 +127,17 @@ final class YooY_Image_Settings {
     }
 
     private function sanitize(string $key, $value) {
-        return match ($key) {
-            'seed', 'image_count' => (int) $value,
-            'korean_context', 'auto_save' => (bool) $value,
-            'negative_prompt' => sanitize_textarea_field((string) $value),
-            default => sanitize_text_field((string) $value),
-        };
+        switch ($key) {
+            case 'seed':
+            case 'image_count':
+                return (int) $value;
+            case 'korean_context':
+            case 'auto_save':
+                return (bool) $value;
+            case 'negative_prompt':
+                return sanitize_textarea_field((string) $value);
+            default:
+                return sanitize_text_field((string) $value);
+        }
     }
 }

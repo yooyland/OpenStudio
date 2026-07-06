@@ -40,11 +40,17 @@ final class YooY_Video_Prompt_Reuse {
         $source_id   = sanitize_text_field($params['source_id'] ?? '');
         $override    = sanitize_textarea_field($params['prompt_override'] ?? '');
 
-        $base = match ($source_type) {
-            'gallery'  => $this->from_gallery($user_id, $source_id),
-            'template' => $this->from_template($source_id),
-            default    => $this->from_history($user_id, $source_id),
-        };
+        switch ($source_type) {
+            case 'gallery':
+                $base = $this->from_gallery($user_id, $source_id);
+                break;
+            case 'template':
+                $base = $this->from_template($source_id);
+                break;
+            default:
+                $base = $this->from_history($user_id, $source_id);
+                break;
+        }
 
         if ($override !== '') {
             $base['prompt'] = $override;

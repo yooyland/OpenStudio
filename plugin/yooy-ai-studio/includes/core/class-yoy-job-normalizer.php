@@ -27,11 +27,15 @@ final class YooY_Job_Normalizer {
     }
 
     public static function from_vendor(string $provider, array $body): array {
-        $status = match ($provider) {
-            'runway' => YooY_Job_Status::normalize((string) ($body['status'] ?? 'running')),
-            'replicate' => YooY_Job_Status::normalize((string) ($body['status'] ?? 'running')),
-            default => YooY_Job_Status::normalize((string) ($body['status'] ?? 'completed')),
-        };
+        switch ($provider) {
+            case 'runway':
+            case 'replicate':
+                $status = YooY_Job_Status::normalize((string) ($body['status'] ?? 'running'));
+                break;
+            default:
+                $status = YooY_Job_Status::normalize((string) ($body['status'] ?? 'completed'));
+                break;
+        }
 
         $output = null;
         if ($status === YooY_Job_Status::COMPLETED) {
@@ -92,20 +96,30 @@ final class YooY_Job_Normalizer {
     }
 
     private static function vendor_output(string $provider, array $body): ?array {
-        return match ($provider) {
-            'runway' => isset($body['output'][0]) ? self::normalize_output_shape(['url' => $body['output'][0], 'thumbnail' => $body['thumbnail'] ?? ''], 'video') : null,
-            'replicate' => isset($body['output']) ? self::normalize_output_shape(['urls' => (array) $body['output'], 'url' => is_array($body['output']) ? ($body['output'][0] ?? '') : $body['output']], 'image') : null,
-            'openai' => isset($body['data'][0]['url']) ? self::normalize_output_shape(['url' => $body['data'][0]['url']], 'image') : null,
-            default => null,
-        };
+        switch ($provider) {
+            case 'runway':
+                return isset($body['output'][0]) ? self::normalize_output_shape(['url' => $body['output'][0], 'thumbnail' => $body['thumbnail'] ?? ''], 'video') : null;
+            case 'replicate':
+                return isset($body['output']) ? self::normalize_output_shape(['urls' => (array) $body['output'], 'url' => is_array($body['output']) ? ($body['output'][0] ?? '') : $body['output']], 'image') : null;
+            case 'openai':
+                return isset($body['data'][0]['url']) ? self::normalize_output_shape(['url' => $body['data'][0]['url']], 'image') : null;
+            default:
+                return null;
+        }
     }
 
     private static function mime_for_type(string $type): string {
-        return match ($type) {
-            'video', 'avatar' => 'video/mp4',
-            'music', 'voice'  => 'audio/mpeg',
-            'image'           => 'image/png',
-            default           => 'text/plain',
-        };
+        switch ($type) {
+            case 'video':
+            case 'avatar':
+                return 'video/mp4';
+            case 'music':
+            case 'voice':
+                return 'audio/mpeg';
+            case 'image':
+                return 'image/png';
+            default:
+                return 'text/plain';
+        }
     }
 }

@@ -112,11 +112,21 @@ final class YooY_Music_Settings {
     }
 
     private function sanitize(string $key, $value) {
-        return match ($key) {
-            'tempo', 'duration', 'weirdness', 'style_influence' => (int) $value,
-            'korean_context', 'auto_save' => (bool) $value,
-            'lyrics', 'negative_prompt', 'style_prompt' => sanitize_textarea_field((string) $value),
-            default => sanitize_text_field((string) $value),
-        };
+        switch ($key) {
+            case 'tempo':
+            case 'duration':
+            case 'weirdness':
+            case 'style_influence':
+                return (int) $value;
+            case 'korean_context':
+            case 'auto_save':
+                return (bool) $value;
+            case 'lyrics':
+            case 'negative_prompt':
+            case 'style_prompt':
+                return sanitize_textarea_field((string) $value);
+            default:
+                return sanitize_text_field((string) $value);
+        }
     }
 }

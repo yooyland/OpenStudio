@@ -29,15 +29,22 @@ final class YooY_Gallery_Actions {
             'remix_source' => ['gallery_id' => $id],
         ];
 
-        return match ($item['type']) {
-            'video'  => array_merge($payload, ['prompt' => $item['prompt']]),
-            'image'  => array_merge($payload, ['prompt' => $item['prompt']]),
-            'music'  => array_merge($payload, ['lyrics' => $item['prompt']]),
-            'voice'  => array_merge($payload, ['text' => $item['prompt']]),
-            'avatar' => array_merge($payload, ['script' => $item['prompt']]),
-            'writing'=> array_merge($payload, ['prompt' => $item['prompt']]),
-            default  => $payload,
-        };
+        switch ($item['type']) {
+            case 'video':
+                return array_merge($payload, ['prompt' => $item['prompt']]);
+            case 'image':
+                return array_merge($payload, ['prompt' => $item['prompt']]);
+            case 'music':
+                return array_merge($payload, ['lyrics' => $item['prompt']]);
+            case 'voice':
+                return array_merge($payload, ['text' => $item['prompt']]);
+            case 'avatar':
+                return array_merge($payload, ['script' => $item['prompt']]);
+            case 'writing':
+                return array_merge($payload, ['prompt' => $item['prompt']]);
+            default:
+                return $payload;
+        }
     }
 
     public function toggle_favorite(int $user_id, string $id): array {
@@ -196,11 +203,17 @@ final class YooY_Gallery_Actions {
     }
 
     private function ext(string $type): string {
-        return match ($type) {
-            'video', 'avatar' => '.mp4',
-            'music', 'voice'  => '.mp3',
-            'image'           => '.png',
-            default           => '.txt',
-        };
+        switch ($type) {
+            case 'video':
+            case 'avatar':
+                return '.mp4';
+            case 'music':
+            case 'voice':
+                return '.mp3';
+            case 'image':
+                return '.png';
+            default:
+                return '.txt';
+        }
     }
 }

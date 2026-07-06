@@ -115,11 +115,14 @@ final class YooY_Replicate_Image_Provider implements YooY_Image_Provider_Interfa
     }
 
     private function model_version(string $model): string {
-        return match ($model) {
-            'flux-dev' => 'black-forest-labs/flux-dev',
-            'sdxl'     => 'stability-ai/sdxl',
-            default    => 'black-forest-labs/flux-schnell',
-        };
+        switch ($model) {
+            case 'flux-dev':
+                return 'black-forest-labs/flux-dev';
+            case 'sdxl':
+                return 'stability-ai/sdxl';
+            default:
+                return 'black-forest-labs/flux-schnell';
+        }
     }
 
     private function images_from_output(?array $output): array {

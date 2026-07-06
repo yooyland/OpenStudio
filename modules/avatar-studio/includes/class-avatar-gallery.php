@@ -7,7 +7,9 @@ final class YooY_Avatar_Gallery {
 
     public function __construct(?YooY_Gallery_Store $store = null) {
         if ($store === null) {
-            require_once YOY_AI_STUDIO_MODULES_DIR . 'gallery/includes/class-gallery-store.php';
+            if (!class_exists('YooY_Gallery_Store')) {
+                require_once YOY_AI_STUDIO_MODULES_DIR . 'gallery/includes/class-gallery-store.php';
+            }
             $store = new YooY_Gallery_Store();
         }
         $this->store = $store;

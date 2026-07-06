@@ -1,0 +1,47 @@
+---
+description: WordPress 릴리스 완료 기준 — commit, push, ZIP, audit, release notes (영구 규칙)
+alwaysApply: true
+---
+
+# WordPress Production & Release Rule
+
+No version is complete until **all seven** criteria are true. Do not ask whether to apply this rule — it is mandatory for every version.
+
+## Version Completion Checklist (7 required)
+
+1. **Git Commit completed** — focused diff; no secrets; follow repo commit style.
+2. **Git Push completed** — branch pushed to remote.
+3. **WordPress ZIP generated** — single root folder `yooy-ai-studio/`; forward-slash paths; includes `plugin/`, bundled `modules/`, `providers/`, `assets/`, `templates/`.
+4. **ZIP installs successfully on PHP 7.4** — upload/extract to `wp-content/plugins/` without error.
+5. **Plugin activates without Fatal Error** — no parse/redeclare/missing-file fatals on activation.
+6. **All modules load successfully** — 14 modules registered; core boot completes.
+7. **Main dashboard opens successfully** — admin menu `YooY AI Studio` and shortcode shell load without error.
+
+Also produce before marking complete:
+
+- **Activation Audit Report** — pass `scripts/audit-activation.ps1` (missing requires, duplicate classes/methods, PHP 8 syntax = 0).
+- **Release Notes** — version, changes, install steps, PHP/WP requirements.
+
+## Pre-Commit / Pre-Push Gate
+
+Every release MUST pass before commit and push:
+
+| Check | Command / Script |
+|-------|------------------|
+| PHP 7.4 compatibility | `scripts/audit-activation.ps1` (PHP 8-only syntax scan) |
+| JS syntax | `node --check` on all staged `*.js` |
+| WordPress activation audit | `scripts/audit-activation.ps1` |
+| Package build | `scripts/build-wordpress-package.ps1` |
+
+Default PHP 7.4 ZIP name pattern: `yooy-ai-studio-{version}-php74.zip`
+
+## Target Environment
+
+- **WordPress:** 6.x
+- **PHP:** 7.4 (minimum; e.g. Whois hosting 7.4.33)
+- Plugin header: `Requires PHP: 7.4`
+
+## Scope
+
+- Activation fixes and compatibility only when unblocking release — no new features during hotfix builds.
+- Applies automatically to all future OpenStudio / YooY AI Studio versions.

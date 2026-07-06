@@ -2,43 +2,79 @@
 /**
  * Plugin Name: YooY AI Studio
  * Description: YooY Land AI Creator OS - Core Engine connecting AI Router, Credits, Gallery, Projects, and all modules.
- * Version: 11.2.0-dev
+ * Version: 11.3.0-beta
+ * Requires PHP: 7.4
  * Author: YooY Land
  * Text Domain: yooy-ai-studio
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('YOY_AI_STUDIO_VERSION', '11.2.0-dev');
+if (version_compare(PHP_VERSION, '7.4.0', '<')) {
+    add_action('admin_notices', static function () {
+        echo '<div class="notice notice-error"><p>';
+        echo esc_html(
+            'YooY AI Studio requires PHP 7.4 or higher. Current version: ' . PHP_VERSION
+        );
+        echo '</p></div>';
+    });
+    return;
+}
+
+define('YOY_AI_STUDIO_VERSION', '11.3.0-beta');
 define('YOY_AI_STUDIO_FILE', __FILE__);
 define('YOY_AI_STUDIO_DIR', plugin_dir_path(__FILE__));
 define('YOY_AI_STUDIO_URL', plugin_dir_url(__FILE__));
 define('YOY_AI_STUDIO_ROOT', dirname(YOY_AI_STUDIO_DIR, 2));
 
-$modules_dir = YOY_AI_STUDIO_ROOT . '/modules/';
-$providers_dir = YOY_AI_STUDIO_ROOT . '/providers/';
+/**
+ * Resolve bundled or monorepo module/provider directories.
+ * WordPress ZIP installs must prefer paths inside the plugin folder.
+ */
+function yoy_ai_studio_resolve_dir(string $subdir): string {
+    $candidates = [
+        YOY_AI_STUDIO_DIR . $subdir . '/',
+        YOY_AI_STUDIO_ROOT . '/' . $subdir . '/',
+    ];
 
-if (!is_dir($modules_dir)) {
-    $modules_dir = YOY_AI_STUDIO_DIR . 'modules/';
+    foreach ($candidates as $dir) {
+        if (is_dir($dir)) {
+            return trailingslashit($dir);
+        }
+    }
+
+    return trailingslashit(YOY_AI_STUDIO_DIR . $subdir . '/');
 }
-if (!is_dir($providers_dir)) {
-    $providers_dir = YOY_AI_STUDIO_DIR . 'providers/';
+
+define('YOY_AI_STUDIO_MODULES_DIR', yoy_ai_studio_resolve_dir('modules'));
+define('YOY_AI_STUDIO_PROVIDERS_DIR', yoy_ai_studio_resolve_dir('providers'));
+
+$core_files = [
+    'includes/core/interface-yoy-module.php',
+    'includes/core/class-yoy-module-base.php',
+    'includes/core/class-yoy-module-registry.php',
+    'includes/core/class-yoy-job-status.php',
+    'includes/core/class-yoy-job-normalizer.php',
+    'includes/core/class-yoy-job-store.php',
+    'includes/core/class-yoy-credits-service.php',
+    'includes/core/class-yoy-studio-credits.php',
+    'includes/core/class-yoy-core-engine.php',
+    'includes/core/class-yoy-rest-controller.php',
+    'includes/class-yoy-ai-studio.php',
+];
+
+foreach ($core_files as $relative) {
+    $path = YOY_AI_STUDIO_DIR . $relative;
+    if (!is_readable($path)) {
+        add_action('admin_notices', static function () use ($path) {
+            echo '<div class="notice notice-error"><p>';
+            echo esc_html('YooY AI Studio: missing core file ' . $path);
+            echo '</p></div>';
+        });
+        return;
+    }
+    require_once $path;
 }
-
-define('YOY_AI_STUDIO_MODULES_DIR', trailingslashit($modules_dir));
-define('YOY_AI_STUDIO_PROVIDERS_DIR', trailingslashit($providers_dir));
-
-require_once YOY_AI_STUDIO_DIR . 'includes/core/interface-yoy-module.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-module-base.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-module-registry.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-job-status.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-job-normalizer.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-job-store.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-credits-service.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-studio-credits.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-core-engine.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/core/class-yoy-rest-controller.php';
-require_once YOY_AI_STUDIO_DIR . 'includes/class-yoy-ai-studio.php';
 
 add_action('plugins_loaded', function () {
     $core = YooY_Core_Engine::instance();

@@ -19,12 +19,31 @@ final class YooY_Job_Status {
     public static function normalize(string $status): string {
         $status = strtolower(trim($status));
 
-        return match ($status) {
-            'queued', 'pending', 'submitted', 'created' => self::QUEUED,
-            'running', 'processing', 'in_progress', 'in-progress', 'active' => self::RUNNING,
-            'completed', 'complete', 'succeeded', 'success', 'done' => self::COMPLETED,
-            'failed', 'error', 'cancelled', 'canceled' => self::FAILED,
-            default => in_array($status, self::all(), true) ? $status : self::RUNNING,
-        };
+        switch ($status) {
+            case 'queued':
+            case 'pending':
+            case 'submitted':
+            case 'created':
+                return self::QUEUED;
+            case 'running':
+            case 'processing':
+            case 'in_progress':
+            case 'in-progress':
+            case 'active':
+                return self::RUNNING;
+            case 'completed':
+            case 'complete':
+            case 'succeeded':
+            case 'success':
+            case 'done':
+                return self::COMPLETED;
+            case 'failed':
+            case 'error':
+            case 'cancelled':
+            case 'canceled':
+                return self::FAILED;
+            default:
+                return in_array($status, self::all(), true) ? $status : self::RUNNING;
+        }
     }
 }

@@ -17,11 +17,17 @@ final class YooY_Avatar_Prompt_Reuse {
         $type = sanitize_text_field($params['source_type'] ?? 'history');
         $id   = sanitize_text_field($params['source_id'] ?? '');
 
-        $base = match ($type) {
-            'gallery' => $this->from_gallery($user_id, $id),
-            'scene'   => $this->from_scene($id),
-            default   => $this->from_history($user_id, $id),
-        };
+        switch ($type) {
+            case 'gallery':
+                $base = $this->from_gallery($user_id, $id);
+                break;
+            case 'scene':
+                $base = $this->from_scene($id);
+                break;
+            default:
+                $base = $this->from_history($user_id, $id);
+                break;
+        }
 
         if (!empty($params['script_override'])) $base['script'] = sanitize_textarea_field($params['script_override']);
         $base['remix'] = true;

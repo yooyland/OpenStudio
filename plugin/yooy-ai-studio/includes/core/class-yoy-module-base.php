@@ -47,7 +47,7 @@ abstract class YooY_Module_Base implements YooY_Module_Interface {
         return get_current_user_id();
     }
 
-    protected function require_user(): int|WP_REST_Response {
+    protected function require_user() {
         $user_id = $this->current_user_id();
         if ($user_id === 0) {
             return $this->error('Login required.', 401);

@@ -44,11 +44,18 @@ final class YooY_Avatar_Settings {
     }
 
     private function sanitize(string $key, $value) {
-        return match ($key) {
-            'duration' => (int) $value,
-            'lip_sync', 'subtitle_enabled', 'korean_context', 'auto_save' => (bool) $value,
-            'script' => sanitize_textarea_field((string) $value),
-            default => sanitize_text_field((string) $value),
-        };
+        switch ($key) {
+            case 'duration':
+                return (int) $value;
+            case 'lip_sync':
+            case 'subtitle_enabled':
+            case 'korean_context':
+            case 'auto_save':
+                return (bool) $value;
+            case 'script':
+                return sanitize_textarea_field((string) $value);
+            default:
+                return sanitize_text_field((string) $value);
+        }
     }
 }

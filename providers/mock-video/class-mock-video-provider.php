@@ -51,11 +51,14 @@ final class YooY_Mock_Video_Provider implements YooY_Video_Provider_Interface {
     }
 
     private function dimensions(string $ratio): array {
-        return match ($ratio) {
-            '9:16' => [720, 1280],
-            '1:1'  => [1080, 1080],
-            default => [1280, 720],
-        };
+        switch ($ratio) {
+            case '9:16':
+                return [720, 1280];
+            case '1:1':
+                return [1080, 1080];
+            default:
+                return [1280, 720];
+        }
     }
 
     private function estimate_credits(array $params): int {

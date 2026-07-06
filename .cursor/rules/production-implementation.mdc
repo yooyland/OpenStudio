@@ -61,3 +61,8 @@ if (empty($items)) {
 - [ ] Mock Provider 없이도 동일 코드 경로로 실제 API 연동 가능한가?
 - [ ] UI가 API 응답 없이 렌더링되지 않는가?
 - [ ] 하드코딩 샘플 배열이 모듈 PHP/JS에 없는가?
+
+## 관련 영구 규칙
+
+- **PHP 7.4 호환** — `.cursor/rules/php-74-compatibility.mdc`
+- **릴리스 5종 완료** (commit, push, ZIP, audit, release notes) — `.cursor/rules/wordpress-release.mdc`

@@ -379,15 +379,22 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
     }
 
     private function type_label(string $type): string {
-        return match ($type) {
-            'video'   => '영상',
-            'image'   => '이미지',
-            'music'   => '음악',
-            'writing' => '글',
-            'avatar'  => '아바타',
-            'voice'   => '음성',
-            default   => $type,
-        };
+        switch ($type) {
+            case 'video':
+                return '영상';
+            case 'image':
+                return '이미지';
+            case 'music':
+                return '음악';
+            case 'writing':
+                return '글';
+            case 'avatar':
+                return '아바타';
+            case 'voice':
+                return '음성';
+            default:
+                return $type;
+        }
     }
 
     private function format_date(string $iso): string {

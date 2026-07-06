@@ -64,11 +64,18 @@ final class YooY_Video_Settings {
     }
 
     private function sanitize(string $key, $value) {
-        return match ($key) {
-            'duration', 'fps' => (int) $value,
-            'korean_context', 'auto_save', 'subtitle_space' => (bool) $value,
-            'default_negative' => sanitize_textarea_field((string) $value),
-            default => sanitize_text_field((string) $value),
-        };
+        switch ($key) {
+            case 'duration':
+            case 'fps':
+                return (int) $value;
+            case 'korean_context':
+            case 'auto_save':
+            case 'subtitle_space':
+                return (bool) $value;
+            case 'default_negative':
+                return sanitize_textarea_field((string) $value);
+            default:
+                return sanitize_text_field((string) $value);
+        }
     }
 }

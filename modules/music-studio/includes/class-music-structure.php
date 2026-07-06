@@ -57,13 +57,20 @@ final class YooY_Music_Structure {
 
     private function placeholder_line(string $section, string $language): string {
         if ($language === 'ko') {
-            return match ($section) {
-                'chorus' => '(후렴 가사를 입력하세요)',
-                'verse'  => '(절 가사를 입력하세요)',
-                'bridge' => '(브릿지 가사를 입력하세요)',
-                'intro', 'outro', 'instrumental' => '(연주 / 간주)',
-                default  => '(가사를 입력하세요)',
-            };
+            switch ($section) {
+                case 'chorus':
+                    return '(후렴 가사를 입력하세요)';
+                case 'verse':
+                    return '(절 가사를 입력하세요)';
+                case 'bridge':
+                    return '(브릿지 가사를 입력하세요)';
+                case 'intro':
+                case 'outro':
+                case 'instrumental':
+                    return '(연주 / 간주)';
+                default:
+                    return '(가사를 입력하세요)';
+            }
         }
         return '(' . $section . ' lyrics here)';
     }

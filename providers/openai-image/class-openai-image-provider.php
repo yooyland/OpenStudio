@@ -88,10 +88,12 @@ final class YooY_OpenAI_Image_Provider implements YooY_Image_Provider_Interface 
         }
 
         $job_id = $params['job_id'] ?? ('imgedit_' . wp_generate_uuid4());
-        $endpoint = match ($params['mode'] ?? 'edit') {
-            'inpaint', 'outpaint', 'edit' => 'edits',
-            default => 'edits',
-        };
+        $mode = $params['mode'] ?? 'edit';
+        if (in_array($mode, ['inpaint', 'outpaint', 'edit'], true)) {
+            $endpoint = 'edits';
+        } else {
+            $endpoint = 'edits';
+        }
 
         $response = wp_remote_post('https://api.openai.com/v1/images/' . $endpoint, [
             'timeout' => 120,

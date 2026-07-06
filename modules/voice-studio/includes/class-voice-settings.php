@@ -38,12 +38,21 @@ final class YooY_Voice_Settings {
     }
 
     private function sanitize(string $key, $value) {
-        return match ($key) {
-            'speed', 'pitch' => (float) $value,
-            'stability', 'similarity', 'style_exaggeration' => (int) $value,
-            'speaker_boost', 'auto_save' => (bool) $value,
-            'text' => sanitize_textarea_field((string) $value),
-            default => sanitize_text_field((string) $value),
-        };
+        switch ($key) {
+            case 'speed':
+            case 'pitch':
+                return (float) $value;
+            case 'stability':
+            case 'similarity':
+            case 'style_exaggeration':
+                return (int) $value;
+            case 'speaker_boost':
+            case 'auto_save':
+                return (bool) $value;
+            case 'text':
+                return sanitize_textarea_field((string) $value);
+            default:
+                return sanitize_text_field((string) $value);
+        }
     }
 }

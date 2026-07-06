@@ -43,15 +43,22 @@ final class YooY_Module_Community extends YooY_Module_Base {
     }
 
     private function type_label(string $type): string {
-        return match ($type) {
-            'video'   => 'Video',
-            'image'   => 'Image',
-            'music'   => 'Music',
-            'voice'   => 'Voice',
-            'avatar'  => 'Avatar',
-            'writing' => 'Writing',
-            default   => ucfirst($type),
-        };
+        switch ($type) {
+            case 'video':
+                return 'Video';
+            case 'image':
+                return 'Image';
+            case 'music':
+                return 'Music';
+            case 'voice':
+                return 'Voice';
+            case 'avatar':
+                return 'Avatar';
+            case 'writing':
+                return 'Writing';
+            default:
+                return ucfirst($type);
+        }
     }
 
     public function posts(): WP_REST_Response {

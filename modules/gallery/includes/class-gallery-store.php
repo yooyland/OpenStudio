@@ -106,14 +106,21 @@ final class YooY_Gallery_Store {
     }
 
     private function studio_from_type(string $type): string {
-        return match ($type) {
-            'video'  => 'video-studio',
-            'image'  => 'image-studio',
-            'music'  => 'music-studio',
-            'voice'  => 'voice-studio',
-            'avatar' => 'avatar-studio',
-            'writing'=> 'writing-studio',
-            default  => 'unknown',
-        };
+        switch ($type) {
+            case 'video':
+                return 'video-studio';
+            case 'image':
+                return 'image-studio';
+            case 'music':
+                return 'music-studio';
+            case 'voice':
+                return 'voice-studio';
+            case 'avatar':
+                return 'avatar-studio';
+            case 'writing':
+                return 'writing-studio';
+            default:
+                return 'unknown';
+        }
     }
 }

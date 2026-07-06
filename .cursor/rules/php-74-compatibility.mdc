@@ -1,0 +1,57 @@
+---
+description: PHP 7.4 minimum — 금지 문법, WPCS, 활성화 안전 (OpenStudio 영구 규칙)
+alwaysApply: true
+---
+
+# PHP Compatibility Rule
+
+**Minimum Supported PHP Version: 7.4**
+
+All production code in `plugin/`, `modules/`, and `providers/` MUST remain compatible with PHP 7.4.
+Never use PHP 8-only syntax. Future PHP 8.x migration should require minimal changes.
+
+## Forbidden Syntax
+
+Never use:
+
+- `match()`
+- union types (`int|WP_REST_Response`, `string|int`, etc.)
+- `mixed` type
+- `never` type
+- nullsafe operator (`?->`)
+- constructor property promotion
+- named arguments
+- `readonly` properties
+- `enum`
+- attribute syntax (`#[]`)
+- `str_contains()`, `str_starts_with()`, `str_ends_with()`
+
+## PHP 7.4 Alternatives
+
+```php
+// ❌ match ($x) { 'a' => 1, default => 0 };
+// ✅ switch ($x) { case 'a': return 1; default: return 0; }
+
+// ❌ function foo(): int|WP_REST_Response
+// ✅ function foo() { ... }  // @return int|WP_REST_Response in docblock if needed
+
+// ❌ str_contains($haystack, $needle)
+// ✅ strpos($haystack, $needle) !== false
+```
+
+## WordPress Coding Standards
+
+- Follow [WordPress Coding Standards](https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/).
+- Guard direct access: `if (!defined('ABSPATH')) exit;`
+- Use WordPress APIs (`sanitize_*`, `wp_remote_*`, `register_rest_route`, etc.).
+- Prefer `require_once` with `class_exists()` / `file_exists()` guards for cross-module loads.
+
+## Activation Safety (before every commit)
+
+- Verify every `require_once` path exists in the WordPress ZIP package.
+- Verify no duplicate class declarations.
+- Verify all modules load via `module.php` independently.
+- Verify activation produces no Fatal Error on **WordPress 6.x + PHP 7.4**.
+- Verify REST endpoints register on `rest_api_init` without error.
+
+Run: `scripts/audit-activation.ps1` against `dist/package-staging/yooy-ai-studio`.

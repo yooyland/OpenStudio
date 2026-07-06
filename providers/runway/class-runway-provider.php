@@ -101,11 +101,15 @@ final class YooY_Runway_Provider implements YooY_Video_Provider_Interface {
     }
 
     private function map_ratio(string $ratio): string {
-        return match ($ratio) {
-            '9:16' => '9:16',
-            '1:1'  => '1:1',
-            '4:5'  => '4:5',
-            default => '16:9',
-        };
+        switch ($ratio) {
+            case '9:16':
+                return '9:16';
+            case '1:1':
+                return '1:1';
+            case '4:5':
+                return '4:5';
+            default:
+                return '16:9';
+        }
     }
 }

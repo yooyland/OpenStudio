@@ -72,6 +72,10 @@ final class YooY_Core_Engine {
         sort($files);
 
         foreach ($files as $file) {
+            if (!is_readable($file)) {
+                continue;
+            }
+
             $module = include $file;
             if ($module instanceof YooY_Module_Interface) {
                 $this->registry->register($module);

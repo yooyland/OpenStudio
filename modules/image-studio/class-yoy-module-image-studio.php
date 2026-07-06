@@ -22,7 +22,7 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
         return $this->generator->generate($user_id, $params);
     }
 
-    public function poll_job(int $user_id, string $provider, string $job_id): array {
+    public function poll_provider_job(int $user_id, string $provider, string $job_id): array {
         return $this->generator->poll_and_finalize($user_id, $provider, $job_id) ?? [];
     }
 
