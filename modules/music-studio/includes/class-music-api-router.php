@@ -34,11 +34,12 @@ final class YooY_Music_API_Router {
         $provider = $this->providers[$id] ?? $this->providers['mock'] ?? null;
         if (!$provider) throw new Exception('Music provider not available.');
         $params['job_id'] = $params['job_id'] ?? ('mus_' . wp_generate_uuid4());
-        return apply_filters('yoy_music_studio_generate', $provider->generate($params), $params);
+        $raw = $provider->generate($params);
+        return apply_filters('yoy_music_studio_generate', YooY_Job_Normalizer::normalize($raw, 'music'), $params);
     }
 
     public function status(string $provider_id, string $job_id): array {
         $provider = $this->providers[$provider_id] ?? $this->providers['mock'];
-        return $provider->status($job_id);
+        return YooY_Job_Normalizer::normalize($provider->status($job_id), 'music');
     }
 }

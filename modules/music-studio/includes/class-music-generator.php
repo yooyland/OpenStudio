@@ -59,6 +59,8 @@ final class YooY_Music_Generator {
         $result['credits'] = $credit_info;
 
         $entry = $this->history->add($user_id, array_merge($result, [
+            'type'            => 'music',
+            'studio'          => 'music-studio',
             'lyrics'          => $payload['lyrics'],
             'genre'           => $payload['genre'],
             'mood'            => $payload['mood'],

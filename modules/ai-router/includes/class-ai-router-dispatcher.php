@@ -30,6 +30,10 @@ final class YooY_AI_Router_Dispatcher {
             return $this->dispatch_image($user_id, $payload);
         }
 
+        if ($type === 'video' && $this->core->module('video-studio') instanceof YooY_Module_Video_Studio) {
+            return $this->dispatch_video($user_id, $payload);
+        }
+
         $result = apply_filters('yoy_ai_studio_generate', null, array_merge($payload, [
             'user_id' => $user_id,
             'type'    => $type,
@@ -46,6 +50,13 @@ final class YooY_AI_Router_Dispatcher {
         if ($type === 'image') {
             $module = $this->core->module('image-studio');
             if ($module instanceof YooY_Module_Image_Studio) {
+                return $module->poll_job($user_id, $provider, $job_id);
+            }
+        }
+
+        if ($type === 'video') {
+            $module = $this->core->module('video-studio');
+            if ($module instanceof YooY_Module_Video_Studio) {
                 return $module->poll_job($user_id, $provider, $job_id);
             }
         }
@@ -84,6 +95,21 @@ final class YooY_AI_Router_Dispatcher {
         ]);
 
         return $this->finalize($user_id, 'image', 'image-studio', $result);
+    }
+
+    private function dispatch_video(int $user_id, array $payload): array {
+        $module = $this->core->module('video-studio');
+        if (!$module instanceof YooY_Module_Video_Studio) {
+            throw new Exception('Video Studio module unavailable.');
+        }
+
+        $result = $module->run_generate($user_id, array_merge($payload, [
+            'prompt'   => $payload['prompt'] ?? '',
+            'provider' => $payload['provider'] ?? 'mock',
+            'auto_save'=> true,
+        ]));
+
+        return $this->finalize($user_id, 'video', 'video-studio', $result);
     }
 
     private function finalize(int $user_id, string $type, string $studio, array $result): array {

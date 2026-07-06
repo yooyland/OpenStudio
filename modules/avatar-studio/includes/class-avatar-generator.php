@@ -45,6 +45,8 @@ final class YooY_Avatar_Generator {
         }
 
         $entry = $this->history->add($user_id, array_merge($result, [
+            'type'             => 'avatar',
+            'studio'           => 'avatar-studio',
             'script'           => $payload['script'],
             'avatar_id'        => $payload['avatar_id'],
             'voice_id'         => $payload['voice_id'],

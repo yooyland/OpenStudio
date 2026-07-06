@@ -22,7 +22,12 @@
     saveStoryboard: function (data) { return Core.post('video-studio', '/storyboard', data); },
     generateStoryboard: function (data) { return Core.post('video-studio', '/storyboard/generate', data || {}); },
     providers: function () { return Core.get('video-studio', '/router/providers'); },
-    jobStatus: function (data) { return Core.post('video-studio', '/router/status', data); }
+    jobStatus: function (data) { return Core.post('video-studio', '/router/status', data); },
+    pollJob: function (jobId, provider) {
+      return Core.post('video-studio', '/jobs/' + jobId + '/poll', { provider: provider });
+    },
+    credits: function () { return Core.get('video-studio', '/credits'); },
+    estimate: function (d) { return Core.post('video-studio', '/credits/estimate', d); }
   };
 
   Core.video = VideoAPI;

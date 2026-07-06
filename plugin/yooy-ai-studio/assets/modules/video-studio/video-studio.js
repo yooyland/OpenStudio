@@ -12,7 +12,9 @@
     providers: [],
     advanced: {},
     generating: false,
-    lastResult: null
+    lastResult: null,
+    activeGalleryId: null,
+    credits: { balance: 0, unlimited: false, estimate: 0, can_afford: true }
   };
 
   function $(s, c) { return (c || document).querySelector(s); }
@@ -67,12 +69,16 @@
       if (e.target.closest('#yvs-generate')) { doGenerate(root); return; }
       if (e.target.closest('#yvs-storyboard-generate')) { doStoryboardGenerate(root); return; }
       if (e.target.closest('#yvs-save-settings')) { saveSettings(root); return; }
+
+      var action = e.target.closest('[data-yvs-action]');
+      if (action) { handleResultAction(action.dataset.yvsAction, root); return; }
     });
 
     root.addEventListener('change', function (e) {
       if (e.target.matches('[data-yvs-setting]')) {
         state.settings[e.target.dataset.yvsSetting] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
         updateCanvasRatio(root);
+        refreshCreditsEstimate();
       }
     });
   }
@@ -87,11 +93,22 @@
     return Promise.all([
       Core.video.config(),
       Core.video.settings().catch(function () { return { data: { settings: {} } }; }),
-      Core.video.providers()
+      Core.video.providers(),
+      Core.video.credits().catch(function () { return { data: {} }; })
     ]).then(function (res) {
       state.providers = (res[0].data && res[0].data.providers) || [];
       state.settings = (res[1].data && res[1].data.settings) || {};
+      state.credits = Object.assign(state.credits, res[3].data || {});
+      refreshCreditsEstimate();
     });
+  }
+
+  function refreshCreditsEstimate() {
+    Core.video.estimate(state.settings).then(function (res) {
+      state.credits = Object.assign(state.credits, res.data || {});
+      var bar = document.querySelector('.yvs-credits-bar');
+      if (bar) bar.textContent = creditLabel();
+    }).catch(function () {});
   }
 
   function loadSettings() {
@@ -125,10 +142,69 @@
       '</div>' +
       '<div class="yvs-prompt-bar">' +
         '<textarea id="yvs-prompt" placeholder="한국 화장품 광고, 스마트스토어 제품 영상, 유튜브 쇼츠 등 영상 프롬프트를 입력하세요.">' + esc(state.settings.last_prompt || '') + '</textarea>' +
-        '<button class="yvs-btn-primary" id="yvs-generate" type="button">' + (state.generating ? 'Generating...' : 'Generate') + '</button>' +
-      '</div>';
+        '<button class="yvs-btn-primary" id="yvs-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Generating...' : 'Generate') + '</button>' +
+      '</div>' +
+      resultActionsHtml();
     ctrl.innerHTML = controlsPanel();
     updateCanvasRatio(root);
+  }
+
+  function creditLabel() {
+    if (state.credits.unlimited) return 'Credits: ∞';
+    var est = state.credits.estimate || 0;
+    var bal = state.credits.balance ?? 0;
+    return est + ' credits (잔액 ' + bal + ')';
+  }
+
+  function resultActionsHtml() {
+    if (!state.lastResult || !state.lastResult.job_id) return '';
+    return '<div class="yvs-result-actions">' +
+      '<span>Result Actions</span>' +
+      '<button class="yvs-btn-secondary" type="button" data-yvs-action="download">다운로드</button>' +
+      '<button class="yvs-btn-secondary" type="button" data-yvs-action="copy">프롬프트 복사</button>' +
+      '<button class="yvs-btn-secondary" type="button" data-yvs-action="reuse">재생성</button>' +
+      '<button class="yvs-btn-secondary" type="button" data-yvs-action="public">공개</button>' +
+      '<button class="yvs-btn-secondary" type="button" data-yvs-action="marketplace">Marketplace</button>' +
+      '</div>';
+  }
+
+  function handleResultAction(action, root) {
+    var galleryId = state.activeGalleryId || (state.lastResult && state.lastResult.job_id);
+    if (!galleryId || !Core.gallery) return;
+
+    var map = {
+      download: function () { return Core.gallery.download(galleryId); },
+      copy: function () { return Core.gallery.copy(galleryId); },
+      reuse: function () { return Core.gallery.regenerate(galleryId); },
+      public: function () { return Core.gallery.visibility(galleryId, true); },
+      marketplace: function () { return Core.gallery.marketplace(galleryId); }
+    };
+
+    var fn = map[action];
+    if (!fn) return;
+    fn().then(function (res) {
+      if (action === 'download') {
+        var info = res.data || {};
+        if (info.url) { var a = document.createElement('a'); a.href = info.url; a.download = info.filename || 'video'; a.target = '_blank'; a.click(); }
+      }
+      if (action === 'copy') {
+        var prompt = (res.data && res.data.prompt) || '';
+        if (navigator.clipboard) navigator.clipboard.writeText(prompt);
+      }
+      if (action === 'reuse') {
+        var regen = res.data || {};
+        if (regen.prompt) state.settings.last_prompt = regen.prompt;
+        Object.assign(state.settings, regen);
+        doGenerate(root);
+      }
+      notifyGalleryUpdated();
+    }).catch(function (err) { alert(err.message); });
+  }
+
+  function notifyGalleryUpdated() {
+    if (window.YooYGallery && typeof window.YooYGallery.reload === 'function') {
+      window.YooYGallery.reload();
+    }
   }
 
   function previewContent() {
@@ -136,7 +212,12 @@
       return '<div class="yvs-canvas-placeholder"><strong>Generating...</strong><div class="yvs-progress"><div class="yvs-progress-bar" style="width:60%"></div></div></div>';
     }
     if (state.lastResult && state.lastResult.output) {
-      var url = state.lastResult.output.url || state.lastResult.output.thumbnail;
+      var out = state.lastResult.output;
+      var url = out.primary || out.url || out.video_url || out.thumbnail;
+      var mime = out.mime || '';
+      if (mime.indexOf('video') === 0 || (url && url.indexOf('data:video') === 0)) {
+        return '<video class="yvs-preview-video" src="' + esc(url) + '" controls autoplay muted></video>';
+      }
       return '<img class="yvs-preview-img" src="' + esc(url) + '" alt="preview">';
     }
     return '<div class="yvs-canvas-placeholder"><strong>Video Preview</strong>프롬프트를 입력하고 Generate를 클릭하세요.</div>';
@@ -168,7 +249,8 @@
       }).join('') + '</select>') +
       toggle('Korean Context', 'korean_context', state.settings.korean_context !== false) +
       toggle('Auto Save', 'auto_save', state.settings.auto_save !== false) +
-      toggle('Subtitle Space', 'subtitle_space', state.settings.subtitle_space !== false);
+      toggle('Subtitle Space', 'subtitle_space', state.settings.subtitle_space !== false) +
+      '<div class="yvs-credits-bar">' + creditLabel() + '</div>';
   }
 
   function field(label, input) {
@@ -198,18 +280,48 @@
 
     state.generating = true;
     state.settings.last_prompt = prompt;
+    state.settings.prompt = prompt;
     renderTab(root);
 
     Core.video.generate(Object.assign({}, state.settings, { prompt: prompt })).then(function (res) {
-      state.lastResult = res.data || res;
-      state.generating = false;
-      renderTab(root);
+      finalizeJob(res.data || res, root);
     }).catch(function (err) {
       state.generating = false;
       var ws = $('#yvs-workspace', root);
       if (ws) ws.insertAdjacentHTML('beforeend', '<div class="yvs-error">' + esc(err.message) + '</div>');
       renderTab(root);
     });
+  }
+
+  function finalizeJob(data, root) {
+    if (data.status === 'queued' || data.status === 'running') {
+      return pollUntilDone(data, root);
+    }
+    state.lastResult = data;
+    state.generating = false;
+    state.activeGalleryId = data.job_id || '';
+    if (data.credits) state.credits.balance = data.credits.balance;
+    notifyGalleryUpdated();
+    renderTab(root);
+    return data;
+  }
+
+  function pollUntilDone(data, root) {
+    var provider = data.provider || state.settings.default_provider || 'mock';
+    var jobId = data.job_id;
+    var attempts = 0;
+
+    function tick() {
+      attempts += 1;
+      return Core.video.pollJob(jobId, provider).then(function (res) {
+        var job = (res.data && res.data.job) || res.data || res;
+        if ((job.status === 'queued' || job.status === 'running') && attempts < 15) {
+          return new Promise(function (r) { setTimeout(r, 1000); }).then(tick);
+        }
+        return finalizeJob(job, root);
+      });
+    }
+    return tick();
   }
 
   function renderCanvas(ws, ctrl) {
@@ -301,9 +413,11 @@
       }
       ws.innerHTML = '<div class="yvs-header"><h2>Gallery</h2><span class="yvs-badge">' + items.length + ' videos</span></div>' +
         items.map(function (item) {
+          var thumb = item.thumbnail || item.url || item.output_url || '';
+          var ratio = item.aspect_ratio || (item.meta && item.meta.aspect_ratio) || '';
           return '<div class="yvs-gallery-item" data-yvs-reuse="' + esc(item.id) + '" data-yvs-source="gallery">' +
-            '<img class="yvs-thumb" src="' + esc(item.thumbnail || item.url) + '" alt="">' +
-            '<div class="yvs-meta"><strong>' + esc(item.title) + '</strong><span>' + esc(item.provider) + ' · ' + esc(item.aspect_ratio) + '</span></div></div>';
+            '<img class="yvs-thumb" src="' + esc(thumb) + '" alt="">' +
+            '<div class="yvs-meta"><strong>' + esc(item.title) + '</strong><span>' + esc(item.provider) + (ratio ? ' · ' + esc(ratio) : '') + '</span></div></div>';
         }).join('');
       ctrl.innerHTML = '<h3>Prompt Reuse</h3><p style="color:#888;font-size:13px">항목을 클릭하면 프롬프트와 설정을 Generator에 불러옵니다.</p>';
     });
@@ -362,10 +476,13 @@
     setActiveTab(root);
     renderTab(root);
     Core.video.generateStoryboard(state.settings).then(function (res) {
-      state.lastResult = res.data || res;
+      finalizeJob(res.data || res, root);
+    }).catch(function (err) {
       state.generating = false;
+      var ws = $('#yvs-workspace', root);
+      if (ws) ws.insertAdjacentHTML('beforeend', '<div class="yvs-error">' + esc(err.message || 'Generation failed') + '</div>');
       renderTab(root);
-    }).catch(function () { state.generating = false; renderTab(root); });
+    });
   }
 
   function renderSettings(ws, ctrl) {

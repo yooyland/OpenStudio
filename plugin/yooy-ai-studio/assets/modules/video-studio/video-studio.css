@@ -42,6 +42,9 @@
 .yvs-timeline{display:flex;gap:6px;overflow-x:auto;padding:8px 0}
 .yvs-frame{min-width:100px;background:#151515;border:1px solid rgba(220,170,45,.2);border-radius:10px;padding:10px;font-size:11px;flex-shrink:0}
 .yvs-frame strong{display:block;color:#ffd76a;margin-bottom:4px}
+.yvs-credits-bar{margin-top:8px;font-size:12px;color:#d8a63a}
+.yvs-result-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px;padding:12px;background:#111;border:1px solid rgba(220,170,45,.2);border-radius:12px}
+.yvs-result-actions span{width:100%;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .yvs-history-item,.yvs-gallery-item{display:flex;gap:12px;padding:12px;background:#111;border-radius:12px;border:1px solid rgba(255,255,255,.06);cursor:pointer;margin-bottom:8px}
 .yvs-history-item:hover,.yvs-gallery-item:hover{border-color:rgba(220,170,45,.3)}
 .yvs-thumb{width:64px;height:36px;background:#1a1a1a;border-radius:6px;object-fit:cover;flex-shrink:0}

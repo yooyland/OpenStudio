@@ -25,22 +25,24 @@ final class YooY_Video_API_Router {
     public function route(array $params): array {
         $provider_id = sanitize_text_field($params['provider'] ?? 'mock');
         $provider    = $this->providers[$provider_id] ?? $this->providers['mock'] ?? null;
-
-        if (!$provider) {
-            throw new Exception('Video provider not available.');
-        }
+        if (!$provider) throw new Exception('Video provider not available.');
 
         $params['job_id'] = $params['job_id'] ?? ('vid_' . wp_generate_uuid4());
-
-        return apply_filters('yoy_video_studio_generate', $provider->generate($params), $params, $provider_id);
+        $raw = $provider->generate($params);
+        $normalized = YooY_Job_Normalizer::normalize($raw, 'video');
+        return apply_filters('yoy_video_studio_generate', $normalized, $params, $provider_id);
     }
 
     public function status(string $provider_id, string $job_id): array {
         $provider = $this->providers[$provider_id] ?? $this->providers['mock'] ?? null;
         if (!$provider) {
-            return ['job_id' => $job_id, 'status' => 'error', 'error' => 'Provider not found'];
+            return YooY_Job_Normalizer::normalize([
+                'job_id' => $job_id,
+                'status' => YooY_Job_Status::FAILED,
+                'error'  => 'Provider not found',
+            ], 'video');
         }
-        return $provider->status($job_id);
+        return YooY_Job_Normalizer::normalize($provider->status($job_id), 'video');
     }
 
     private function boot_providers(): void {

@@ -3,18 +3,30 @@ if (!defined('ABSPATH')) exit;
 
 final class YooY_Voice_History {
 
-    private const META_KEY = 'yoy_voice_history';
+    private YooY_Job_Store $store;
+
+    public function __construct(?YooY_Job_Store $store = null) {
+        $this->store = $store ?? new YooY_Job_Store();
+    }
 
     public function list(int $user_id, int $limit = 50): array {
-        $stored = get_user_meta($user_id, self::META_KEY, true);
-        return array_slice(is_array($stored) ? $stored : [], 0, $limit);
+        return array_slice($this->store->list($user_id, [
+            'type'   => 'voice',
+            'studio' => 'voice-studio',
+        ]), 0, $limit);
+    }
+
+    public function get(int $user_id, string $id): ?array {
+        $item = $this->store->get($user_id, $id);
+        if ($item && ($item['studio'] ?? '') === 'voice-studio') return $item;
+        return null;
     }
 
     public function add(int $user_id, array $result): array {
-        $history = $this->list($user_id, 200);
-        $entry   = array_merge($result, ['id' => $result['job_id'] ?? ('vhist_' . wp_generate_uuid4()), 'created_at' => gmdate('c')]);
-        array_unshift($history, $entry);
-        update_user_meta($user_id, self::META_KEY, array_slice($history, 0, 200));
-        return $entry;
+        return $this->store->save($user_id, $result, 'voice-studio');
+    }
+
+    public function clear(int $user_id): void {
+        $this->store->clear($user_id, 'voice-studio');
     }
 }

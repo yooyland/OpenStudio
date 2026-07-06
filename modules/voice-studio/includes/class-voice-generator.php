@@ -43,6 +43,8 @@ final class YooY_Voice_Generator {
 
         $result = $this->router->speak($payload);
         $entry  = $this->history->add($user_id, array_merge($result, [
+            'type'     => 'voice',
+            'studio'   => 'voice-studio',
             'emotion'  => $payload['emotion'],
             'language' => $payload['language'],
             'speed'    => $payload['speed'],

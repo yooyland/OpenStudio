@@ -17,7 +17,19 @@ final class YooY_Module_Video_Studio extends YooY_Module_Base {
     public function id(): string { return 'video-studio'; }
     public function name(): string { return 'Video Studio'; }
     public function description(): string { return 'Runway/Topview-inspired AI Video Studio with Generator, Canvas, Templates, Storyboard, and API Router.'; }
-    public function version(): string { return '1.0.0'; }
+    public function version(): string { return '2.0.0'; }
+
+    public function run_generate(int $user_id, array $params): array {
+        return $this->generator->generate($user_id, $params);
+    }
+
+    public function poll_job(int $user_id, string $provider, string $job_id): array {
+        return $this->generator->poll_and_finalize($user_id, $provider, $job_id) ?? [];
+    }
+
+    public function estimate_credits(int $user_id, array $params): array {
+        return $this->generator->estimate($user_id, $params);
+    }
 
     public function init(YooY_Core_Engine $core): void {
         parent::init($core);
@@ -121,6 +133,16 @@ final class YooY_Module_Video_Studio extends YooY_Module_Base {
         ]);
         $this->register_route('/router/status', [
             'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'router_status'], 'permission_callback' => $auth,
+        ]);
+
+        $this->register_route('/credits', [
+            'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'credits_balance'], 'permission_callback' => $auth,
+        ]);
+        $this->register_route('/credits/estimate', [
+            'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'credits_estimate'], 'permission_callback' => $auth,
+        ]);
+        $this->register_route('/jobs/(?P<id>[a-zA-Z0-9_-]+)/poll', [
+            'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'poll_job'], 'permission_callback' => $auth,
         ]);
     }
 
@@ -320,15 +342,49 @@ final class YooY_Module_Video_Studio extends YooY_Module_Base {
 
     public function router_status(WP_REST_Request $request): WP_REST_Response {
         $params = $request->get_json_params() ?: [];
-        $status = $this->router->status(
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) return $user_id;
+
+        $status = $this->generator->poll_and_finalize(
+            $user_id,
             sanitize_text_field($params['provider'] ?? 'mock'),
             sanitize_text_field($params['job_id'] ?? '')
         );
         return $this->success(['status' => $status]);
     }
 
+    public function credits_balance(): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) return $user_id;
+        $credits = new YooY_Video_Credits();
+        return $this->success($credits->service()->snapshot($user_id));
+    }
+
+    public function credits_estimate(WP_REST_Request $request): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) return $user_id;
+        return $this->success($this->generator->estimate($user_id, $request->get_json_params() ?: []));
+    }
+
+    public function poll_job(WP_REST_Request $request): WP_REST_Response {
+        try {
+            $user_id = $this->require_user();
+            if ($user_id instanceof WP_REST_Response) return $user_id;
+            $params = $request->get_json_params() ?: [];
+            $status = $this->generator->poll_and_finalize(
+                $user_id,
+                sanitize_text_field($params['provider'] ?? 'mock'),
+                sanitize_text_field($request->get_param('id'))
+            );
+            return $this->success(['job' => $status]);
+        } catch (Exception $e) {
+            return $this->error($e->getMessage());
+        }
+    }
+
     private function boot_services(): void {
-        $dir = dirname(__FILE__) . '/';
+        $dir = dirname(__FILE__) . '/includes/';
+        require_once $dir . 'class-video-credits.php';
         require_once $dir . 'class-video-api-router.php';
         require_once $dir . 'class-video-history.php';
         require_once $dir . 'class-video-gallery.php';
