@@ -30,7 +30,9 @@
     regenerate: function (id) { return Core.post('gallery', '/items/' + id + '/regenerate'); },
     download: function (id) { return Core.get('gallery', '/items/' + id + '/download'); },
     marketplace: function (id) { return Core.post('gallery', '/items/' + id + '/marketplace'); },
-    community: function (id) { return Core.post('gallery', '/items/' + id + '/community'); }
+    community: function (id) { return Core.post('gallery', '/items/' + id + '/community'); },
+    publish: function (id) { return Core.post('gallery', '/items/' + id + '/publish'); },
+    project: function (id, projectId) { return Core.post('gallery', '/items/' + id + '/project', { project_id: projectId || '' }); }
   };
 
   Core.apiDelete = function (module, endpoint) {

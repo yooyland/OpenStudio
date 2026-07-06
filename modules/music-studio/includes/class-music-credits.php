@@ -21,7 +21,8 @@ final class YooY_Music_Credits {
         return $this->credits->is_unlimited($user_id);
     }
 
-    public function can_afford(int $user_id, int $cost): bool {
+    public function can_afford(int $user_id, $params): bool {
+        $cost = is_array($params) ? $this->estimate($params) : (int) $params;
         return $this->credits->can_afford($user_id, $cost);
     }
 

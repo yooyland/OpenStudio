@@ -44,24 +44,35 @@ final class YooY_Music_Generator {
             throw new Exception('Lyrics are required in custom mode.');
         }
 
-        $payload['structure'] = $this->structure->parse_lyrics($payload['lyrics'] ?? '');
+        $payload['structure']    = $this->structure->parse_lyrics($payload['lyrics'] ?? '');
         $payload['style_prompt'] = $this->build_style_prompt($payload);
+        $payload['prompt']       = $payload['mode'] === 'custom'
+            ? ($payload['lyrics'] ?? '')
+            : ($payload['style_prompt'] ?? $payload['prompt'] ?? '');
 
-        $cost = $this->credits->estimate($payload);
-        if (!$this->credits->can_afford($user_id, $cost)) {
-            throw new Exception('Insufficient credits. Required: ' . $cost);
+        $estimate = $this->credits->estimate($payload);
+        if (!$this->credits->can_afford($user_id, $payload)) {
+            throw new Exception('Insufficient credits. Required: ' . $estimate);
         }
 
         $result = $this->router->generate($payload);
-        $result['credits_used'] = $result['credits_used'] ?? $cost;
 
-        $credit_info = $this->credits->deduct($user_id, (int) $result['credits_used'], 'Music: ' . ($result['title'] ?? 'Track'));
-        $result['credits'] = $credit_info;
+        if (YooY_Job_Status::is_terminal($result['status'] ?? '')) {
+            $credit_info = $this->credits->deduct(
+                $user_id,
+                (int) ($result['credits_used'] ?? $estimate),
+                'Music: ' . ($result['title'] ?? 'Track')
+            );
+            $result['credits_used'] = $credit_info['deducted'] ?: (int) ($result['credits_used'] ?? $estimate);
+            $result['credits'] = $credit_info;
+        }
 
         $entry = $this->history->add($user_id, array_merge($result, [
             'type'            => 'music',
             'studio'          => 'music-studio',
+            'mode'            => $payload['mode'],
             'lyrics'          => $payload['lyrics'],
+            'style_prompt'    => $payload['style_prompt'],
             'genre'           => $payload['genre'],
             'mood'            => $payload['mood'],
             'tempo'           => $payload['tempo'],
@@ -69,16 +80,52 @@ final class YooY_Music_Generator {
             'vocal'           => $payload['vocal'],
             'language'        => $payload['language'],
             'negative_prompt' => $payload['negative_prompt'],
+            'estimate'        => $estimate,
         ]));
 
-        if (!empty($params['auto_save'])) {
+        if (!empty($params['auto_save']) && ($entry['status'] ?? '') === YooY_Job_Status::COMPLETED) {
             $this->gallery->auto_save($user_id, $entry);
-        }
-        if (function_exists('yoy_gallery_capture')) {
-            yoy_gallery_capture($user_id, $entry, 'music', 'music-studio');
+            $this->capture_gallery($user_id, $entry);
         }
 
         return $entry;
+    }
+
+    public function estimate(int $user_id, array $params): array {
+        $payload = $this->normalize($params);
+        $cost    = $this->credits->estimate($payload);
+        return array_merge($this->credits->service()->snapshot($user_id), [
+            'estimate'   => $cost,
+            'can_afford' => $this->credits->can_afford($user_id, $payload),
+        ]);
+    }
+
+    public function poll_and_finalize(int $user_id, string $provider, string $job_id): ?array {
+        $status = $this->router->status($provider, $job_id);
+        if (!YooY_Job_Status::is_terminal($status['status'] ?? '')) {
+            $this->history->add($user_id, array_merge($status, ['studio' => 'music-studio', 'type' => 'music']));
+            return $status;
+        }
+
+        $existing = $this->history->get($user_id, $job_id);
+        if ($existing && !empty($existing['credits']['deducted'])) {
+            return $this->history->add($user_id, $status);
+        }
+
+        $estimate = $this->credits->estimate($existing ?? $status);
+        if (($status['status'] ?? '') === YooY_Job_Status::COMPLETED) {
+            $credit_info = $this->credits->deduct(
+                $user_id,
+                (int) ($status['credits_used'] ?? $estimate),
+                'Music: ' . ($status['title'] ?? 'Track')
+            );
+            $status['credits'] = $credit_info;
+            $status['credits_used'] = $credit_info['deducted'] ?: (int) ($status['credits_used'] ?? $estimate);
+            $this->gallery->auto_save($user_id, $status);
+            $this->capture_gallery($user_id, $status);
+        }
+
+        return $this->history->add($user_id, array_merge($status, ['studio' => 'music-studio', 'type' => 'music']));
     }
 
     public function options(): array {
@@ -90,6 +137,12 @@ final class YooY_Music_Generator {
                 ['id' => 'description', 'label' => 'Simple (Style Description)'],
             ],
         ]);
+    }
+
+    private function capture_gallery(int $user_id, array $entry): void {
+        if (function_exists('yoy_gallery_capture')) {
+            yoy_gallery_capture($user_id, $entry, 'music', 'music-studio');
+        }
     }
 
     private function normalize(array $params): array {
@@ -117,6 +170,7 @@ final class YooY_Music_Generator {
             'korean_context'    => !empty($params['korean_context']),
             'auto_save'         => !isset($params['auto_save']) || !empty($params['auto_save']),
             'style_prompt'      => sanitize_textarea_field($params['style_prompt'] ?? ''),
+            'async'             => array_key_exists('async', $params) ? !empty($params['async']) : true,
         ];
     }
 

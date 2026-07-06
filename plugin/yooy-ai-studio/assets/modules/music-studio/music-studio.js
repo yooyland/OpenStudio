@@ -11,10 +11,10 @@
     schema: {},
     providers: [],
     structures: [],
-    credits: { balance: 0, unlimited: false },
-    estimate: 25,
+    credits: { balance: 0, unlimited: false, estimate: 0, can_afford: true },
     generating: false,
     lastResult: null,
+    activeGalleryId: null,
     referenceUrl: ''
   };
 
@@ -42,11 +42,17 @@
       state.providers = (res[0].data && res[0].data.providers) || [];
       state.settings = (res[1].data && res[1].data.settings) || {};
       state.mode = state.settings.mode || 'custom';
-      state.credits = res[2].data || state.credits;
+      state.credits = Object.assign(state.credits, res[2].data || {});
       state.structures = (res[3].data && res[3].data.templates) || [];
-      updateEstimate();
+      refreshCreditsEstimate();
       renderTab(container);
     });
+  }
+
+  function refreshCreditsEstimate() {
+    Core.music.estimate(state.settings).then(function (res) {
+      state.credits = Object.assign(state.credits, res.data || {});
+    }).catch(function () {});
   }
 
   function tab(id, label) {
@@ -67,6 +73,9 @@
       if (e.target.closest('#yms-generate')) { doGenerate(root); return; }
       if (e.target.closest('#yms-save-settings')) { saveSettings(root); return; }
 
+      var action = e.target.closest('[data-yms-action]');
+      if (action) { handleResultAction(action.dataset.ymsAction, root); return; }
+
       var reuse = e.target.closest('[data-yms-reuse]');
       if (reuse) { reusePrompt(reuse.dataset.ymsReuse, reuse.dataset.ymsSource || 'history', root); return; }
 
@@ -76,7 +85,7 @@
     root.addEventListener('change', function (e) {
       if (e.target.matches('[data-yms-setting]')) {
         state.settings[e.target.dataset.ymsSetting] = e.target.type === 'range' ? parseInt(e.target.value, 10) : e.target.value;
-        if (['duration', 'audio_quality'].indexOf(e.target.dataset.ymsSetting) >= 0) updateEstimate();
+        if (['duration', 'audio_quality'].indexOf(e.target.dataset.ymsSetting) >= 0) refreshCreditsEstimate();
       }
       if (e.target.id === 'yms-ref-file') handleRefUpload(e.target);
     });
@@ -96,15 +105,6 @@
     });
   }
 
-  function updateEstimate() {
-    Core.music.estimate(state.settings).then(function (res) {
-      var d = res.data || {};
-      state.estimate = d.estimate || 25;
-      state.credits.balance = d.balance;
-      state.credits.can_afford = d.can_afford;
-    }).catch(function () {});
-  }
-
   function renderTab(root) {
     var ws = $('#yms-workspace', root);
     var ctrl = $('#yms-controls', root);
@@ -119,8 +119,67 @@
   }
 
   function creditsBar() {
-    var bal = state.credits.unlimited ? '∞' : state.credits.balance;
-    return '<div class="yms-credits-bar"><span>Cost: <strong>' + state.estimate + '</strong> credits</span><span>Balance: <strong>' + bal + '</strong></span></div>';
+    var bal = state.credits.unlimited ? '∞' : (state.credits.balance ?? 0);
+    var est = state.credits.estimate || state.estimate || 0;
+    return '<div class="yms-credits-bar"><span>Cost: <strong>' + est + '</strong> credits</span><span>Balance: <strong>' + bal + '</strong></span></div>';
+  }
+
+  function resultActionsHtml() {
+    if (!state.lastResult || !state.lastResult.job_id) return '';
+    return '<div class="yms-result-actions">' +
+      '<span>Result Actions</span>' +
+      '<button class="yms-btn-secondary" type="button" data-yms-action="download">다운로드</button>' +
+      '<button class="yms-btn-secondary" type="button" data-yms-action="copy">프롬프트 복사</button>' +
+      '<button class="yms-btn-secondary" type="button" data-yms-action="reuse">재생성</button>' +
+      '<button class="yms-btn-secondary" type="button" data-yms-action="publish">갤러리 공개</button>' +
+      '<button class="yms-btn-secondary" type="button" data-yms-action="marketplace">Marketplace</button>' +
+      '<button class="yms-btn-secondary" type="button" data-yms-action="project">Project 저장</button>' +
+      '</div>';
+  }
+
+  function handleResultAction(action, root) {
+    var galleryId = state.activeGalleryId || (state.lastResult && state.lastResult.job_id);
+    if (!galleryId || !Core.gallery) return;
+
+    var map = {
+      download: function () { return Core.gallery.download(galleryId); },
+      copy: function () { return Core.gallery.copy(galleryId); },
+      reuse: function () { return Core.gallery.regenerate(galleryId); },
+      publish: function () { return Core.gallery.publish(galleryId); },
+      marketplace: function () { return Core.gallery.marketplace(galleryId); },
+      project: function () { return Core.gallery.project(galleryId); }
+    };
+
+    var fn = map[action];
+    if (!fn) return;
+    fn().then(function (res) {
+      if (action === 'download') {
+        var info = res.data || {};
+        if (info.url) { var a = document.createElement('a'); a.href = info.url; a.download = info.filename || 'track'; a.target = '_blank'; a.click(); }
+      }
+      if (action === 'copy') {
+        var prompt = (res.data && res.data.prompt) || '';
+        if (navigator.clipboard) navigator.clipboard.writeText(prompt);
+      }
+      if (action === 'reuse') {
+        var regen = res.data || {};
+        if (regen.lyrics) state.settings.lyrics = regen.lyrics;
+        if (regen.prompt) state.settings.prompt = regen.prompt;
+        Object.assign(state.settings, regen);
+        state.mode = regen.mode || state.mode;
+        doGenerate(root);
+      }
+      if (action === 'project' && res.data && res.data.project) {
+        alert('Project에 저장됨: ' + (res.data.project.title || 'My Project'));
+      }
+      notifyGalleryUpdated();
+    }).catch(function (err) { alert(err.message); });
+  }
+
+  function notifyGalleryUpdated() {
+    if (window.YooYGallery && typeof window.YooYGallery.reload === 'function') {
+      window.YooYGallery.reload();
+    }
   }
 
   function renderCreate(ws, ctrl, root) {
@@ -141,20 +200,27 @@
           '</div><textarea id="yms-lyrics" data-yms-setting="lyrics" placeholder="[Verse]&#10;가사를 입력하세요&#10;&#10;[Chorus]&#10;후렴 가사">' + esc(state.settings.lyrics || '') + '</textarea></div>'
         : '<div class="yms-field"><label>Style Description</label><textarea id="yms-prompt" data-yms-setting="prompt" placeholder="K-pop, upbeat, female vocal, 128 BPM, synth">' + esc(state.settings.prompt || state.settings.style_prompt || '') + '</textarea></div>') +
       '<div class="yms-field"><label>Negative Prompt</label><textarea data-yms-setting="negative_prompt" style="min-height:48px" placeholder="제외할 스타일">' + esc(state.settings.negative_prompt || '') + '</textarea></div>' +
-      '<button class="yms-btn-primary" id="yms-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Creating...' : 'Create') + '</button>';
+      '<button class="yms-btn-primary" id="yms-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Creating...' : 'Create') + '</button>' +
+      resultActionsHtml();
 
     ctrl.innerHTML = controlsHtml() + refHtml(root);
   }
 
   function playerHtml() {
+    if (state.generating) {
+      return '<div class="yms-player"><div class="yms-cover" style="display:flex;align-items:center;justify-content:center;color:#d8a63a">♪</div><div class="yms-player-info"><strong>Creating...</strong><span>음악을 생성 중입니다</span></div></div>';
+    }
     if (!state.lastResult || !state.lastResult.output) {
       return '<div class="yms-player"><div class="yms-cover" style="display:flex;align-items:center;justify-content:center;color:#555">♪</div><div class="yms-player-info"><strong>Preview</strong><span>음악을 생성하세요</span></div></div>';
     }
     var r = state.lastResult;
     var out = r.output || {};
-    return '<div class="yms-player"><img class="yms-cover" src="' + esc(out.cover_url || '') + '" alt="">' +
+    var cover = out.cover_url || out.thumbnail || '';
+    var audio = out.audio_url || out.primary || '';
+    return '<div class="yms-player">' +
+      (cover ? '<img class="yms-cover" src="' + esc(cover) + '" alt="">' : '<div class="yms-cover" style="display:flex;align-items:center;justify-content:center;color:#555">♪</div>') +
       '<div class="yms-player-info"><strong>' + esc(r.title || 'Track') + '</strong><span>' + esc(r.genre) + ' · ' + esc(r.mood) + ' · ' + esc(String(r.tempo)) + ' BPM</span>' +
-      (out.audio_url ? '<audio controls src="' + esc(out.audio_url) + '"></audio>' : '') + '</div></div>';
+      (audio ? '<audio controls src="' + esc(audio) + '"></audio>' : '') + '</div></div>';
   }
 
   function controlsHtml() {
@@ -220,18 +286,47 @@
     renderTab(root);
 
     Core.music.generate(state.settings).then(function (res) {
-      state.lastResult = res.data || res;
-      state.generating = false;
-      if (state.lastResult.credits) {
-        state.credits.balance = state.lastResult.credits.balance;
-        state.credits.unlimited = state.lastResult.credits.unlimited;
-      }
-      renderTab(root);
+      finalizeJob(res.data || res, root);
     }).catch(function (err) {
       state.generating = false;
       var ws = $('#yms-workspace', root);
       if (ws) ws.insertAdjacentHTML('beforeend', '<div class="yms-error">' + esc(err.message) + '</div>');
+      renderTab(root);
     });
+  }
+
+  function finalizeJob(data, root) {
+    if (data.status === 'queued' || data.status === 'running') {
+      return pollUntilDone(data, root);
+    }
+    state.lastResult = data;
+    state.generating = false;
+    state.activeGalleryId = data.job_id || '';
+    if (data.credits) {
+      state.credits.balance = data.credits.balance;
+      state.credits.unlimited = data.credits.unlimited;
+    }
+    notifyGalleryUpdated();
+    renderTab(root);
+    return data;
+  }
+
+  function pollUntilDone(data, root) {
+    var provider = data.provider || state.settings.default_provider || 'mock';
+    var jobId = data.job_id;
+    var attempts = 0;
+
+    function tick() {
+      attempts += 1;
+      return Core.music.pollJob(jobId, provider).then(function (res) {
+        var job = (res.data && res.data.job) || res.data || res;
+        if ((job.status === 'queued' || job.status === 'running') && attempts < 15) {
+          return new Promise(function (r) { setTimeout(r, 1000); }).then(tick);
+        }
+        return finalizeJob(job, root);
+      });
+    }
+    return tick();
   }
 
   function renderGallery(ws) {
@@ -241,9 +336,13 @@
       if (!items.length) { ws.innerHTML = '<div class="yms-empty">갤러리가 비어 있습니다.</div>'; return; }
       ws.innerHTML = '<div class="yms-header"><h2>Gallery</h2><span class="yms-badge">' + items.length + '</span></div>' +
         items.map(function (item) {
+          var cover = item.thumbnail || item.cover_url || '';
+          var genre = item.genre || (item.meta && item.meta.genre) || '';
+          var mood = item.mood || (item.meta && item.meta.mood) || '';
           return '<div class="yms-track-card" data-yms-reuse="' + esc(item.id) + '" data-yms-source="gallery">' +
-            '<img src="' + esc(item.cover_url || '') + '" alt=""><div class="yms-track-meta"><strong>' + esc(item.title) + '</strong>' +
-            '<span>' + esc(item.genre) + ' · ' + esc(item.mood) + '</span></div></div>';
+            (cover ? '<img src="' + esc(cover) + '" alt="">' : '<div style="width:48px;height:48px;background:#222;border-radius:8px"></div>') +
+            '<div class="yms-track-meta"><strong>' + esc(item.title) + '</strong>' +
+            '<span>' + esc(genre) + (mood ? ' · ' + esc(mood) : '') + '</span></div></div>';
         }).join('');
     });
   }
@@ -256,7 +355,7 @@
       ws.innerHTML = '<div class="yms-header"><h2>Music History</h2><span class="yms-badge">' + items.length + '</span></div>' +
         items.map(function (item) {
           var id = item.id || item.job_id;
-          var cover = (item.output && item.output.cover_url) || '';
+          var cover = (item.output && (item.output.cover_url || item.output.thumbnail)) || item.thumbnail || '';
           return '<div class="yms-track-card" data-yms-reuse="' + esc(id) + '" data-yms-source="history">' +
             (cover ? '<img src="' + esc(cover) + '" alt="">' : '<div style="width:48px;height:48px;background:#222;border-radius:8px"></div>') +
             '<div class="yms-track-meta"><strong>' + esc(item.title || 'Track') + '</strong><span>' + esc(item.genre) + ' · ' + esc(item.provider) + '</span></div></div>';

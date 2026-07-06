@@ -16,7 +16,19 @@ final class YooY_Module_Music_Studio extends YooY_Module_Base {
     public function id(): string { return 'music-studio'; }
     public function name(): string { return 'Music Studio'; }
     public function description(): string { return 'Suno-inspired AI Music Studio with Lyrics, Structure, Reference Song, and Credits.'; }
-    public function version(): string { return '1.0.0'; }
+    public function version(): string { return '2.0.0'; }
+
+    public function run_generate(int $user_id, array $params): array {
+        return $this->generator->generate($user_id, $params);
+    }
+
+    public function poll_job(int $user_id, string $provider, string $job_id): array {
+        return $this->generator->poll_and_finalize($user_id, $provider, $job_id) ?? [];
+    }
+
+    public function estimate_credits(int $user_id, array $params): array {
+        return $this->generator->estimate($user_id, $params);
+    }
 
     public function init(YooY_Core_Engine $core): void {
         parent::init($core);
@@ -84,6 +96,9 @@ final class YooY_Module_Music_Studio extends YooY_Module_Base {
         ]);
         $this->register_route('/router/status', [
             'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'router_status'], 'permission_callback' => $auth,
+        ]);
+        $this->register_route('/jobs/(?P<id>[a-zA-Z0-9_-]+)/poll', [
+            'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'poll_job'], 'permission_callback' => $auth,
         ]);
     }
 
@@ -215,21 +230,14 @@ final class YooY_Module_Music_Studio extends YooY_Module_Base {
     public function credits_info(): WP_REST_Response {
         $uid = $this->require_user();
         if ($uid instanceof WP_REST_Response) return $uid;
-        return $this->success([
-            'balance'   => $this->credits->balance($uid),
-            'unlimited' => $this->credits->is_unlimited($uid),
-        ]);
+        return $this->success($this->credits->service()->snapshot($uid));
     }
 
     public function credits_estimate(WP_REST_Request $request): WP_REST_Response {
         $uid = $this->require_user();
         if ($uid instanceof WP_REST_Response) return $uid;
         $params = array_merge($this->settings->get($uid), $request->get_json_params() ?: []);
-        return $this->success([
-            'estimate' => $this->credits->estimate($params),
-            'balance'  => $this->credits->balance($uid),
-            'can_afford' => $this->credits->can_afford($uid, $this->credits->estimate($params)),
-        ]);
+        return $this->success($this->generator->estimate($uid, $params));
     }
 
     public function router_providers(): WP_REST_Response {
@@ -238,10 +246,31 @@ final class YooY_Module_Music_Studio extends YooY_Module_Base {
 
     public function router_status(WP_REST_Request $request): WP_REST_Response {
         $p = $request->get_json_params() ?: [];
-        return $this->success(['status' => $this->router->status(
+        $uid = $this->require_user();
+        if ($uid instanceof WP_REST_Response) return $uid;
+
+        $status = $this->generator->poll_and_finalize(
+            $uid,
             sanitize_text_field($p['provider'] ?? 'mock'),
             sanitize_text_field($p['job_id'] ?? '')
-        )]);
+        );
+        return $this->success(['status' => $status]);
+    }
+
+    public function poll_job(WP_REST_Request $request): WP_REST_Response {
+        try {
+            $uid = $this->require_user();
+            if ($uid instanceof WP_REST_Response) return $uid;
+            $params = $request->get_json_params() ?: [];
+            $status = $this->generator->poll_and_finalize(
+                $uid,
+                sanitize_text_field($params['provider'] ?? 'mock'),
+                sanitize_text_field($request->get_param('id'))
+            );
+            return $this->success(['job' => $status]);
+        } catch (Exception $e) {
+            return $this->error($e->getMessage());
+        }
     }
 
     private function boot_services(): void {

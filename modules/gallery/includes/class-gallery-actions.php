@@ -120,6 +120,81 @@ final class YooY_Gallery_Actions {
         ];
     }
 
+    public function publish_to_gallery(int $user_id, string $id): array {
+        $item = $this->store->get($user_id, $id);
+        if (!$item) {
+            $job = (new YooY_Job_Store())->get($user_id, $id);
+            if (!$job) throw new Exception('Item not found.');
+            if (function_exists('yoy_gallery_capture')) {
+                yoy_gallery_capture($user_id, $job, $job['type'] ?? 'music', $job['studio'] ?? 'music-studio');
+            }
+            $item = $this->store->get($user_id, $id);
+            if (!$item) throw new Exception('Failed to publish item.');
+        }
+        $updated = $this->store->update($user_id, $id, ['public' => true]);
+        if (!$updated) throw new Exception('Failed to publish item.');
+        return ['item' => $updated, 'published' => true];
+    }
+
+    public function save_to_project(int $user_id, string $id, ?string $project_id = null): array {
+        $item = $this->store->get($user_id, $id);
+        if (!$item) throw new Exception('Gallery item not found.');
+
+        $projects = get_user_meta($user_id, 'yoy_projects', true);
+        $projects = is_array($projects) ? $projects : [];
+
+        $target_idx = null;
+        if ($project_id !== null && $project_id !== '') {
+            foreach ($projects as $idx => $project) {
+                if (($project['id'] ?? '') === $project_id) {
+                    $target_idx = $idx;
+                    break;
+                }
+            }
+        } elseif (!empty($projects)) {
+            $target_idx = 0;
+        }
+
+        if ($target_idx === null) {
+            $projects[] = [
+                'id'         => 'proj_' . wp_generate_uuid4(),
+                'title'      => 'My Project',
+                'type'       => 'mixed',
+                'status'     => 'active',
+                'created_at' => gmdate('c'),
+                'updated_at' => gmdate('c'),
+                'items'      => 0,
+                'assets'     => [],
+            ];
+            $target_idx = count($projects) - 1;
+        }
+
+        $asset = [
+            'id'         => 'asset_' . wp_generate_uuid4(),
+            'gallery_id' => $id,
+            'type'       => $item['type'] ?? '',
+            'title'      => $item['title'] ?? '',
+            'output_url' => $item['output_url'] ?? '',
+            'thumbnail'  => $item['thumbnail'] ?? '',
+            'prompt'     => $item['prompt'] ?? '',
+            'provider'   => $item['provider'] ?? '',
+            'added_at'   => gmdate('c'),
+        ];
+
+        $assets = $projects[$target_idx]['assets'] ?? [];
+        array_unshift($assets, $asset);
+        $projects[$target_idx]['assets'] = array_slice($assets, 0, 200);
+        $projects[$target_idx]['items'] = count($projects[$target_idx]['assets']);
+        $projects[$target_idx]['updated_at'] = gmdate('c');
+
+        update_user_meta($user_id, 'yoy_projects', $projects);
+
+        return [
+            'project' => $projects[$target_idx],
+            'asset'   => $asset,
+        ];
+    }
+
     private function ext(string $type): string {
         return match ($type) {
             'video', 'avatar' => '.mp4',

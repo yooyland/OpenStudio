@@ -34,6 +34,10 @@ final class YooY_AI_Router_Dispatcher {
             return $this->dispatch_video($user_id, $payload);
         }
 
+        if ($type === 'music' && $this->core->module('music-studio') instanceof YooY_Module_Music_Studio) {
+            return $this->dispatch_music($user_id, $payload);
+        }
+
         $result = apply_filters('yoy_ai_studio_generate', null, array_merge($payload, [
             'user_id' => $user_id,
             'type'    => $type,
@@ -57,6 +61,13 @@ final class YooY_AI_Router_Dispatcher {
         if ($type === 'video') {
             $module = $this->core->module('video-studio');
             if ($module instanceof YooY_Module_Video_Studio) {
+                return $module->poll_job($user_id, $provider, $job_id);
+            }
+        }
+
+        if ($type === 'music') {
+            $module = $this->core->module('music-studio');
+            if ($module instanceof YooY_Module_Music_Studio) {
                 return $module->poll_job($user_id, $provider, $job_id);
             }
         }
@@ -110,6 +121,20 @@ final class YooY_AI_Router_Dispatcher {
         ]));
 
         return $this->finalize($user_id, 'video', 'video-studio', $result);
+    }
+
+    private function dispatch_music(int $user_id, array $payload): array {
+        $module = $this->core->module('music-studio');
+        if (!$module instanceof YooY_Module_Music_Studio) {
+            throw new Exception('Music Studio module unavailable.');
+        }
+
+        $result = $module->run_generate($user_id, array_merge($payload, [
+            'provider'  => $payload['provider'] ?? 'mock',
+            'auto_save' => true,
+        ]));
+
+        return $this->finalize($user_id, 'music', 'music-studio', $result);
     }
 
     private function finalize(int $user_id, string $type, string $studio, array $result): array {

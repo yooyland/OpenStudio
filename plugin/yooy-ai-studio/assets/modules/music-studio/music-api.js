@@ -19,6 +19,10 @@
     promptReuse: function (d) { return Core.post('music-studio', '/prompt-reuse', d); },
     credits: function () { return Core.get('music-studio', '/credits'); },
     estimate: function (d) { return Core.post('music-studio', '/credits/estimate', d); },
-    providers: function () { return Core.get('music-studio', '/router/providers'); }
+    providers: function () { return Core.get('music-studio', '/router/providers'); },
+    jobStatus: function (d) { return Core.post('music-studio', '/router/status', d); },
+    pollJob: function (jobId, provider) {
+      return Core.post('music-studio', '/jobs/' + jobId + '/poll', { provider: provider });
+    }
   };
 })(window);

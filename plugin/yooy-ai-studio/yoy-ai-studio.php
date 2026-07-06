@@ -2,14 +2,14 @@
 /**
  * Plugin Name: YooY AI Studio
  * Description: YooY Land AI Creator OS - Core Engine connecting AI Router, Credits, Gallery, Projects, and all modules.
- * Version: 11.1.0-dev
+ * Version: 11.2.0-dev
  * Author: YooY Land
  * Text Domain: yooy-ai-studio
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('YOY_AI_STUDIO_VERSION', '11.1.0-dev');
+define('YOY_AI_STUDIO_VERSION', '11.2.0-dev');
 define('YOY_AI_STUDIO_FILE', __FILE__);
 define('YOY_AI_STUDIO_DIR', plugin_dir_path(__FILE__));
 define('YOY_AI_STUDIO_URL', plugin_dir_url(__FILE__));

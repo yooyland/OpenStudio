@@ -12,15 +12,20 @@
 - Video: async poll + Result Actions frontend
 - ai-router: `dispatch_video()` + poll delegation
 
-## v11.2 — Music Studio (partial)
-- Music history/gallery → unified Store
-- Music credits → `YooY_Studio_Credits`
+## v11.2 — Music Studio ✅
+- Music: Job Store history, Gallery Store only
+- Music: credits estimate/deduct via `YooY_Studio_Credits`
+- Music: async poll + Result Actions (download, copy, regenerate, publish, marketplace, project)
+- Mock Music Provider async via `YooY_Mock_Job_Engine`
+- ai-router: `dispatch_music()` + poll delegation
+- Gallery: `publish` + `project` actions
+- Projects: demo seed removed
 
 ## v11.3 — Voice & Avatar (partial)
 - Voice/Avatar history/gallery → unified Store
 
 ## v11.4+ — Remaining
 - Voice/Avatar credits + Result Actions frontend
-- Music/Voice/Avatar ai-router dispatch
+- Voice/Avatar ai-router dispatch
 - Writing Studio
 - Admin API key settings UI

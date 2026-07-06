@@ -25,6 +25,9 @@
 .yms-btn-primary{background:#f2c14e;border:0;border-radius:999px;padding:12px 24px;font-weight:800;cursor:pointer;color:#111}
 .yms-btn-primary:disabled{opacity:.5;cursor:not-allowed}
 .yms-btn-secondary{background:#1a1a1a;border:1px solid rgba(220,170,45,.3);border-radius:999px;padding:8px 16px;color:#ffd76a;cursor:pointer;font-size:13px}
+.yms-result-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px;padding:12px;background:#111;border:1px solid rgba(220,170,45,.2);border-radius:12px}
+.yms-result-actions span{width:100%;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.yms-btn-secondary:hover{background:#222}
 .yms-credits-bar{background:#111;border:1px solid rgba(220,170,45,.2);border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:13px}
 .yms-credits-bar strong{color:#ffd76a}
 .yms-structure-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}

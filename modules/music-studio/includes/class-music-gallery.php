@@ -28,7 +28,7 @@ final class YooY_Music_Gallery {
             'type'         => 'music',
             'studio'       => 'music-studio',
             'title'        => $result['title'] ?? mb_substr($result['lyrics'] ?? 'Track', 0, 30),
-            'prompt'       => $result['prompt'] ?? $result['style_prompt'] ?? '',
+            'prompt'       => $result['prompt'] ?? $result['style_prompt'] ?? $result['lyrics'] ?? '',
             'provider'     => $result['provider'] ?? 'mock',
             'model'        => $result['model'] ?? '',
             'credits_used' => (int) ($result['credits_used'] ?? 0),

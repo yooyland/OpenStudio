@@ -31,13 +31,7 @@ final class YooY_Module_Projects extends YooY_Module_Base {
 
     public function list(): WP_REST_Response {
         $user_id  = $this->current_user_id();
-        $projects = $this->get_projects($user_id);
-
-        if (empty($projects)) {
-            $projects = $this->seed_projects($user_id);
-        }
-
-        return $this->success(['projects' => $projects]);
+        return $this->success(['projects' => $this->get_projects($user_id)]);
     }
 
     public function create(WP_REST_Request $request): WP_REST_Response {
@@ -79,14 +73,5 @@ final class YooY_Module_Projects extends YooY_Module_Base {
     private function get_projects(int $user_id): array {
         $stored = get_user_meta($user_id, 'yoy_projects', true);
         return is_array($stored) ? $stored : [];
-    }
-
-    private function seed_projects(int $user_id): array {
-        $projects = [
-            ['id' => 'proj_demo_01', 'title' => '스마트스토어 봄 시즌 캠페인', 'type' => 'mixed', 'status' => 'active', 'created_at' => gmdate('c'), 'updated_at' => gmdate('c'), 'items' => 4],
-            ['id' => 'proj_demo_02', 'title' => 'K-Beauty 유튜브 쇼츠', 'type' => 'video', 'status' => 'active', 'created_at' => gmdate('c'), 'updated_at' => gmdate('c'), 'items' => 2],
-        ];
-        update_user_meta($user_id, 'yoy_projects', $projects);
-        return $projects;
     }
 }

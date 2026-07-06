@@ -98,6 +98,18 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             'permission_callback' => 'is_user_logged_in',
         ]);
 
+        $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/publish', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'publish'],
+            'permission_callback' => 'is_user_logged_in',
+        ]);
+
+        $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/project', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'save_project'],
+            'permission_callback' => 'is_user_logged_in',
+        ]);
+
         $this->register_route('/sync', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'sync'],
@@ -311,6 +323,32 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
         try {
             $id = sanitize_text_field($request->get_param('id'));
             return $this->success($this->actions->share_community($user, $id));
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 404);
+        }
+    }
+
+    public function publish(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            return $this->success($this->actions->publish_to_gallery($user, $id));
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 404);
+        }
+    }
+
+    public function save_project(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            $body = $request->get_json_params() ?: [];
+            $project_id = sanitize_text_field($body['project_id'] ?? '');
+            return $this->success($this->actions->save_to_project($user, $id, $project_id ?: null));
         } catch (Exception $e) {
             return $this->error($e->getMessage(), 404);
         }
