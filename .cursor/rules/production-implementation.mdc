@@ -1,0 +1,63 @@
+---
+description: 실제 서비스 동작 기준 — 데모/플레이스홀더 금지, Mock Provider 사용
+alwaysApply: true
+---
+
+# Production Implementation Standards
+
+## 핵심 원칙
+
+1. **데모 화면 금지** — UI만 있는 스텁, 샘플 카드, 하드코딩 목록을 만들지 않는다.
+2. **실제 서비스 동작** — REST API → Provider → Store → UI가 end-to-end로 연결되어야 한다.
+3. **Mock Provider** — 외부 API 키가 없을 때 Mock Provider가 실제 API와 동일한 인터페이스·응답 스키마·상태 흐름으로 동작한다.
+4. **실제 데이터만** — 빈 카드, Placeholder 이미지 URL, 정적 catalog 배열, `placehold.co` 등 가짜 출력을 UI/모듈에 직접 넣지 않는다.
+5. **Production 코드** — 유지보수 가능한 구조: 단일 책임, 기존 패턴 준수, 최소 범위 diff.
+
+## 구현 패턴
+
+```
+Module (REST) → Provider Interface → Mock/Real Provider → Store (user_meta/DB) → Frontend (API client)
+```
+
+- 생성 결과는 반드시 Store에 저장하고, Gallery/History는 Store에서 조회한다.
+- 프론트엔드는 REST 응답만 렌더링한다. 클라이언트에 하드코딩 데이터를 넣지 않는다.
+
+## 금지
+
+```php
+// ❌ 모듈에 정적 데모 데이터
+return $this->success(['items' => [
+    ['id' => 'sh_01', 'title' => 'Sample', ...],
+]]);
+
+// ❌ 외부 placeholder URL을 비즈니스 로직에 사용
+'url' => 'https://placehold.co/...'
+```
+
+## 허용
+
+```php
+// ✅ Mock Provider가 실제 API처럼 응답 생성
+$result = $this->router->route($payload);  // mock 또는 real
+$this->store->save($user_id, $result);
+return $this->success(['item' => $result]);
+
+// ✅ 데이터 없을 때 — 빈 카드 대신 명확한 empty state + 생성 유도 CTA
+if (empty($items)) {
+    return empty_state_with_action();  // "생성하기" 버튼 등
+}
+```
+
+## Mock Provider 요구사항
+
+- `providers/interface-*-provider.php` 인터페이스 구현
+- 실제 Provider와 동일한 `job_id`, `status`, `output`, `credits_used` 스키마
+- 비동기 작업이 있으면 polling/webhook 패턴도 Mock에서 재현
+- 출력 URL은 로컬 생성 asset, data URI, 또는 플러그인 `assets/` 내 정적 파일 사용
+
+## 체크리스트 (기능 완료 전)
+
+- [ ] REST endpoint가 Store/Provider를 호출하는가?
+- [ ] Mock Provider 없이도 동일 코드 경로로 실제 API 연동 가능한가?
+- [ ] UI가 API 응답 없이 렌더링되지 않는가?
+- [ ] 하드코딩 샘플 배열이 모듈 PHP/JS에 없는가?

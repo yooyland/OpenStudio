@@ -1,0 +1,45 @@
+/* YooY Avatar Studio — Vidu/HeyGen inspired */
+.yas-studio{display:grid;grid-template-columns:170px 1fr 280px;gap:0;min-height:calc(100vh - 68px);margin:-28px;background:#080808;border-radius:20px;overflow:hidden;border:1px solid rgba(220,170,45,.15)}
+.yas-tabs{background:#0a0a0a;border-right:1px solid rgba(220,170,45,.12);padding:12px 8px;display:flex;flex-direction:column;gap:4px}
+.yas-tab{border:1px solid transparent;background:transparent;color:#999;border-radius:12px;padding:10px 12px;text-align:left;cursor:pointer;font-size:13px}
+.yas-tab:hover,.yas-tab.is-active{background:#151515;color:#ffd76a;border-color:rgba(220,170,45,.3)}
+.yas-workspace{padding:20px;overflow:auto}
+.yas-controls{background:#0a0a0a;border-left:1px solid rgba(220,170,45,.12);padding:16px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.yas-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.yas-header h2{margin:0;font-size:22px}
+.yas-badge{background:#1a1508;border:1px solid rgba(220,170,45,.3);color:#d8a63a;border-radius:999px;padding:4px 12px;font-size:11px}
+.yas-preview{background:#0d0d0d;border:1px solid rgba(220,170,45,.2);border-radius:16px;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:16px;position:relative}
+.yas-preview img,.yas-preview video{max-width:100%;max-height:100%;object-fit:contain}
+.yas-avatar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;margin-bottom:16px}
+.yas-avatar-card{background:#111;border:2px solid transparent;border-radius:12px;padding:8px;text-align:center;cursor:pointer}
+.yas-avatar-card:hover,.yas-avatar-card.is-selected{border-color:#d8a63a}
+.yas-avatar-card img{width:64px;height:64px;border-radius:50%;object-fit:cover;margin:0 auto 6px;display:block}
+.yas-avatar-card span{font-size:10px;color:#aaa;display:block}
+.yas-field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.yas-field label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.yas-field select,.yas-field textarea,.yas-field input{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:10px;color:#fff;padding:8px 12px;font-size:13px}
+.yas-field textarea{min-height:120px;resize:vertical;line-height:1.5}
+.yas-field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.yas-btn-primary{background:#f2c14e;border:0;border-radius:999px;padding:12px 24px;font-weight:800;cursor:pointer;color:#111}
+.yas-btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.yas-btn-secondary{background:#1a1a1a;border:1px solid rgba(220,170,45,.3);border-radius:999px;padding:8px 14px;color:#ffd76a;cursor:pointer;font-size:12px}
+.yas-toggle{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:13px;color:#ccc}
+.yas-switch{width:40px;height:22px;background:#333;border-radius:999px;border:0;cursor:pointer;position:relative}
+.yas-switch.is-on{background:#d8a63a}
+.yas-switch::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
+.yas-switch.is-on::after{transform:translateX(18px)}
+.yas-scene-card{background:#111;border:1px solid rgba(220,170,45,.2);border-radius:14px;padding:14px;cursor:pointer;margin-bottom:10px}
+.yas-scene-card:hover,.yas-scene-card.is-active{border-color:#d8a63a}
+.yas-scene-card strong{display:block;margin-bottom:4px}
+.yas-scene-card span{font-size:12px;color:#888}
+.yas-track{display:flex;gap:10px;padding:10px;background:#111;border-radius:10px;margin-bottom:8px;cursor:pointer;border:1px solid transparent}
+.yas-track:hover{border-color:rgba(220,170,45,.3)}
+.yas-track img{width:56px;height:32px;border-radius:6px;object-fit:cover}
+.yas-track-meta{flex:1;min-width:0}
+.yas-track-meta strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yas-track-meta span{font-size:11px;color:#777}
+.yas-subtitle-preview{background:#111;border-radius:10px;padding:12px;margin-top:10px;font-size:12px;color:#aaa;max-height:120px;overflow:auto}
+.yas-empty{color:#666;text-align:center;padding:32px}
+.yas-error{color:#ff6b6b;padding:10px;background:#1a0808;border-radius:10px;font-size:13px}
+.yas-loading{color:#d8a63a;text-align:center;padding:20px}
+@media(max-width:1100px){.yas-studio{grid-template-columns:1fr}.yas-tabs,.yas-controls{display:none}}

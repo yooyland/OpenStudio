@@ -1,0 +1,22 @@
+# Archives
+*.zip
+*.tar
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Env / secrets
+.env
+.env.*
+
+# WordPress (if local)
+wp-config.php

@@ -1,0 +1,42 @@
+.yai-app{width:100vw;margin-left:calc(50% - 50vw);min-height:100vh;background:#070707;color:#fff;display:grid;grid-template-columns:250px 1fr;font-family:Inter,Arial,sans-serif}
+.yai-sidebar{background:#0d0d0d;border-right:1px solid rgba(220,170,45,.28);padding:18px;display:flex;flex-direction:column;gap:18px}
+.yai-logo{background:transparent;border:0;padding:0;cursor:pointer;text-align:left}
+.yai-logo img{width:42px;height:42px}
+.yai-nav{display:flex;flex-direction:column;gap:8px}
+.yai-sidebar button{border:1px solid transparent;background:#151515;color:#ddd;border-radius:14px;padding:12px;text-align:left;cursor:pointer;transition:border-color .2s,color .2s}
+.yai-sidebar button:hover,.yai-sidebar button.is-active{border-color:#d8a63a;color:#ffd76a}
+.yai-profile{margin-top:auto;background:#151515;border:1px solid rgba(220,170,45,.24);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:5px}
+.yai-profile span{font-size:12px;color:#aaa}
+.yai-profile b{color:#ffd76a}
+.yai-main{padding:34px;overflow:auto}
+.yai-kicker{color:#d8a63a;letter-spacing:2px;text-transform:uppercase;font-size:13px}
+.yai-hero h1{font-size:48px;margin:0 0 20px}
+.yai-desc{color:#aaa;margin:0 0 24px}
+.yai-hero textarea,.yai-prompt-input{width:100%;max-width:980px;min-height:96px;background:#111;border:1px solid rgba(220,170,45,.35);border-radius:24px;color:#fff;padding:20px;font-size:18px;resize:vertical}
+.yai-actions{display:flex;gap:10px;margin:18px 0 24px;flex-wrap:wrap}
+.yai-actions button{background:#f2c14e;border:0;border-radius:999px;padding:12px 20px;font-weight:800;cursor:pointer;color:#111}
+.yai-engine-status{display:flex;gap:16px;margin-bottom:28px;font-size:13px;color:#888}
+.yai-engine-status span{background:#151515;border:1px solid rgba(220,170,45,.2);border-radius:999px;padding:6px 14px}
+.yai-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.yai-grid article,.yai-card{min-height:80px;border-radius:24px;padding:22px;background:linear-gradient(135deg,#191919,#302106);border:1px solid rgba(220,170,45,.25);box-shadow:0 18px 40px rgba(0,0,0,.3)}
+.yai-grid span,.yai-card span{color:#ffd76a;font-size:12px;text-transform:uppercase;display:block;margin-bottom:6px}
+.yai-grid h3,.yai-card strong{display:block;margin-bottom:8px;font-size:18px}
+.yai-grid p,.yai-card p{color:#ccc;font-size:14px;line-height:1.5;margin:0}
+.yai-page{display:none;background:#101010;border:1px solid rgba(220,170,45,.2);border-radius:24px;padding:28px}
+.yai-page.is-active{display:block}
+.yai-hero.is-hidden{display:none}
+.yai-panel{display:grid;gap:14px}
+.yai-plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-top:20px}
+.yai-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+.yai-tag{background:#1a1a1a;border:1px solid rgba(220,170,45,.3);border-radius:999px;padding:8px 16px;font-size:13px;color:#ffd76a}
+.yai-credits-hero{font-size:42px;font-weight:800;color:#ffd76a;margin-bottom:20px}
+.yai-skeleton{opacity:.5}
+.yai-empty{color:#888}
+.yai-error{color:#ff6b6b}
+.yai-generate-btn{background:#f2c14e;border:0;border-radius:999px;padding:12px 24px;font-weight:800;cursor:pointer;color:#111;margin:12px 0}
+.yai-generate-btn:disabled{opacity:.5;cursor:not-allowed}
+.yai-result-img{max-width:100%;border-radius:16px;margin-top:12px}
+.yai-generator{max-width:980px}
+.yai-page--video,.yai-page--image,.yai-page--music,.yai-page--avatar,.yai-page--voice{background:transparent;border:0;padding:0;border-radius:0}
+.yai-page--video.is-active,.yai-page--image.is-active,.yai-page--music.is-active,.yai-page--avatar.is-active,.yai-page--voice.is-active{display:block}
+@media(max-width:900px){.yai-app{grid-template-columns:1fr}.yai-sidebar{position:relative}.yai-grid,.yai-plan-grid{grid-template-columns:1fr}.yai-hero h1{font-size:34px}}

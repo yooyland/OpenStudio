@@ -1,0 +1,40 @@
+/* YooY Voice Studio — ElevenLabs inspired */
+.yvs-studio{display:grid;grid-template-columns:160px 1fr 270px;gap:0;min-height:calc(100vh - 68px);margin:-28px;background:#080808;border-radius:20px;overflow:hidden;border:1px solid rgba(220,170,45,.15)}
+.yvs-tabs{background:#0a0a0a;border-right:1px solid rgba(220,170,45,.12);padding:12px 8px;display:flex;flex-direction:column;gap:4px}
+.yvs-tab{border:1px solid transparent;background:transparent;color:#999;border-radius:12px;padding:10px 12px;text-align:left;cursor:pointer;font-size:13px}
+.yvs-tab:hover,.yvs-tab.is-active{background:#151515;color:#ffd76a;border-color:rgba(220,170,45,.3)}
+.yvs-workspace{padding:20px;overflow:auto}
+.yvs-controls{background:#0a0a0a;border-left:1px solid rgba(220,170,45,.12);padding:16px;overflow:auto}
+.yvs-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.yvs-header h2{margin:0;font-size:22px}
+.yvs-badge{background:#1a1508;border:1px solid rgba(220,170,45,.3);color:#d8a63a;border-radius:999px;padding:4px 12px;font-size:11px}
+.yvs-player{background:#0d0d0d;border:1px solid rgba(220,170,45,.2);border-radius:16px;padding:20px;margin-bottom:16px}
+.yvs-player audio{width:100%;height:40px}
+.yvs-voice-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto;margin-bottom:16px}
+.yvs-voice-item{display:flex;align-items:center;gap:10px;padding:10px;background:#111;border:2px solid transparent;border-radius:10px;cursor:pointer;font-size:13px}
+.yvs-voice-item:hover,.yvs-voice-item.is-selected{border-color:#d8a63a}
+.yvs-voice-item .yvs-voice-icon{width:32px;height:32px;border-radius:50%;background:#1a1508;display:flex;align-items:center;justify-content:center;color:#d8a63a;font-size:14px}
+.yvs-voice-item strong{flex:1}
+.yvs-voice-item span{font-size:11px;color:#777}
+.yvs-field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.yvs-field label{font-size:11px;color:#888;text-transform:uppercase}
+.yvs-field select,.yvs-field textarea,.yvs-field input{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:10px;color:#fff;padding:8px 12px;font-size:13px}
+.yvs-field textarea{min-height:140px;line-height:1.6;resize:vertical}
+.yvs-field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.yvs-btn-primary{background:#f2c14e;border:0;border-radius:999px;padding:12px 24px;font-weight:800;cursor:pointer;color:#111}
+.yvs-btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.yvs-btn-secondary{background:#1a1a1a;border:1px solid rgba(220,170,45,.3);border-radius:999px;padding:6px 12px;color:#ffd76a;cursor:pointer;font-size:12px}
+.yvs-pause-bar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.yvs-slider{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.yvs-slider span{font-size:12px;color:#888;display:flex;justify-content:space-between}
+.yvs-slider input[type=range]{width:100%}
+.yvs-track{display:flex;gap:10px;padding:10px;background:#111;border-radius:10px;margin-bottom:8px;cursor:pointer;border:1px solid transparent}
+.yvs-track:hover{border-color:rgba(220,170,45,.3)}
+.yvs-track-meta{flex:1;min-width:0}
+.yvs-track-meta strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yvs-track-meta span{font-size:11px;color:#777}
+.yvs-clone-upload{border:2px dashed rgba(220,170,45,.3);border-radius:14px;padding:24px;text-align:center;color:#888;cursor:pointer;margin-bottom:16px}
+.yvs-clone-upload:hover{border-color:#d8a63a;color:#ffd76a}
+.yvs-empty{color:#666;text-align:center;padding:32px}
+.yvs-error{color:#ff6b6b;padding:10px;background:#1a0808;border-radius:10px;font-size:13px}
+@media(max-width:1100px){.yvs-studio{grid-template-columns:1fr}.yvs-tabs,.yvs-controls{display:none}}

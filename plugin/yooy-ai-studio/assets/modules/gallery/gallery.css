@@ -1,0 +1,51 @@
+/* YooY Gallery Module */
+.ygl-root{display:flex;flex-direction:column;gap:16px;min-height:480px}
+.ygl-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ygl-filters{display:flex;gap:6px;flex-wrap:wrap}
+.ygl-filter{border:1px solid rgba(220,170,45,.25);background:#111;color:#aaa;border-radius:999px;padding:6px 14px;font-size:12px;cursor:pointer}
+.ygl-filter:hover,.ygl-filter.is-active{background:#1a1508;color:#ffd76a;border-color:rgba(220,170,45,.5)}
+.ygl-sync{background:transparent;border:1px solid rgba(220,170,45,.3);color:#d8a63a;border-radius:999px;padding:6px 14px;font-size:12px;cursor:pointer}
+.ygl-sync:hover{background:#1a1508}
+.ygl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.ygl-card{background:#111;border:1px solid rgba(220,170,45,.15);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s;position:relative}
+.ygl-card:hover{border-color:rgba(220,170,45,.45);transform:translateY(-2px)}
+.ygl-card.is-fav{border-color:rgba(255,215,106,.5)}
+.ygl-thumb{aspect-ratio:1;background:#0a0a0a;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.ygl-thumb img,.ygl-thumb video{width:100%;height:100%;object-fit:cover}
+.ygl-thumb-icon{font-size:36px;opacity:.6}
+.ygl-type-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);color:#ffd76a;font-size:10px;padding:3px 8px;border-radius:999px;text-transform:uppercase}
+.ygl-fav-badge{position:absolute;top:8px;right:8px;font-size:14px}
+.ygl-card-body{padding:10px 12px}
+.ygl-card-body strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ygl-card-body span{font-size:11px;color:#777}
+.ygl-empty{text-align:center;padding:48px 20px;color:#666}
+.ygl-loading{text-align:center;padding:40px;color:#888}
+
+.ygl-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.ygl-modal{background:#0d0d0d;border:1px solid rgba(220,170,45,.3);border-radius:20px;max-width:900px;width:100%;max-height:90vh;overflow:hidden;display:grid;grid-template-columns:1fr 340px}
+.ygl-modal-preview{background:#080808;display:flex;align-items:center;justify-content:center;min-height:320px;padding:20px;overflow:hidden}
+.ygl-modal-preview img,.ygl-modal-preview video{max-width:100%;max-height:60vh;object-fit:contain;border-radius:12px}
+.ygl-modal-preview audio{width:100%;max-width:400px}
+.ygl-text-preview{color:#ddd;font-size:15px;line-height:1.7;max-height:60vh;overflow:auto;padding:20px;white-space:pre-wrap}
+.ygl-modal-side{padding:20px;overflow:auto;display:flex;flex-direction:column;gap:14px;border-left:1px solid rgba(220,170,45,.15)}
+.ygl-modal-side h3{margin:0;font-size:18px}
+.ygl-meta{display:flex;flex-direction:column;gap:8px}
+.ygl-meta-row{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.ygl-meta-row dt{color:#888}
+.ygl-meta-row dd{margin:0;color:#ddd;text-align:right;max-width:60%;word-break:break-word}
+.ygl-prompt-box{background:#111;border:1px solid rgba(220,170,45,.2);border-radius:12px;padding:12px;font-size:13px;color:#ccc;line-height:1.5;max-height:120px;overflow:auto}
+.ygl-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ygl-btn{border-radius:10px;padding:10px 12px;font-size:12px;cursor:pointer;border:1px solid rgba(220,170,45,.3);background:#151515;color:#ffd76a}
+.ygl-btn:hover{background:#1f1a0a}
+.ygl-btn-primary{background:#f2c14e;color:#111;border-color:#f2c14e;font-weight:700}
+.ygl-btn-primary:hover{background:#ffd76a}
+.ygl-btn-danger{color:#f88;border-color:rgba(255,100,100,.3)}
+.ygl-btn.is-active{background:#1a1508;border-color:#d8a63a}
+.ygl-close{position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);border:0;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;z-index:1}
+.ygl-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1508;border:1px solid rgba(220,170,45,.4);color:#ffd76a;padding:10px 20px;border-radius:999px;font-size:13px;z-index:10000;animation:ygl-fade 2.5s forwards}
+@keyframes ygl-fade{0%,70%{opacity:1}100%{opacity:0}}
+
+@media(max-width:768px){
+  .ygl-modal{grid-template-columns:1fr;max-height:95vh}
+  .ygl-modal-side{border-left:0;border-top:1px solid rgba(220,170,45,.15)}
+}
