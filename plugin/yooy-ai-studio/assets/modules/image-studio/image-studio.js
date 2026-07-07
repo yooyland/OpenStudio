@@ -1,8 +1,30 @@
-(function () {
+(function (global) {
   'use strict';
 
-  var Core = window.YooYCore;
-  if (!Core || !Core.image) return;
+  var publicApi = {
+    mount: function () {},
+    doGenerate: function () {},
+    state: null,
+    ready: false
+  };
+  global.YooYImageStudio = publicApi;
+
+  try {
+  var Core = global.YooYCore;
+
+  function debugLog() {
+    var cfg = (Core && Core.config) || global.YooYStudio || {};
+    var on = !!(cfg.debug || global.YOOY_DEBUG || (Core && Core.debug && Core.debug()));
+    if (!on) return;
+    var args = ['[YooYImageStudio]'].concat(Array.prototype.slice.call(arguments));
+    if (global.console && global.console.log) global.console.log.apply(global.console, args);
+  }
+
+  function getImageApi() {
+    if (Core && Core.image) return Core.image;
+    if (global.YooYImageAPI) return global.YooYImageAPI;
+    return null;
+  }
 
   var state = {
     tab: 'generate',
@@ -14,15 +36,46 @@
     lastResult: null,
     selectedImage: null,
     referenceUrl: '',
+    refPanel: null,
     credits: { balance: 0, unlimited: false, estimate: 0, can_afford: true },
-    activeGalleryId: null
+    activeGalleryId: null,
+    generateStartedAt: 0,
+    lastDebugInfo: null,
+    smartAuto: true,
+    studioMode: 'smart',
+    advancedOpen: false,
+    fieldLocks: {},
+    lastAutoProfile: null,
+    lastOptimizedPrompt: '',
+    lastUserPrompt: '',
+    recommendedStyleId: '',
+    refAnalysisLabels: [],
+    gallerySelectedId: null,
+    galleryItems: [],
+    generationMode: 'fast',
+    generateStep: ''
   };
+
+  var POLL_MAX_MS = 90000;
+  var POLL_MAX_ATTEMPTS = 45;
+  var POLL_INTERVAL_MS = 2000;
+  var POLL_STALE_MS = 30000;
+  var ASYNC_POLL_PROVIDERS = ['runway', 'replicate', 'kling', 'luma', 'pika', 'google-veo'];
 
   function $(s, c) { return (c || document).querySelector(s); }
   function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
   function mount(container) {
+    try {
     if (!container || container.dataset.mounted) return;
+
+    var api = getImageApi();
+    if (!api) {
+      container.innerHTML = '<div class="yis-error">Image Studio API unavailable. Reload the page.</div>';
+      debugLog('mount blocked: no image API');
+      return;
+    }
+
     container.dataset.mounted = '1';
     container.innerHTML = '<div class="yis-studio" id="yis-root">' +
       '<nav class="yis-tabs">' +
@@ -33,19 +86,48 @@
       '<aside class="yis-controls" id="yis-controls"></aside>' +
     '</div>';
     bindEvents(container);
+    installGlobalGenerateHandler();
     consumeRegenerate();
     Promise.all([
-      Core.image.config(),
-      Core.image.settings().catch(function () { return { data: { settings: {} } }; }),
-      Core.image.credits().catch(function () { return { data: {} }; })
+      api.config(),
+      api.settings().catch(function () { return { data: { settings: {} } }; }),
+      api.credits().catch(function () { return { data: {} }; })
     ]).then(function (res) {
       state.schema = (res[0].data && res[0].data.schema) || {};
       state.providers = (res[0].data && res[0].data.providers) || [];
       state.settings = (res[1].data && res[1].data.settings) || {};
+      state.generationMode = state.settings.generation_mode || 'fast';
+      syncModelForProvider(state.settings.default_provider || 'auto', true);
+      syncSizeForProvider(true);
       state.credits = Object.assign(state.credits, res[2].data || {});
-      refreshEstimate();
-      renderTab(container);
+      state.smartAuto = state.settings.smart_auto !== false;
+      state.studioMode = state.smartAuto === false ? 'custom' : 'smart';
+      if (state.settings.smart_auto === undefined) state.settings.smart_auto = true;
+      initExtraSettings();
+      consumeHomePrompt();
+      refreshEstimate().then(function () { renderTab(container); bindGenerateButton(container); updateProviderUX(container); });
+      global.YooYImageStudioReady = true;
+      publicApi.ready = true;
+      debugLog('mounted');
+    }).catch(function (err) {
+      container.innerHTML = '<div class="yis-error">Image Studio failed to load: ' + esc(err.message) + '</div>';
+      debugLog('mount load error', err);
     });
+    } catch (mountErr) {
+      debugLog('mount error', mountErr);
+      if (container) container.innerHTML = '<div class="yis-error">Image Studio mount error: ' + esc(mountErr.message) + '</div>';
+    }
+  }
+
+  function consumeHomePrompt() {
+    try {
+      var saved = sessionStorage.getItem('yoy_home_prompt');
+      if (saved) {
+        state.settings.last_prompt = saved;
+        state.settings.prompt = saved;
+        sessionStorage.removeItem('yoy_home_prompt');
+      }
+    } catch (e) { /* ignore */ }
   }
 
   function consumeRegenerate() {
@@ -56,20 +138,981 @@
       if (payload.studio !== 'image-studio' && payload.type !== 'image') return;
       sessionStorage.removeItem('yoy_regenerate');
       state.settings.prompt = payload.prompt || '';
-      state.settings.last_prompt = payload.prompt || '';
-      state.settings.default_provider = payload.provider || state.settings.default_provider;
+      state.settings.last_prompt = payload.user_prompt || payload.prompt || '';
+      if (payload.optimized_prompt) state.settings.optimized_prompt = payload.optimized_prompt;
+      if (payload.provider) state.settings.default_provider = payload.provider;
+      if (payload.model) {
+        state.settings.default_model = payload.model;
+        state.settings.model = payload.model;
+      }
+      if (payload.settings && typeof payload.settings === 'object') {
+        Object.keys(payload.settings).forEach(function (k) {
+          if (payload.settings[k] != null && payload.settings[k] !== '') {
+            state.settings[k] = payload.settings[k];
+          }
+        });
+      }
       state.tab = 'generate';
     } catch (e) { /* ignore */ }
   }
 
   function refreshEstimate() {
-    return Core.image.estimate(state.settings).then(function (res) {
+    var api = getImageApi();
+    if (!api) return Promise.resolve();
+    return api.estimate(state.settings).then(function (res) {
       state.credits = Object.assign(state.credits, res.data || {});
     }).catch(function () {});
   }
 
+  function syncPromptFields(root) {
+    var promptEl = $('#yis-prompt', root);
+    if (promptEl) state.settings.last_prompt = promptEl.value;
+    var negativeEl = root.querySelector('[data-yis-setting="negative_prompt"]');
+    if (negativeEl) state.settings.negative_prompt = negativeEl.value;
+  }
+
+  function updateCreditsUI(root) {
+    var bar = root && root.querySelector('.yis-credits-bar');
+    if (bar) bar.textContent = creditLabel();
+    var btn = root && root.querySelector('#yis-generate');
+    if (btn && !state.generating) {
+      btn.textContent = 'Generate · ' + creditLabel();
+    }
+  }
+
+  function selectedProviderId() {
+    return state.settings.default_provider || 'auto';
+  }
+
+  function findProvider(id) {
+    var pid = String(id || '');
+    for (var i = 0; i < state.providers.length; i++) {
+      if (state.providers[i].id === pid) return state.providers[i];
+    }
+    return null;
+  }
+
+  var MODEL_DEFAULTS = {
+    openai: 'gpt-image-1',
+    'mock-image': 'mock-image-v1',
+    mock: 'mock-image-v1',
+    flux: 'flux-schnell',
+    replicate: 'flux-schnell',
+    'gemini-image': 'gemini-image-v1',
+    stability: 'stable-diffusion-xl',
+    ideogram: 'ideogram-v2'
+  };
+
+  var SIZE_PROFILES = {
+    'openai:gpt-image-1': {
+      sizes: ['auto', '1024x1024', '1024x1536', '1536x1024'],
+      aspect_map: {
+        '1:1': '1024x1024',
+        '16:9': '1536x1024',
+        '9:16': '1024x1536',
+        '4:5': '1024x1536',
+        '3:2': '1536x1024',
+        '2:3': '1024x1536'
+      }
+    },
+    'openai:dall-e-3': {
+      sizes: ['1024x1024', '1024x1792', '1792x1024'],
+      aspect_map: {
+        '1:1': '1024x1024',
+        '16:9': '1792x1024',
+        '9:16': '1024x1792',
+        '4:5': '1024x1792',
+        '3:2': '1792x1024',
+        '2:3': '1024x1792'
+      }
+    }
+  };
+
+  function isOpenAiProvider() {
+    var pid = selectedProviderId();
+    return pid === 'openai' || pid === 'openai-image';
+  }
+
+  function isGptImage1Model() {
+    var model = state.settings.default_model || state.settings.model || '';
+    if (model) return model === 'gpt-image-1';
+    return isOpenAiProvider();
+  }
+
+  function resolvedPreviewProviderId() {
+    var pid = selectedProviderId();
+    if (pid !== 'auto') return pid;
+    var live = state.providers.filter(function (p) {
+      return !p.is_mock && (p.auto_eligible || p.usable || p.status === 'connected');
+    });
+    if (!live.length) return 'mock-image';
+    var openai = null;
+    for (var i = 0; i < live.length; i++) {
+      if (live[i].id === 'openai' || live[i].id === 'openai-image') {
+        openai = live[i];
+        break;
+      }
+    }
+    if (openai) return 'openai';
+    return live[0].id;
+  }
+
+  function sizeProfileKey() {
+    var pid = resolvedPreviewProviderId();
+    var model = state.settings.default_model || state.settings.model || defaultModelForProvider(pid);
+    return pid + ':' + model;
+  }
+
+  function activeSizeProfile() {
+    return SIZE_PROFILES[sizeProfileKey()] || null;
+  }
+
+  function mappedSizeForAspect(aspectRatio) {
+    var profile = activeSizeProfile();
+    if (!profile) return '';
+    return profile.aspect_map[aspectRatio] || profile.sizes[0] || '';
+  }
+
+  var OUTPUT_SIZE_RATIOS = ['1:1', '16:9', '9:16', '4:5', '3:2', '2:3'];
+
+  function formatPx(size) {
+    return String(size || '').replace(/x/gi, '×');
+  }
+
+  function computeDisplaySize(aspectRatio, resolution) {
+    var base = Math.max(512, parseInt(resolution, 10) || 1024);
+    switch (aspectRatio) {
+      case '16:9':
+        return (base === 1792 ? '1792×1024' : Math.round(base * 16 / 9) + '×' + base);
+      case '9:16':
+        return (base === 1792 ? '1024×1792' : base + '×' + Math.round(base * 16 / 9));
+      case '4:5':
+        return base + '×' + Math.round(base * 5 / 4);
+      case '3:2':
+        return Math.round(base * 3 / 2) + '×' + base;
+      case '2:3':
+        return base + '×' + Math.round(base * 3 / 2);
+      default:
+        return base + '×' + base;
+    }
+  }
+
+  function buildOutputSizePresets() {
+    var profile = activeSizeProfile();
+    var presets = [];
+    if (profile) {
+      if (profile.sizes.indexOf('auto') >= 0) {
+        presets.push({ id: 'auto', label: 'Auto', aspect_ratio: '1:1', size: 'auto' });
+      }
+      OUTPUT_SIZE_RATIOS.forEach(function (ratio) {
+        var sz = profile.aspect_map[ratio];
+        if (!sz) return;
+        presets.push({
+          id: ratio + '|' + sz,
+          label: ratio + ' (' + formatPx(sz) + ')',
+          aspect_ratio: ratio,
+          size: sz
+        });
+      });
+      return presets;
+    }
+    var ratios = ((state.schema && state.schema.aspect_ratios) || []).map(function (r) {
+      return r.id || r;
+    }).filter(Boolean);
+    if (!ratios.length) ratios = ['1:1', '16:9', '9:16'];
+    var resolution = String(state.settings.resolution || '1024');
+    ratios.forEach(function (ratio) {
+      presets.push({
+        id: ratio + '|' + resolution,
+        label: ratio + ' (' + computeDisplaySize(ratio, resolution) + ')',
+        aspect_ratio: ratio,
+        resolution: resolution
+      });
+    });
+    return presets;
+  }
+
+  function currentOutputSizeId() {
+    var profile = activeSizeProfile();
+    if (profile && state.settings.size === 'auto') return 'auto';
+    var aspect = state.settings.aspect_ratio || '1:1';
+    if (profile) {
+      var size = state.settings.size || mappedSizeForAspect(aspect);
+      return aspect + '|' + size;
+    }
+    return aspect + '|' + String(state.settings.resolution || '1024');
+  }
+
+  function applyOutputSizeSelection(id) {
+    if (id === 'auto') {
+      state.settings.size = 'auto';
+      state.settings.aspect_ratio = state.settings.aspect_ratio || '1:1';
+      return;
+    }
+    var parts = String(id || '').split('|');
+    var aspect = parts[0] || '1:1';
+    var val = parts[1] || '';
+    state.settings.aspect_ratio = aspect;
+    if (activeSizeProfile()) {
+      state.settings.size = val || mappedSizeForAspect(aspect);
+    } else {
+      state.settings.resolution = val || '1024';
+      state.settings.size = '';
+    }
+  }
+
+  function normalizeOutputSizeSelection() {
+    var presets = buildOutputSizePresets();
+    if (!presets.length) return;
+    var cur = currentOutputSizeId();
+    for (var i = 0; i < presets.length; i++) {
+      if (presets[i].id === cur) return;
+    }
+    applyOutputSizeSelection(presets[0].id);
+  }
+
+  function outputSizeOptionsHtml() {
+    var presets = buildOutputSizePresets();
+    var cur = currentOutputSizeId();
+    if (presets.length) {
+      var matched = false;
+      for (var i = 0; i < presets.length; i++) {
+        if (presets[i].id === cur) { matched = true; break; }
+      }
+      if (!matched) {
+        applyOutputSizeSelection(presets[0].id);
+        cur = presets[0].id;
+      }
+    }
+    return presets.map(function (preset) {
+      return '<option value="' + esc(preset.id) + '"' + (cur === preset.id ? ' selected' : '') + '>' +
+        esc(preset.label) + '</option>';
+    }).join('');
+  }
+
+  function syncSizeForProvider(force) {
+    var profile = activeSizeProfile();
+    if (!profile) {
+      if (force && !state.settings.size) state.settings.size = '';
+      normalizeOutputSizeSelection();
+      return;
+    }
+    var ratio = state.settings.aspect_ratio || '1:1';
+    var mapped = mappedSizeForAspect(ratio);
+    var current = state.settings.size || '';
+    if (force || !current || profile.sizes.indexOf(current) < 0 || current === '1024x1792') {
+      state.settings.size = mapped || profile.sizes[0];
+    }
+    normalizeOutputSizeSelection();
+  }
+
+  function getSmartAuto() {
+    return global.YooYImageStudioSmartAuto || null;
+  }
+
+  var LOCKABLE_FIELDS = [
+    'default_provider', 'default_model', 'seed', 'style', 'quality', 'color_palette', 'mood',
+    'background', 'lighting', 'composition', 'camera', 'lens', 'camera_angle', 'depth_of_field',
+    'commercial_mode', 'brand_tone', 'product_type', 'negative_prompt', 'image_count', 'output_format'
+  ];
+
+  var MOOD_OPTIONS = [
+    { id: 'neutral', label: 'Neutral' }, { id: 'dreamy', label: 'Dreamy' }, { id: 'energetic', label: 'Energetic' },
+    { id: 'moody', label: 'Moody' }, { id: 'romantic', label: 'Romantic' }, { id: 'epic', label: 'Epic' }
+  ];
+  var CAMERA_OPTIONS = [
+    { id: 'cinema_50mm', label: 'Cinema 50mm' }, { id: 'wide_24mm', label: 'Wide 24mm' },
+    { id: 'tele_85mm', label: 'Telephoto 85mm' }, { id: 'macro', label: 'Macro' }
+  ];
+  var LENS_OPTIONS = [
+    { id: 'standard', label: 'Standard' }, { id: 'anamorphic', label: 'Anamorphic' },
+    { id: 'fisheye', label: 'Fisheye' }, { id: 'portrait', label: 'Portrait' }
+  ];
+  var ANGLE_OPTIONS = [
+    { id: 'eye_level', label: 'Eye Level' }, { id: 'low_angle', label: 'Low Angle' },
+    { id: 'high_angle', label: 'High Angle' }, { id: 'birds_eye', label: "Bird's Eye" }
+  ];
+  var DOF_OPTIONS = [
+    { id: 'shallow', label: 'Shallow' }, { id: 'medium', label: 'Medium' }, { id: 'deep', label: 'Deep' }
+  ];
+  var FORMAT_OPTIONS = [
+    { id: 'png', label: 'PNG' }, { id: 'jpeg', label: 'JPEG' }, { id: 'webp', label: 'WebP' }
+  ];
+
+  function initExtraSettings() {
+    state.settings.mood = state.settings.mood || 'neutral';
+    state.settings.camera = state.settings.camera || 'cinema_50mm';
+    state.settings.lens = state.settings.lens || 'standard';
+    state.settings.camera_angle = state.settings.camera_angle || 'eye_level';
+    state.settings.depth_of_field = state.settings.depth_of_field || 'medium';
+    state.settings.output_format = state.settings.output_format || 'png';
+    state.settings.commercial_mode = state.settings.commercial_mode !== false;
+  }
+
+  function isFieldAuto(key) {
+    if (!state.smartAuto) return false;
+    return state.fieldLocks[key] !== 'manual';
+  }
+
+  function setStudioMode(mode, root) {
+    state.studioMode = mode;
+    state.smartAuto = mode === 'smart';
+    state.settings.smart_auto = state.smartAuto;
+    if (mode === 'smart') {
+      state.fieldLocks = {};
+    } else {
+      state.advancedOpen = true;
+      LOCKABLE_FIELDS.forEach(function (k) { state.fieldLocks[k] = 'manual'; });
+    }
+    renderTab(root);
+    bindGenerateButton(root);
+    if (mode === 'smart' && state.advancedOpen) previewSmartAuto(root);
+  }
+
+  function toggleFieldLock(key, root) {
+    if (!state.smartAuto) return;
+    if (state.fieldLocks[key] === 'manual') {
+      delete state.fieldLocks[key];
+      previewSmartAuto(root);
+    } else {
+      state.fieldLocks[key] = 'manual';
+    }
+    refreshAdvancedInner(root);
+  }
+
+  function modeToggleHtml() {
+    var smartOn = state.studioMode !== 'custom';
+    return '<div class="yis-mode-toggle" role="radiogroup" aria-label="Studio mode">' +
+      '<button type="button" class="yis-mode-opt' + (smartOn ? ' is-active' : '') + '" data-yis-mode="smart" aria-pressed="' + smartOn + '">' +
+        '<span class="yis-mode-dot" aria-hidden="true"></span>Smart Auto</button>' +
+      '<button type="button" class="yis-mode-opt' + (!smartOn ? ' is-active' : '') + '" data-yis-mode="custom" aria-pressed="' + !smartOn + '">' +
+        '<span class="yis-mode-dot" aria-hidden="true"></span>Custom</button>' +
+      '<p class="yis-mode-hint">' + (smartOn ? 'AI가 대부분의 설정을 자동 결정합니다. 필요한 항목만 Advanced에서 Manual로 전환하세요.' : '전문가 모드 — Advanced에서 원하는 항목만 직접 수정하세요.') + '</p>' +
+    '</div>';
+  }
+
+  function applyProfileToAutoFields(profile) {
+    if (!profile) return;
+    var Smart = getSmartAuto();
+    var map = {
+      default_provider: profile.provider,
+      default_model: profile.model,
+      quality: profile.quality,
+      style: profile.style,
+      lighting: profile.lighting,
+      composition: profile.composition,
+      background: profile.background,
+      color_palette: profile.color_palette,
+      brand_tone: profile.brand_tone,
+      product_type: profile.product_type,
+      mood: profile.mood,
+      camera: profile.camera,
+      lens: profile.lens,
+      camera_angle: profile.camera_angle,
+      depth_of_field: profile.depth_of_field,
+      image_count: profile.image_count,
+      output_format: profile.output_format || 'png'
+    };
+    Object.keys(map).forEach(function (key) {
+      if (key === 'default_model' && (profile.provider === 'auto' || selectedProviderId() === 'auto')) {
+        return;
+      }
+      if (isFieldAuto(key) && map[key] != null && map[key] !== '') {
+        state.settings[key] = map[key];
+        if (key === 'default_model') state.settings.model = map[key];
+      }
+    });
+    if (isFieldAuto('commercial_mode')) {
+      state.settings.commercial_mode = profile.commercial !== false;
+    }
+    if (isFieldAuto('negative_prompt') && Smart && profile.commercial !== false) {
+      state.settings.negative_prompt = Smart.PREMIUM_NEGATIVE;
+    }
+  }
+
+  function analyzeSmartProfile(prompt) {
+    var Smart = getSmartAuto();
+    if (!Smart) return null;
+    var refAssets = state.settings.reference_assets || [];
+    var refCtx = Smart.analyzeReference(refAssets, prompt);
+    state.refAnalysisLabels = refCtx.labels || [];
+    var profile = Smart.analyzePrompt(prompt, refCtx);
+    if (state.recommendedStyleId && Smart.STYLE_PRESETS && Smart.STYLE_PRESETS[state.recommendedStyleId]) {
+      var preset = Smart.STYLE_PRESETS[state.recommendedStyleId];
+      profile.style = preset.style || profile.style;
+      profile.lighting = preset.lighting || profile.lighting;
+      profile.brand_tone = preset.brand_tone || profile.brand_tone;
+      profile.quality = preset.quality || profile.quality;
+      profile.composition = preset.composition || profile.composition;
+      profile.recommendedStyle = preset.label;
+    }
+    return { profile: profile, refCtx: refCtx, Smart: Smart };
+  }
+
+  function previewSmartAuto(root) {
+    if (!state.smartAuto) return;
+    var prompt = ($('#yis-prompt', root) || {}).value || state.settings.last_prompt || '';
+    if (!prompt.trim()) return;
+    var analyzed = analyzeSmartProfile(prompt);
+    if (!analyzed) return;
+    applyProfileToAutoFields(analyzed.profile);
+    syncModelForProvider(state.settings.default_provider || 'auto', true);
+    state.lastAutoProfile = analyzed.profile;
+    state.lastOptimizedPrompt = analyzed.Smart.optimizePrompt(prompt, analyzed.profile, analyzed.refCtx);
+    state.lastUserPrompt = prompt;
+    refreshAdvancedInner(root);
+    refreshAutoResultPanel(root);
+  }
+
+  function runSmartAuto(prompt) {
+    if (!state.smartAuto) {
+      return { optimizedPrompt: prompt, profile: null };
+    }
+    var analyzed = analyzeSmartProfile(prompt);
+    if (!analyzed) return { optimizedPrompt: prompt, profile: null };
+    applyProfileToAutoFields(analyzed.profile);
+    syncModelForProvider(state.settings.default_provider || 'auto', true);
+    var optimized = analyzed.Smart.optimizePrompt(prompt, analyzed.profile, analyzed.refCtx);
+    state.lastAutoProfile = analyzed.profile;
+    state.lastOptimizedPrompt = optimized;
+    state.lastUserPrompt = prompt;
+    return { optimizedPrompt: optimized, profile: analyzed.profile, refCtx: analyzed.refCtx };
+  }
+
+  function smartAutoCardHtml() {
+    return '<div class="yis-smart-card">' +
+      '<div class="yis-smart-card__head"><strong>Smart Auto</strong><span class="yis-smart-badge">ON</span></div>' +
+      '<p class="yis-smart-card__lead">프롬프트만 입력하면 전문가 수준의 프리미엄 결과를 자동 생성합니다.</p>' +
+      '<ul class="yis-smart-checklist">' +
+        '<li>✔ 최적 모델 선택</li><li>✔ 최적 해상도 선택</li><li>✔ 스타일 자동 적용</li>' +
+        '<li>✔ 라이팅 최적화</li><li>✔ 색감 자동 적용</li><li>✔ 프롬프트 개선</li>' +
+        '<li>✔ 상업용 품질 보정</li><li>✔ Reference 분석</li><li>✔ 고품질 결과 생성</li>' +
+      '</ul></div>';
+  }
+
+  function styleRecommendationHtml(prompt) {
+    var Smart = getSmartAuto();
+    if (!Smart || state.smartAuto === false) return '';
+    prompt = prompt || state.settings.last_prompt || '';
+    var recs = Smart.recommendStyles(prompt);
+    if (!state.recommendedStyleId && recs[0]) state.recommendedStyleId = recs[0].id;
+    return '<div class="yis-style-rec"><span class="yis-style-rec__label">추천 스타일</span>' +
+      '<div class="yis-style-rec__chips">' + recs.map(function (r) {
+        var active = state.recommendedStyleId === r.id ? ' is-active' : '';
+        return '<button type="button" class="yis-style-chip' + active + '" data-yis-style-pick="' + esc(r.id) + '">' + esc(r.label) + '</button>';
+      }).join('') + '</div></div>';
+  }
+
+  function refAnalysisCardHtml() {
+    if (!state.refAnalysisLabels || !state.refAnalysisLabels.length) return '';
+    return '<div class="yis-ref-analysis"><span class="yis-ref-analysis__label">Reference 분석</span>' +
+      '<div class="yis-ref-analysis__tags">' + state.refAnalysisLabels.map(function (l) {
+        return '<span class="yis-ref-tag">' + esc(l) + '</span>';
+      }).join('') + '</div></div>';
+  }
+
+  function autoSelectedCardHtml() {
+    if (!state.lastAutoProfile) return '';
+    var Smart = getSmartAuto();
+    if (!Smart) return '';
+    var rows = Smart.profileLabels(state.lastAutoProfile);
+    return '<div class="yis-auto-result" id="yis-auto-result">' +
+      '<h4 class="yis-auto-result__title">AI가 자동 선택한 설정</h4>' +
+      '<dl class="yis-auto-result__grid">' + rows.map(function (r) {
+        return '<div><dt>' + esc(r.label) + '</dt><dd>' + esc(r.value) + '</dd></div>';
+      }).join('') + '</dl></div>';
+  }
+
+  function advancedSectionHtml() {
+    var chevron = state.advancedOpen ? '▲' : '▼';
+    return '<details class="yis-advanced" id="yis-advanced"' + (state.advancedOpen ? ' open' : '') + '>' +
+      '<summary class="yis-advanced__summary">' + chevron + ' Advanced Settings</summary>' +
+      '<div class="yis-advanced-body"><div class="yis-advanced-inner" id="yis-advanced-inner">' + advancedFieldsInnerHtml() + '</div></div>' +
+    '</details>';
+  }
+
+  function advancedFieldsInnerHtml() {
+    var s = state.schema;
+    var optimized = state.lastOptimizedPrompt || '';
+    var transparentOn = (state.settings.background || '') === 'transparent';
+    return '<div class="yis-adv-section"><h4 class="yis-adv-section__title">AI</h4>' +
+      lockedSelectField('default_provider', 'Provider', [{ id: 'auto', label: 'Auto (Best Available)' }].concat(
+        state.providers.filter(function (p) { return p.id !== 'auto'; }).map(function (p) { return { id: p.id, label: providerOptionLabel(p) }; })
+      )) +
+      lockedFieldHtml('default_model', 'Model', '<select data-yis-setting="default_model" id="yis-model-select"' + fieldDisabledAttr('default_model') + '>' + modelSelectHtml() + '</select>') +
+      '<div class="yis-provider-preflight" id="yis-provider-preflight" hidden></div>' +
+      lockedFieldHtml('seed', 'Seed', '<div class="yis-seed-row"><input type="number" data-yis-setting="seed" value="' + esc(String(state.settings.seed != null ? state.settings.seed : -1)) + '"' + fieldDisabledAttr('seed') + '><button class="yis-btn-secondary" type="button" data-yis-action="seed-random"' + (isFieldAuto('seed') && state.smartAuto ? ' disabled' : '') + '>Random</button></div>') +
+    '</div>' +
+    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Style</h4>' +
+      fieldRow(
+        lockedSelectField('style', 'Style', s.styles || []),
+        lockedSelectField('quality', 'Quality', s.qualities || [])
+      ) +
+      fieldRow(
+        lockedSelectField('color_palette', 'Color', s.color_palettes || []),
+        lockedSelectField('mood', 'Mood', MOOD_OPTIONS)
+      ) +
+      fieldRow(
+        lockedSelectField('background', 'Background', s.backgrounds || []),
+        lockedSelectField('lighting', 'Lighting', s.lighting || [])
+      ) +
+      lockedSelectField('composition', 'Composition', s.compositions || []) +
+    '</div>' +
+    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Camera</h4>' +
+      fieldRow(
+        lockedSelectField('camera', 'Camera', CAMERA_OPTIONS),
+        lockedSelectField('lens', 'Lens', LENS_OPTIONS)
+      ) +
+      fieldRow(
+        lockedSelectField('camera_angle', 'Camera Angle', ANGLE_OPTIONS),
+        lockedSelectField('depth_of_field', 'Depth of Field', DOF_OPTIONS)
+      ) +
+    '</div>' +
+    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Brand</h4>' +
+      lockedFieldHtml('commercial_mode', 'Commercial Mode', '<label class="yis-check-row"><input type="checkbox" data-yis-setting="commercial_mode"' + (state.settings.commercial_mode !== false ? ' checked' : '') + fieldDisabledAttr('commercial_mode') + '> Commercial Quality</label>') +
+      fieldRow(
+        lockedSelectField('brand_tone', 'Brand Tone', s.brand_tones || []),
+        lockedSelectField('product_type', 'Product Type', s.product_types || [])
+      ) +
+    '</div>' +
+    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Prompt</h4>' +
+      (optimized ? lockedFieldHtml('optimized_prompt', 'Optimized Prompt', '<textarea readonly rows="4" class="yis-optimized-readonly">' + esc(optimized) + '</textarea>') : '') +
+      lockedFieldHtml('negative_prompt', 'Negative Prompt', '<textarea data-yis-setting="negative_prompt" rows="3" aria-label="Negative prompt"' + fieldDisabledAttr('negative_prompt') + '>' + esc(state.settings.negative_prompt || '') + '</textarea>') +
+    '</div>' +
+    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Output</h4>' +
+      fieldRow(
+        lockedSelectField('image_count', 'Image Count', (s.image_counts || [1, 2, 3, 4]).map(function (n) { return { id: n, label: String(n) }; })),
+        lockedSelectField('output_format', 'Output Format', FORMAT_OPTIONS)
+      ) +
+      lockedFieldHtml('transparent_bg', 'Transparent Background', '<label class="yis-check-row"><input type="checkbox" data-yis-setting="transparent_bg"' + (transparentOn ? ' checked' : '') + fieldDisabledAttr('background') + '> Enable transparent background</label>') +
+      developerInfoHtml() +
+    '</div>';
+  }
+
+  function fieldDisabledAttr(key) {
+    return (isFieldAuto(key) && state.smartAuto) ? ' disabled' : '';
+  }
+
+  function lockedSelectField(key, label, options) {
+    return lockedFieldHtml(key, label, '<select data-yis-setting="' + key + '"' + fieldDisabledAttr(key) + '>' +
+      options.map(function (o) {
+        var v = typeof o === 'object' ? o.id : o;
+        var l = typeof o === 'object' ? (o.label || o.id) : o;
+        return '<option value="' + esc(String(v)) + '"' + (String(state.settings[key]) === String(v) ? ' selected' : '') + '>' + esc(String(l)) + '</option>';
+      }).join('') + '</select>');
+  }
+
+  function lockedFieldHtml(key, label, inputHtml) {
+    var locked = isFieldAuto(key) && state.smartAuto;
+    var lockBtn = state.smartAuto && key !== 'optimized_prompt'
+      ? '<button type="button" class="yis-lock-btn' + (locked ? ' is-auto' : ' is-manual') + '" data-yis-field-lock="' + esc(key) + '">' + (locked ? '🔒 Auto' : '🔓 Manual') + '</button>'
+      : '';
+    return '<div class="yis-locked-field' + (locked ? ' is-locked' : '') + '" data-yis-field="' + esc(key) + '">' +
+      '<div class="yis-locked-field__head"><label>' + esc(label) + '</label>' + lockBtn + '</div>' +
+      '<div class="yis-locked-field__body">' + inputHtml + '</div></div>';
+  }
+
+  function refreshAdvancedInner(root) {
+    var inner = root && root.querySelector('#yis-advanced-inner');
+    if (!inner) return;
+    inner.innerHTML = advancedFieldsInnerHtml();
+    updateProviderUX(root);
+  }
+
+  function providerOptionsHtml() {
+    var html = '<option value="auto"' + ((state.settings.default_provider || 'auto') === 'auto' ? ' selected' : '') + '>Auto (Best Available)</option>';
+    html += state.providers.filter(function (p) { return p.id !== 'auto'; }).map(function (p) {
+      return '<option value="' + esc(p.id) + '"' + ((state.settings.default_provider || 'auto') === p.id ? ' selected' : '') + '>' +
+        esc(providerOptionLabel(p)) + '</option>';
+    }).join('');
+    return html;
+  }
+
+  function isDebugMode() {
+    var cfg = (Core && Core.config) || global.YooYStudio || {};
+    return !!(cfg.debug || global.YOOY_DEBUG || (Core && Core.debug && Core.debug()));
+  }
+
+  function isStudioAdmin() {
+    return !!(Core && Core.config && Core.config.isAdmin);
+  }
+
+  function shouldLogOpenAiPayload(payload) {
+    var provider = String((payload && (payload.provider || payload.default_provider)) || 'auto').toLowerCase();
+    return provider === 'openai' || provider === 'openai-image' || provider === 'auto';
+  }
+
+  function mapBackgroundToOpenAi(background) {
+    return String(background || '') === 'transparent' ? 'transparent' : 'opaque';
+  }
+
+  function buildOpenAiPreview(payload) {
+    payload = payload || {};
+    return {
+      provider: payload.provider || payload.default_provider || 'openai',
+      model: payload.model || payload.default_model || 'gpt-image-1',
+      size: payload.size || mappedSizeForAspect(payload.aspect_ratio || '1:1') || 'auto',
+      quality: payload.quality || 'standard',
+      background: mapBackgroundToOpenAi(payload.background || 'studio_white'),
+      output_format: payload.output_format || 'png',
+      prompt: payload.prompt || ''
+    };
+  }
+
+  function logOpenAiRequestPreview(payload) {
+    if (!isStudioAdmin() || !shouldLogOpenAiPayload(payload)) return;
+    if (!global.console || !global.console.log) return;
+    var preview = buildOpenAiPreview(payload);
+    global.console.log(
+      '===== OpenAI Request =====\n' +
+      'provider: ' + preview.provider + '\n' +
+      'model: ' + preview.model + '\n' +
+      'size: ' + preview.size + '\n' +
+      'quality: ' + preview.quality + '\n' +
+      'background: ' + preview.background + '\n' +
+      'output_format: ' + preview.output_format + '\n' +
+      'prompt: ' + preview.prompt + '\n' +
+      '=========================='
+    );
+  }
+
+  function logOpenAiResponse(data) {
+    if (!isStudioAdmin() || !global.console || !global.console.log) return;
+    var debug = (data && data.meta && data.meta.openai_debug) || (data && data.openai_debug);
+    if (debug) {
+      global.console.log('===== OpenAI API Request JSON =====');
+      global.console.log(JSON.stringify(debug.request || {}, null, 2));
+      global.console.log('===== OpenAI Response =====');
+      global.console.log(JSON.stringify(debug.response || {}, null, 2));
+      global.console.log('============================');
+      return;
+    }
+    if (data && data.raw) {
+      global.console.log('===== OpenAI Response =====');
+      global.console.log(JSON.stringify(data.raw, null, 2));
+      global.console.log('===========================');
+    }
+  }
+
+  function developerInfoHtml() {
+    if (!isDebugMode()) return '';
+    var info = state.lastDebugInfo || {};
+    var pid = info.provider || selectedProviderId();
+    var model = info.model || state.settings.default_model || state.settings.model || '';
+    var size = state.settings.size || state.settings.resolution || '';
+    var mapped = info.apiSize || mappedSizeForAspect(state.settings.aspect_ratio || '1:1');
+    var latency = info.latency != null ? (info.latency + ' ms') : '—';
+    return '<details class="yis-dev-info" id="yis-dev-info"><summary>Developer Info</summary>' +
+      '<div class="yis-dev-info-grid">' +
+      '<div><b>Provider</b><span data-yis-dev="provider">' + esc(pid) + '</span></div>' +
+      '<div><b>Model</b><span data-yis-dev="model">' + esc(model) + '</span></div>' +
+      '<div><b>API Size</b><span data-yis-dev="api-size">' + esc(mapped || size || '—') + '</span></div>' +
+      '<div><b>Latency</b><span data-yis-dev="latency">' + esc(latency) + '</span></div>' +
+      '</div></details>';
+  }
+
+  function refreshDeveloperInfoPanel(root) {
+    if (!isDebugMode() || !root) return;
+    var panel = root.querySelector('#yis-dev-info');
+    if (!panel) return;
+    var info = state.lastDebugInfo || {};
+    var set = function (key, val) {
+      var el = panel.querySelector('[data-yis-dev="' + key + '"]');
+      if (el) el.textContent = val || '—';
+    };
+    set('provider', info.provider || selectedProviderId());
+    set('model', info.model || state.settings.default_model || state.settings.model || '');
+    set('api-size', info.apiSize || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || state.settings.size || '—');
+    set('latency', info.latency != null ? (info.latency + ' ms') : '—');
+  }
+
+  function isMockModel(model) {
+    return String(model || '').indexOf('mock-') === 0;
+  }
+
+  function isMockProviderId(providerId) {
+    var pid = providerId || selectedProviderId();
+    if (!pid || pid === 'auto') return false;
+    if (pid === 'mock' || pid === 'mock-image' || pid.indexOf('mock-') === 0) return true;
+    var p = findProvider(pid);
+    return !!(p && p.is_mock);
+  }
+
+  function modelIdsForProvider(providerId) {
+    var pid = providerId || selectedProviderId();
+    if (pid === 'auto') pid = resolvedPreviewProviderId();
+    var p = findProvider(pid);
+    if (p && p.models && p.models.length) {
+      return p.models.map(function (m) { return (m && m.id) ? m.id : m; }).filter(Boolean);
+    }
+    return MODEL_DEFAULTS[pid] ? [MODEL_DEFAULTS[pid]] : ['gpt-image-1'];
+  }
+
+  function defaultModelForProvider(providerId) {
+    var pid = providerId || selectedProviderId();
+    if (pid === 'auto') return '';
+    var ids = modelIdsForProvider(pid);
+    if (MODEL_DEFAULTS[pid] && ids.indexOf(MODEL_DEFAULTS[pid]) >= 0) {
+      return MODEL_DEFAULTS[pid];
+    }
+    return ids[0] || 'gpt-image-1';
+  }
+
+  function syncModelForProvider(providerId, force) {
+    var pid = providerId || selectedProviderId();
+    if (pid === 'auto') {
+      if (force) {
+        delete state.settings.default_model;
+        delete state.settings.model;
+      }
+      return;
+    }
+    var allowed = modelIdsForProvider(pid);
+    var current = state.settings.default_model || state.settings.model || '';
+    var incompatible = isMockProviderId(pid) ? !isMockModel(current) : isMockModel(current);
+    if (force || !current || allowed.indexOf(current) < 0 || incompatible) {
+      state.settings.default_model = defaultModelForProvider(pid);
+      state.settings.model = state.settings.default_model;
+    }
+  }
+
+  function modelSelectHtml() {
+    var pid = selectedProviderId();
+    if (pid === 'auto') {
+      return '<option value="" selected>Auto (서버가 결정)</option>';
+    }
+    var models = modelIdsForProvider(pid);
+    var cur = state.settings.default_model || state.settings.model || defaultModelForProvider(pid);
+    if (models.indexOf(cur) < 0) cur = models[0];
+    state.settings.default_model = cur;
+    state.settings.model = cur;
+    return models.map(function (id) {
+      return '<option value="' + esc(id) + '"' + (cur === id ? ' selected' : '') + '>' + esc(id) + '</option>';
+    }).join('');
+  }
+
+  function isExplicitLiveSelection(id) {
+    var pid = id || selectedProviderId();
+    if (!pid || pid === 'auto') return false;
+    if (pid === 'mock' || pid.indexOf('mock-') === 0) return false;
+    var p = findProvider(pid);
+    if (p && p.is_mock) return false;
+    return true;
+  }
+
+  function hasTestedLiveProvider() {
+    return state.providers.some(function (p) {
+      return !p.is_mock && (p.auto_eligible || p.usable || p.status === 'connected');
+    });
+  }
+
+  function providerOptionLabel(p) {
+    var name = p.name || p.id;
+    var status = p.status_label || '';
+    if (!status) {
+      if (p.status === 'connected') status = 'Connected';
+      else if (p.status === 'not_tested') status = 'Not Tested';
+      else if (p.status === 'available') status = 'Available';
+      else if (p.status === 'not_configured') status = 'Not Configured';
+    }
+    return status ? name + ' — ' + status : name;
+  }
+
+  function getProviderPreflight() {
+    var id = selectedProviderId();
+    if (id === 'auto') {
+      if (!hasTestedLiveProvider()) {
+        return {
+          ok: true,
+          mode: 'auto_mock',
+          message: '연결된 실제 Provider가 없습니다. Auto는 Mock Image를 사용합니다.'
+        };
+      }
+      return { ok: true, mode: 'auto', message: 'Auto가 최적의 Provider/Model을 선택합니다.' };
+    }
+    if (!isExplicitLiveSelection(id)) return { ok: true, mode: 'mock' };
+    var p = findProvider(id);
+    if (!p) return { ok: true, mode: 'unknown' };
+    if (p.usable || p.status === 'connected') return { ok: true, mode: 'live', provider: p };
+    if (p.status === 'not_tested' || p.error_code === 'provider_not_tested') {
+      return {
+        ok: false,
+        code: 'provider_not_tested',
+        provider: p,
+        message: (p.name || 'This provider') + ' must pass Test Connection before use.'
+      };
+    }
+    if (p.status === 'not_configured' || p.error_code === 'provider_not_configured') {
+      return {
+        ok: false,
+        code: 'provider_not_configured',
+        provider: p,
+        message: (p.name || 'This provider') + ' API key is missing. Configure it in Operations Center.'
+      };
+    }
+    return {
+      ok: false,
+      code: p.error_code || 'provider_unavailable',
+      provider: p,
+      message: (p.name || 'This provider') + ' is not available.'
+    };
+  }
+
+  function providerErrorActionsHtml(code) {
+    var isAdmin = !!(Core && Core.config && Core.config.isAdmin);
+    var html = '<div class="yis-error-actions">';
+    if (code === 'provider_not_tested' && isAdmin) {
+      html += '<button class="yis-btn-secondary" type="button" data-yis-action="open-ops">Open Operations Center</button>';
+    }
+    if (code === 'provider_not_tested' || code === 'provider_not_configured') {
+      html += '<button class="yis-btn-secondary" type="button" data-yis-action="use-auto">Use Auto/Mock for Test</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function refreshOutputSizeControl(root) {
+    var select = root && root.querySelector('[data-yis-setting="output_size"]');
+    if (!select) return;
+    var cur = currentOutputSizeId();
+    select.innerHTML = outputSizeOptionsHtml();
+    select.value = cur;
+  }
+
+  function updateProviderUX(root) {
+    var pre = getProviderPreflight();
+    var preEl = $('#yis-provider-preflight', root);
+    if (preEl) {
+      if (pre.mode === 'auto_mock') {
+        preEl.hidden = false;
+        preEl.className = 'yis-provider-preflight yis-provider-preflight--info';
+        preEl.innerHTML = '<strong>Auto routing</strong><p>' + esc(pre.message) + '</p>';
+      } else if (!pre.ok) {
+        preEl.hidden = false;
+        preEl.className = 'yis-provider-preflight yis-provider-preflight--warn';
+        preEl.innerHTML = '<strong>Provider not ready</strong><p>' + esc(pre.message) + '</p>' +
+          providerErrorActionsHtml(pre.code);
+      } else {
+        preEl.hidden = true;
+        preEl.innerHTML = '';
+      }
+    }
+    var btn = $('#yis-generate', root);
+    if (btn && !state.generating) {
+      var blocked = !pre.ok && (pre.code === 'provider_not_tested' || pre.code === 'provider_not_configured');
+      btn.disabled = blocked;
+      btn.title = blocked ? pre.message : '';
+      if (!blocked) btn.textContent = 'Generate · ' + creditLabel();
+    }
+    var select = root && root.querySelector('[data-yis-setting="default_provider"]');
+    if (select) {
+      select.setAttribute('aria-describedby', preEl && !preEl.hidden ? 'yis-provider-preflight' : '');
+    }
+  }
+
+  function switchProviderToAuto(root) {
+    state.settings.default_provider = 'auto';
+    var select = root && root.querySelector('[data-yis-setting="default_provider"]');
+    if (select) select.value = 'auto';
+    clearGenerateError(root);
+    updateProviderUX(root);
+    var api = getImageApi();
+    if (api && api.updateSettings) {
+      api.updateSettings(state.settings).catch(function () {});
+    }
+  }
+
+  function openOperationsCenter() {
+    if (global.YooYStudioRoute) {
+      global.YooYStudioRoute('admin-console');
+      return;
+    }
+    document.dispatchEvent(new CustomEvent('yoy:route', { detail: { route: 'admin-console' } }));
+  }
+
+  function showGenerateInfo(root, message) {
+    var el = $('#yis-generate-info', root);
+    if (!el) return;
+    el.textContent = message || '';
+    el.hidden = !message;
+  }
+
+  function showGenerateError(root, errOrMessage) {
+    var area = root && root.querySelector('.yis-prompt-area');
+    if (!area) return;
+    var existing = area.querySelector('#yis-generate-error');
+    if (existing) existing.remove();
+
+    var d = null;
+    var message = '';
+    var code = '';
+    if (errOrMessage && errOrMessage.details) {
+      d = errOrMessage.details;
+      message = d.message || errOrMessage.message || 'Generation failed.';
+      code = d.code || errOrMessage.code || '';
+    } else if (errOrMessage && typeof errOrMessage === 'object' && errOrMessage.stage) {
+      d = errOrMessage;
+      message = d.message || 'Generation failed.';
+      code = d.code || '';
+    } else if (errOrMessage && errOrMessage.message) {
+      message = errOrMessage.message;
+      d = errOrMessage.details || null;
+      code = (d && d.code) || errOrMessage.code || '';
+    } else {
+      message = String(errOrMessage || 'Generation failed.');
+    }
+
+    if (code === 'provider_model_mismatch') {
+      message = message || 'Selected model does not match the provider. Choose a valid model for this provider.';
+    }
+    if (code === 'provider_size_mismatch') {
+      message = message || 'Selected image size is not supported for this provider/model combination.';
+    }
+
+    if (code === 'provider_not_tested') {
+      var providerName = (d && d.provider_name) || (d && d.provider_requested) || 'OpenAI Image';
+      message = providerName + ' must pass Test Connection before use.';
+      area.insertAdjacentHTML('beforeend',
+        '<div class="yis-error yis-error--provider" id="yis-generate-error" role="alert">' +
+          '<strong>' + esc(message) + '</strong>' +
+          '<p class="yis-error-copy">Run <em>Test Connection</em> in Operations Center before using this live provider.</p>' +
+          providerErrorActionsHtml(code) +
+        '</div>');
+      return;
+    }
+
+    var meta = '';
+    if (d) {
+      meta = '<div class="yis-error-meta">' +
+        (d.stage ? '<span><b>' + esc(d.stage) + '</b></span>' : '') +
+        (d.code ? '<span>' + esc(d.code) + '</span>' : '') +
+        (d.provider_requested ? '<span>requested: ' + esc(d.provider_requested) + '</span>' : '') +
+        (d.provider_resolved ? '<span>resolved: ' + esc(d.provider_resolved) + '</span>' : '') +
+        (d.model_requested ? '<span>model: ' + esc(d.model_requested) + '</span>' : '') +
+        (d.reason ? '<span>' + esc(d.reason) + '</span>' : '') +
+        (d.missing_fields && d.missing_fields.length ? '<span>missing: ' + esc(d.missing_fields.join(', ')) + '</span>' : '') +
+        '</div>';
+      if (d.code === 'provider_not_configured') {
+        meta += providerErrorActionsHtml(d.code);
+      }
+    }
+
+    area.insertAdjacentHTML('beforeend',
+      '<div class="yis-error" id="yis-generate-error" role="alert"><strong>' + esc(message) + '</strong>' + meta + '</div>');
+  }
+
+  function clearGenerateError(root) {
+    var el = root && root.querySelector('#yis-generate-error');
+    if (el) el.remove();
+    showGenerateInfo(root, '');
+  }
+
   function notifyGalleryUpdated() {
-    document.dispatchEvent(new CustomEvent('yoy:gallery:updated'));
+    if (Core && Core.notifyGalleryUpdated) {
+      Core.notifyGalleryUpdated();
+    } else {
+      document.dispatchEvent(new CustomEvent('yoy:gallery:updated'));
+    }
     if (window.YooYGallery && window.YooYGallery.reload) {
       window.YooYGallery.reload();
     }
@@ -81,15 +1124,56 @@
 
   function bindEvents(root) {
     root.addEventListener('click', function (e) {
+      try {
       var t = e.target.closest('[data-yis-tab]');
       if (t) { state.tab = t.dataset.yisTab; setTab(root); renderTab(root); return; }
 
-      if (e.target.closest('#yis-generate')) { doGenerate(root); return; }
       if (e.target.closest('#yis-edit-run')) { doEdit(root); return; }
       if (e.target.closest('#yis-save-settings')) { saveSettings(root); return; }
 
       var reuse = e.target.closest('[data-yis-reuse]');
       if (reuse) { reusePrompt(reuse.dataset.yisReuse, reuse.dataset.yisSource || 'history', root); return; }
+
+      var stylePick = e.target.closest('[data-yis-style-pick]');
+      if (stylePick) {
+        state.recommendedStyleId = stylePick.dataset.yisStylePick;
+        refreshStyleRecommendations(root);
+        return;
+      }
+
+      var modeBtn = e.target.closest('[data-yis-mode]');
+      if (modeBtn) {
+        setStudioMode(modeBtn.dataset.yisMode, root);
+        return;
+      }
+
+      var speedBtn = e.target.closest('[data-yis-speed]');
+      if (speedBtn && !state.generating) {
+        state.generationMode = speedBtn.dataset.yisSpeed === 'premium' ? 'premium' : 'fast';
+        state.settings.generation_mode = state.generationMode;
+        renderTab(root);
+        bindGenerateButton(root);
+        return;
+      }
+
+      var lockBtn = e.target.closest('[data-yis-field-lock]');
+      if (lockBtn) {
+        toggleFieldLock(lockBtn.dataset.yisFieldLock, root);
+        return;
+      }
+
+      var galPick = e.target.closest('[data-yis-gallery-id]');
+      if (galPick) {
+        state.gallerySelectedId = galPick.dataset.yisGalleryId;
+        renderGalleryDetail(root);
+        return;
+      }
+
+      var galAction = e.target.closest('[data-yis-gallery-action]');
+      if (galAction) {
+        handleGalleryAction(galAction.dataset.yisGalleryAction, galAction.dataset.yisGalleryId, root);
+        return;
+      }
 
       var img = e.target.closest('[data-yis-select]');
       if (img) { state.selectedImage = img.dataset.yisSelect; renderTab(root); return; }
@@ -98,20 +1182,68 @@
       if (tool) { state.editMode = tool.dataset.yisEdit; renderTab(root); return; }
 
       var action = e.target.closest('[data-yis-action]');
-      if (action) { handleResultAction(action.dataset.yisAction, root); return; }
+      if (action) {
+        if (action.dataset.yisAction === 'open-ops') {
+          openOperationsCenter();
+          return;
+        }
+        if (action.dataset.yisAction === 'use-auto') {
+          switchProviderToAuto(root);
+          return;
+        }
+        if (action.dataset.yisAction === 'seed-random') {
+          state.settings.seed = -1;
+          var seedInput = root.querySelector('[data-yis-setting="seed"]');
+          if (seedInput) seedInput.value = '-1';
+          return;
+        }
+        handleResultAction(action.dataset.yisAction, root);
+        return;
+      }
 
-      var ref = e.target.closest('#yis-ref-upload');
-      if (ref) { $('#yis-ref-file', root).click(); return; }
+      } catch (clickErr) {
+        debugLog('click handler error', clickErr);
+        showGenerateError(root, clickErr.message || 'UI action failed.');
+      }
     });
 
     root.addEventListener('change', function (e) {
       if (e.target.matches('[data-yis-setting]')) {
+        syncPromptFields(root);
         var k = e.target.dataset.yisSetting;
-        state.settings[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-        updatePreviewRatio(root);
-        refreshEstimate().then(function () { if (state.tab === 'generate') renderTab(root); });
+        if (k === 'output_size') {
+          applyOutputSizeSelection(e.target.value);
+        } else if (k === 'transparent_bg') {
+          state.settings.background = e.target.checked ? 'transparent' : (state.settings.background === 'transparent' ? 'studio_white' : state.settings.background);
+        } else if (k === 'commercial_mode') {
+          state.settings.commercial_mode = e.target.checked;
+        } else {
+          state.settings[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+        }
+        if (k === 'default_provider') {
+          syncModelForProvider(state.settings.default_provider, true);
+          syncSizeForProvider(true);
+          var modelSelect = root.querySelector('#yis-model-select');
+          if (modelSelect) modelSelect.innerHTML = modelSelectHtml();
+          refreshOutputSizeControl(root);
+          updateProviderUX(root);
+        }
+        if (k === 'default_model') {
+          state.settings.model = state.settings.default_model;
+          syncSizeForProvider(true);
+          refreshOutputSizeControl(root);
+        }
+        if (k === 'output_size' || k === 'default_provider' || k === 'default_model') {
+          updatePreviewRatio(root);
+        }
+        refreshEstimate().then(function () {
+          updateCreditsUI(root);
+        });
       }
-      if (e.target.id === 'yis-ref-file') { handleRefUpload(e.target, root); }
+    });
+
+    root.addEventListener('input', function (e) {
+      if (e.target.id === 'yis-prompt') state.settings.last_prompt = e.target.value;
     });
   }
 
@@ -128,33 +1260,234 @@
     switch (state.tab) {
       case 'generate': renderGenerate(ws, ctrl, root); break;
       case 'edit': renderEdit(ws, ctrl, root); break;
-      case 'gallery': renderGallery(ws, ctrl); break;
+      case 'gallery': renderGallery(ws, ctrl, root); break;
       case 'history': renderHistory(ws, ctrl); break;
       case 'settings': renderSettings(ws, ctrl); break;
     }
   }
 
+  function generationModeHtml() {
+    var fast = state.generationMode !== 'premium';
+    return '<div class="yis-speed-toggle" role="radiogroup" aria-label="Generation speed">' +
+      '<button type="button" class="yis-speed-opt' + (fast ? ' is-active' : '') + '" data-yis-speed="fast">Fast</button>' +
+      '<button type="button" class="yis-speed-opt' + (!fast ? ' is-active' : '') + '" data-yis-speed="premium">Premium</button>' +
+      '<p class="yis-speed-hint">' + (fast ? '빠른 응답 우선 (standard, 1장)' : '품질 우선 (고급 프롬프트 최적화)') + '</p></div>';
+  }
+
+  function generationStepLabel(step) {
+    var labels = {
+      queued: 'Queued',
+      preparing: 'Preparing',
+      generating: 'Generating',
+      saving: 'Saving',
+      completed: 'Completed',
+      failed: 'Failed',
+      timeout: 'Timeout'
+    };
+    return labels[step] || step;
+  }
+
+  function estimateGenerationEta() {
+    var pid = selectedProviderId();
+    if (pid === 'auto' && hasTestedLiveProvider()) return '약 10~30초';
+    if (ASYNC_POLL_PROVIDERS.indexOf(pid) >= 0) return '약 1~5분';
+    if (isOpenAiProvider() || pid === 'openai-image') return '약 10~30초';
+    return '약 30~90초';
+  }
+
+  function generationProgressHtml() {
+    if (!state.generating) return '';
+    var step = state.generateStep || 'preparing';
+    var steps = ['queued', 'preparing', 'generating', 'saving', 'completed'];
+    var curIdx = Math.max(0, steps.indexOf(step));
+    var stepHtml = steps.map(function (s, i) {
+      var cls = i < curIdx ? ' is-done' : (i === curIdx ? ' is-active' : '');
+      return '<span class="yis-gen-step' + cls + '">' + generationStepLabel(s) + '</span>';
+    }).join('<span class="yis-gen-arrow">→</span>');
+    var elapsed = state.generateStartedAt ? Math.round((Date.now() - state.generateStartedAt) / 1000) : 0;
+    var bgMsg = elapsed >= 45
+      ? '<p class="yis-gen-bg">작업은 백그라운드에서 계속 진행됩니다. 완료되면 Gallery에 저장됩니다.</p>'
+      : '';
+    return '<div class="yis-generate-progress" role="status" aria-live="polite">' +
+      '<p class="yis-generate-progress__title">AI가 이미지를 생성 중입니다</p>' +
+      '<div class="yis-generate-progress__steps">' + stepHtml + '</div>' +
+      '<p class="yis-generate-progress__eta">예상 시간: ' + esc(estimateGenerationEta()) + '</p>' +
+      bgMsg + '</div>';
+  }
+
+  function updateGenerateProgress(root) {
+    var host = root && root.querySelector('#yis-generate-progress');
+    if (!host) return;
+    if (state.generating) {
+      host.innerHTML = generationProgressHtml();
+      host.hidden = false;
+    } else {
+      host.innerHTML = '';
+      host.hidden = true;
+    }
+  }
+
+  function shouldPollJob(data) {
+    if (!data) return false;
+    var status = data.status || '';
+    if (status === 'failed' || status === 'error' || status === 'timeout') return false;
+    if (status === 'completed') return false;
+    var prov = data.provider_used || data.provider || '';
+    if (ASYNC_POLL_PROVIDERS.indexOf(prov) < 0 && status === 'completed') return false;
+    return ['queued', 'running', 'processing', 'pending'].indexOf(status) >= 0;
+  }
+
+  function mapStatusToStep(status) {
+    switch (status) {
+      case 'queued': return 'queued';
+      case 'pending': return 'preparing';
+      case 'processing':
+      case 'running': return 'generating';
+      case 'completed': return 'completed';
+      default: return 'generating';
+    }
+  }
+
   function renderGenerate(ws, ctrl, root) {
-    var ratio = state.settings.aspect_ratio || '1:1';
+    var ratio = state.settings.size === 'auto' ? '1:1' : (state.settings.aspect_ratio || '1:1');
+    var promptVal = state.settings.last_prompt || '';
     ws.innerHTML =
-      '<div class="yis-header"><h2>Image Generator</h2><span class="yis-badge">GPT Image · Topview · Mock</span></div>' +
+      '<div class="yis-header"><h2>Image Studio</h2></div>' +
+      modeToggleHtml() +
+      generationModeHtml() +
       '<div class="yis-preview" id="yis-preview" data-ratio="' + esc(ratio) + '">' + previewHtml() + '</div>' +
-      '<div class="yis-prompt-area">' +
-        '<textarea id="yis-prompt" placeholder="스마트스토어 제품 썸네일, K-Beauty 광고 비주얼, 한국 SNS 배너 등 프롬프트를 입력하세요.">' + esc(state.settings.last_prompt || '') + '</textarea>' +
-        '<div class="yis-negative"><textarea id="yis-negative" placeholder="Negative Prompt (제외할 요소)">' + esc(state.settings.negative_prompt || '') + '</textarea></div>' +
+      '<div class="yis-prompt-area yis-generate-flow">' +
+        '<label class="yis-prompt-label" for="yis-prompt">Prompt</label>' +
+        '<textarea id="yis-prompt" placeholder="예: 고래 타고 세계여행, K-Beauty 광고 비주얼, 영화 포스터...">' + esc(promptVal) + '</textarea>' +
+        '<div class="yis-ref-block">' +
+          '<label class="yis-prompt-label">Reference (Optional)</label>' +
+          '<div id="yis-ref-panel-host"></div>' +
+          refAnalysisCardHtml() +
+        '</div>' +
+        field('Aspect Ratio', '<select class="yis-output-size" data-yis-setting="output_size" id="yis-output-size" aria-label="Aspect ratio">' +
+          outputSizeOptionsHtml() + '</select>') +
         '<div class="yis-actions"><button class="yis-btn-primary" id="yis-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
-        (state.generating ? 'Generating...' : 'Generate') + ' · ' + creditLabel() + '</button></div>' +
+        (state.generating ? '생성 중…' : 'Generate') + ' · ' + creditLabel() + '</button>' +
+        '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' + (state.generating ? generationProgressHtml() : '') + '</div>' +
+        '<div class="yis-info" id="yis-generate-info" hidden></div></div>' +
+        advancedSectionHtml() +
         resultActionsHtml() +
       '</div>';
-    ctrl.innerHTML = controlsHtml() + refUploadHtml(root);
+    ctrl.innerHTML = sidePanelHtml();
+    mountRefAssets($('#yis-ref-panel-host', ws), 'image-studio');
     updatePreviewRatio(root);
+    bindPromptFields(root);
+    bindGenerateButton(root);
+    bindAdvancedPanel(root);
+    updateProviderUX(root);
+  }
+
+  function sidePanelHtml() {
+    return autoSelectedCardHtml() +
+      '<div class="yis-credits-bar">' + creditLabel() + '</div>';
+  }
+
+  function bindGenerateButton(root) {
+    var btn = root.querySelector('#yis-generate');
+    if (!btn) return;
+    if (btn.dataset.yisGenerateBound === '1') return;
+    btn.dataset.yisGenerateBound = '1';
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      global.YooYLastGenerateClick = Date.now();
+      debugLog('generate click (direct bind)');
+      doGenerate(root);
+    });
+  }
+
+  var globalGenerateHandlerInstalled = false;
+  function installGlobalGenerateHandler() {
+    if (globalGenerateHandlerInstalled) return;
+    globalGenerateHandlerInstalled = true;
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('#yis-generate') : null;
+      if (!btn) return;
+      if (btn.dataset.yisGenerateBound === '1') return;
+      var root = document.getElementById('yai-image-studio');
+      if (!root || !root.contains(btn)) return;
+      global.YooYLastGenerateClick = Date.now();
+      debugLog('generate click (capture fallback)');
+      try {
+        doGenerate(root);
+      } catch (genErr) {
+        debugLog('generate capture error', genErr);
+        showGenerateError(root, genErr.message || 'Generate failed.');
+      }
+    }, true);
+  }
+
+  function bindPromptFields(root) {
+    var promptEl = $('#yis-prompt', root);
+    if (promptEl && !promptEl.dataset.bound) {
+      promptEl.dataset.bound = '1';
+      var recTimer = null;
+      promptEl.addEventListener('input', function () {
+        state.settings.last_prompt = promptEl.value;
+        if (state.smartAuto) {
+          clearTimeout(recTimer);
+          recTimer = setTimeout(function () {
+            state.recommendedStyleId = '';
+            refreshStyleRecommendations(root);
+          }, 200);
+        }
+      });
+    }
+  }
+
+  function refreshStyleRecommendations(root) {
+    var host = root.querySelector('#yis-style-rec-host');
+    if (!host || state.smartAuto === false) return;
+    host.innerHTML = styleRecommendationHtml(state.settings.last_prompt || '');
+  }
+
+  function bindAdvancedPanel(root) {
+    var adv = root.querySelector('#yis-advanced');
+    if (!adv || adv.dataset.bound) return;
+    adv.dataset.bound = '1';
+    adv.addEventListener('toggle', function () {
+      state.advancedOpen = adv.open;
+      var summary = adv.querySelector('.yis-advanced__summary');
+      if (summary) summary.textContent = (adv.open ? '▲' : '▼') + ' Advanced Settings';
+      if (adv.open) {
+        if (state.smartAuto) previewSmartAuto(root);
+        refreshAdvancedInner(root);
+      }
+    });
+  }
+
+  function refreshAutoResultPanel(root) {
+    var existing = root.querySelector('#yis-auto-result');
+    var html = autoSelectedCardHtml();
+    if (existing) {
+      existing.outerHTML = html || '';
+    } else if (html) {
+      var ctrl = $('#yis-controls', root);
+      if (ctrl) ctrl.insertAdjacentHTML('beforeend', html);
+    }
+  }
+
+  function refreshRefAnalysisPanel(root) {
+    var card = root.querySelector('.yis-ref-analysis');
+    var html = refAnalysisCardHtml();
+    if (card) {
+      card.outerHTML = html || '';
+    } else if (html) {
+      var host = root.querySelector('#yis-ref-panel-host');
+      if (host) host.insertAdjacentHTML('afterend', html);
+    }
   }
 
   function previewHtml() {
-    if (state.generating) return '<div class="yis-loading">Generating...</div>';
-    if (state.lastResult && state.lastResult.images && state.lastResult.images.length) {
+    if (state.generating) return '<div class="yis-loading">' + generationProgressHtml() + '</div>';
+    var images = resultImages(state.lastResult);
+    if (images.length) {
       return '<div class="yis-grid" style="width:100%;padding:16px">' +
-        state.lastResult.images.map(function (img, i) {
+        images.map(function (img, i) {
           return '<div class="yis-thumb-card' + (state.selectedImage === img.url ? ' is-selected' : '') + '" data-yis-select="' + esc(img.url) + '">' +
             '<img src="' + esc(img.url) + '" alt="result ' + i + '"><span>Image ' + (i + 1) + '</span></div>';
         }).join('') + '</div>';
@@ -162,45 +1495,44 @@
     return '<div class="yis-empty">프롬프트를 입력하고 Generate를 클릭하세요.</div>';
   }
 
-  function controlsHtml() {
-    var s = state.schema;
-    var provOpts = state.providers.map(function (p) {
-      return '<option value="' + esc(p.id) + '"' + ((state.settings.default_provider || 'mock') === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
-    }).join('');
+  function resultImages(data) {
+    if (!data) return [];
+    if (data.images && data.images.length) {
+      return data.images.filter(function (img) {
+        return img && (img.url || img.image_url);
+      }).map(function (img) {
+        return {
+          url: img.url || img.image_url,
+          thumbnail: img.thumbnail || img.thumbnail_url || img.url || img.image_url
+        };
+      });
+    }
+    var primary = data.image_url || (data.output && (data.output.primary || data.output.url));
+    if (primary) {
+      return [{
+        url: primary,
+        thumbnail: data.thumbnail_url || (data.output && data.output.thumbnail) || primary
+      }];
+    }
+    return [];
+  }
 
-    return '<h3 style="color:#d8a63a;font-size:13px;margin:0 0 8px">IMAGE SETTINGS</h3>' +
-      field('Provider', '<select data-yis-setting="default_provider">' + provOpts + '</select>') +
-      fieldRow(
-        selectField('aspect_ratio', 'Aspect Ratio', (s.aspect_ratios || []).map(function (r) { return r.id; })),
-        selectField('resolution', 'Resolution', s.resolutions || ['1024'])
-      ) +
-      fieldRow(
-        selectField('lighting', 'Lighting', (s.lighting || []).map(function (l) { return l.id; })),
-        selectField('composition', 'Composition', (s.compositions || []).map(function (c) { return c.id; }))
-      ) +
-      fieldRow(
-        selectField('style', 'Style', (s.styles || []).map(function (st) { return st.id; })),
-        selectField('quality', 'Quality', (s.qualities || []).map(function (q) { return q.id; }))
-      ) +
-      fieldRow(
-        selectField('background', 'Background', s.backgrounds || []),
-        selectField('color_palette', 'Color', s.color_palettes || [])
-      ) +
-      fieldRow(
-        selectField('product_type', 'Product', s.product_types || []),
-        selectField('brand_tone', 'Brand Tone', s.brand_tones || [])
-      ) +
-      fieldRow(
-        selectField('image_count', 'Image Count', s.image_counts || [1, 2, 3, 4]),
-        '<div class="yis-field"><label>Seed</label><div class="yis-seed-row"><input type="number" data-yis-setting="seed" value="' + esc(String(state.settings.seed ?? -1)) + '"><button class="yis-btn-secondary" type="button" onclick="document.querySelector(\'[data-yis-setting=seed]\').value=-1">Random</button></div></div>'
-      ) +
-      '<div class="yis-credits-bar">' + creditLabel() + '</div>';
+  function hasOutputAsset(data) {
+    return resultImages(data).length > 0;
+  }
+
+  function smartControlsHtml() {
+    return advancedSectionHtml();
+  }
+
+  function controlsHtml() {
+    return smartControlsHtml();
   }
 
   function creditLabel() {
     if (state.credits.unlimited) return 'Credits: ∞';
     var est = state.credits.estimate || 0;
-    var bal = state.credits.balance ?? 0;
+    var bal = state.credits.balance != null ? state.credits.balance : 0;
     return est + ' credits (잔액 ' + bal + ')';
   }
 
@@ -274,81 +1606,278 @@
     return '<div class="yis-field-row">' + a + b + '</div>';
   }
 
-  function refUploadHtml(root) {
-    return '<div style="margin-top:12px"><h3 style="color:#d8a63a;font-size:13px">REFERENCE IMAGE</h3>' +
-      '<div class="yis-ref-upload" id="yis-ref-upload">' +
-        (state.referenceUrl ? '<img class="yis-ref-preview" src="' + esc(state.referenceUrl) + '">' : '클릭하여 참조 이미지 업로드') +
-      '</div><input type="file" id="yis-ref-file" accept="image/*" style="display:none"></div>';
+  function mountRefAssets(host, studioKey) {
+    if (!host || !global.YooYReferenceAssetsPanel) return;
+    if (state.refPanel) state.refPanel.destroy();
+    state.refPanel = global.YooYReferenceAssetsPanel.mount(host, {
+      studio: studioKey || 'image-studio',
+      assets: state.settings.reference_assets || [],
+      onChange: function (assets) {
+        state.settings.reference_assets = assets;
+        state.referenceUrl = assets[0] ? assets[0].url : '';
+        state.settings.reference_url = state.referenceUrl;
+        if (state.smartAuto && getSmartAuto()) {
+          var refCtx = getSmartAuto().analyzeReference(assets, state.settings.last_prompt || '');
+          state.refAnalysisLabels = refCtx.labels || [];
+        }
+        var root = document.getElementById('yai-image-studio');
+        if (root) {
+          refreshRefAnalysisPanel(root);
+          if (state.advancedOpen && state.smartAuto) previewSmartAuto(root);
+        }
+      }
+    });
   }
 
-  function handleRefUpload(input, root) {
-    var file = input.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function (ev) {
-      Core.image.uploadRef({ image_base64: ev.target.result }).then(function (res) {
-        state.referenceUrl = (res.data && res.data.reference && res.data.reference.url) || '';
-        state.settings.reference_url = state.referenceUrl;
-        renderTab(root);
-      });
-    };
-    reader.readAsDataURL(file);
+  function applyRefPayload(payload) {
+    if (global.YooYReferenceAssetsPanel && state.refPanel) {
+      return global.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+    }
+    return payload;
+  }
+
+  function refUploadHtml() {
+    return '<div id="yis-ref-panel-host"></div>';
   }
 
   function updatePreviewRatio(root) {
     var p = $('#yis-preview', root);
-    if (p) p.dataset.ratio = state.settings.aspect_ratio || '1:1';
+    if (p) {
+      var ratio = state.settings.size === 'auto' ? '1:1' : (state.settings.aspect_ratio || '1:1');
+      p.dataset.ratio = ratio;
+    }
   }
 
   function doGenerate(root) {
-    var prompt = ($('#yis-prompt', root) || {}).value || '';
-    var negative = ($('#yis-negative', root) || {}).value || '';
-    if (!prompt.trim()) return;
+    global.YooYLastGenerateClick = Date.now();
+    syncPromptFields(root);
+    var prompt = ($('#yis-prompt', root) || {}).value || state.settings.last_prompt || '';
+    if (!prompt.trim()) {
+      showGenerateError(root, 'Enter a prompt before generating.');
+      return;
+    }
 
+    var smart = runSmartAuto(prompt);
+    var sendPrompt = smart.optimizedPrompt || prompt;
+    var negative = state.settings.negative_prompt || '';
+
+    var preflight = getProviderPreflight();
+    if (!preflight.ok) {
+      showGenerateError(root, {
+        stage: 'provider_validation',
+        code: preflight.code,
+        message: preflight.message,
+        provider_name: preflight.provider && preflight.provider.name
+      });
+      updateProviderUX(root);
+      return;
+    }
+
+    if (state.generating) return;
+
+    var api = getImageApi();
+    if (!api) {
+      showGenerateError(root, 'Image API unavailable. Reload the page.');
+      return;
+    }
+
+    clearGenerateError(root);
     state.generating = true;
+    state.generateStartedAt = Date.now();
+    state.generateStep = 'preparing';
     state.settings.last_prompt = prompt;
-    state.settings.negative_prompt = negative;
-    state.settings.prompt = prompt;
+    state.settings.prompt = sendPrompt;
+    state.settings.smart_auto = state.smartAuto !== false;
+    state.settings.generation_mode = state.generationMode || 'fast';
     if (state.referenceUrl) state.settings.reference_url = state.referenceUrl;
     renderTab(root);
+    bindGenerateButton(root);
+    updateGenerateProgress(root);
 
-    Core.image.generate(state.settings).then(function (res) {
+    var providerId = state.settings.default_provider || 'auto';
+    var isAutoProvider = providerId === 'auto';
+    var payload = applyRefPayload(Object.assign({}, state.settings, {
+      prompt: sendPrompt,
+      user_prompt: prompt,
+      optimized_prompt: sendPrompt,
+      negative_prompt: negative,
+      provider: providerId,
+      size: state.settings.size || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || '',
+      auto_save: true,
+      smart_auto: state.smartAuto !== false,
+      generation_mode: state.generationMode || 'fast',
+      output_format: state.settings.output_format || 'png',
+      mood: state.settings.mood,
+      camera: state.settings.camera,
+      lens: state.settings.lens,
+      camera_angle: state.settings.camera_angle,
+      depth_of_field: state.settings.depth_of_field
+    }));
+
+    if (state.generationMode === 'fast') {
+      payload.quality = 'standard';
+      payload.image_count = 1;
+      if (!payload.size && state.settings.aspect_ratio === '1:1') {
+        payload.resolution = '1024';
+      }
+    } else if (state.smartAuto) {
+      payload.quality = state.settings.quality || 'hd';
+    }
+
+    if (isAutoProvider) {
+      delete payload.model;
+      delete payload.default_model;
+    } else {
+      payload.model = state.settings.default_model || state.settings.model || '';
+    }
+
+    state.generateStep = 'generating';
+    updateGenerateProgress(root);
+
+    logOpenAiRequestPreview(payload);
+    debugLog('generate request', payload.provider);
+    global.YooYLastGenerateRequest = '/image-studio/generate';
+
+    api.generate(payload).then(function (res) {
       finalizeJob(res.data || res, root);
     }).catch(function (err) {
+      if (isStudioAdmin() && err && err.details) {
+        logOpenAiResponse(err.details.data || err.details);
+      }
       state.generating = false;
-      var ws = $('#yis-workspace', root);
-      if (ws) ws.insertAdjacentHTML('beforeend', '<div class="yis-error">' + esc(err.message) + '</div>');
+      showGenerateError(root, err);
       renderTab(root);
+      bindGenerateButton(root);
     });
   }
 
   function finalizeJob(data, root) {
-    if (data.status === 'queued' || data.status === 'running') {
+    if (!data) {
+      state.generating = false;
+      showGenerateError(root, 'Empty response from server.');
+      renderTab(root);
+      return;
+    }
+
+    if (shouldPollJob(data)) {
+      state.generateStep = mapStatusToStep(data.status);
+      updateGenerateProgress(root);
       return pollUntilDone(data, root);
     }
+
+    if (data.status === 'failed' || data.status === 'error' || data.status === 'timeout') {
+      state.generating = false;
+      showGenerateError(root, data.error || 'Generation failed.');
+      renderTab(root);
+      return;
+    }
+
+    if (data.status === 'completed' && !hasOutputAsset(data)) {
+      state.generating = false;
+      showGenerateError(root, data.error || 'Generation completed but no output asset was returned.');
+      renderTab(root);
+      bindGenerateButton(root);
+      return;
+    }
+
     state.lastResult = data;
     state.generating = false;
+    state.generateStep = 'completed';
     state.activeGalleryId = (data.job_id || '') + '_0';
-    if (data.images && data.images[0]) state.selectedImage = data.images[0].url;
+    var imgs = resultImages(data);
+    if (imgs[0]) state.selectedImage = imgs[0].url;
     if (data.credits) state.credits.balance = data.credits.balance;
+    var resMeta = data.meta && data.meta.provider_resolution ? data.meta.provider_resolution : data;
+    var latencyMs = data.latency_ms || data.duration_ms || (state.generateStartedAt ? (Date.now() - state.generateStartedAt) : null);
+    state.lastDebugInfo = {
+      provider: data.provider_used || data.provider || selectedProviderId(),
+      model: data.model || state.settings.default_model || state.settings.model || '',
+      apiSize: resMeta.size || data.size || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || '',
+      latency: latencyMs
+    };
+    refreshDeveloperInfoPanel(root);
+    logOpenAiResponse(data);
+    if (data.warning) {
+      showGenerateInfo(root, data.warning);
+    } else if (isDebugMode() && (data.size_corrected || (resMeta && resMeta.size_corrected))) {
+      showGenerateInfo(root, '[Debug] Size adjusted from ' + (resMeta.size_original || resMeta.size_requested || 'requested') + ' to ' + (resMeta.size || state.settings.size) + '.');
+    } else if (data.fallback_reason) {
+      showGenerateInfo(root, isDebugMode() ? ('Using Mock provider (' + data.fallback_reason + ').') : '');
+    } else if (isDebugMode()) {
+      var used = data.provider_used || data.provider || '';
+      if (used) showGenerateInfo(root, 'Provider used: ' + used);
+    } else {
+      showGenerateInfo(root, '');
+    }
     notifyGalleryUpdated();
+    refreshAutoResultPanel(root);
     renderTab(root);
+    bindGenerateButton(root);
     return data;
   }
 
   function pollUntilDone(data, root) {
-    var provider = data.provider || state.settings.default_provider || 'mock';
+    var provider = data.provider_used || data.provider || state.settings.default_provider || 'mock';
     var jobId = data.job_id;
     var attempts = 0;
+    var startedAt = Date.now();
+    var lastStatus = data.status || '';
+    var lastProgress = data.progress || 0;
+    var lastChangeAt = Date.now();
+
+    function failPoll(message, job) {
+      state.generating = false;
+      state.generateStep = message.indexOf('timeout') >= 0 || message.indexOf('Timeout') >= 0 ? 'timeout' : 'failed';
+      showGenerateError(root, (job && job.error) || message);
+      renderTab(root);
+      bindGenerateButton(root);
+    }
 
     function tick() {
       attempts += 1;
-      return Core.image.pollJob(jobId, provider).then(function (res) {
+      var elapsed = Date.now() - startedAt;
+      if (elapsed >= POLL_MAX_MS || attempts > POLL_MAX_ATTEMPTS) {
+        failPoll('Generation timed out after ' + Math.round(elapsed / 1000) + ' seconds.', data);
+        return;
+      }
+
+      state.generateStep = mapStatusToStep(lastStatus);
+      updateGenerateProgress(root);
+
+      return getImageApi().pollJob(jobId, provider).then(function (res) {
         var job = (res.data && res.data.job) || res.data || res;
-        if ((job.status === 'queued' || job.status === 'running') && attempts < 10) {
-          return new Promise(function (r) { setTimeout(r, 800); }).then(tick);
+        var status = job.status || '';
+        var progress = job.progress || 0;
+
+        if (status !== lastStatus || progress !== lastProgress) {
+          lastStatus = status;
+          lastProgress = progress;
+          lastChangeAt = Date.now();
+        } else if (Date.now() - lastChangeAt >= POLL_STALE_MS) {
+          failPoll('Generation timed out (no progress for 30 seconds).', job);
+          return;
         }
+
+        if (!job.provider_job_id && !hasOutputAsset(job) && provider !== 'mock' &&
+            ['queued', 'running', 'processing', 'pending'].indexOf(status) >= 0 &&
+            attempts > 1) {
+          failPoll('Job has no provider reference and no output.', job);
+          return;
+        }
+
+        if (shouldPollJob(job)) {
+          return new Promise(function (r) { setTimeout(r, POLL_INTERVAL_MS); }).then(tick);
+        }
+
+        state.generateStep = status === 'completed' ? 'saving' : mapStatusToStep(status);
+        updateGenerateProgress(root);
         return finalizeJob(job, root);
+      }).catch(function (err) {
+        state.generating = false;
+        state.generateStep = 'failed';
+        showGenerateError(root, err);
+        renderTab(root);
+        bindGenerateButton(root);
       });
     }
     return tick();
@@ -374,7 +1903,9 @@
   function doEdit(root) {
     if (!state.selectedImage) return;
     var prompt = ($('#yis-edit-prompt', root) || {}).value || '';
-    var fn = Core.image[state.editMode] || Core.image.edit;
+    var api = getImageApi();
+    if (!api) return;
+    var fn = api[state.editMode] || api.edit;
     fn({ source_url: state.selectedImage, prompt: prompt, provider: state.settings.default_provider || 'mock', auto_save: true }).then(function (res) {
       var data = res.data || res;
       state.selectedImage = (data.images && data.images[0] && data.images[0].url) || (data.output && data.output.primary) || (data.output && data.output.url) || state.selectedImage;
@@ -387,24 +1918,180 @@
     });
   }
 
-  function renderGallery(ws, ctrl) {
+  function renderGallery(ws, ctrl, root) {
+    root = root || document.getElementById('yai-image-studio');
     ws.innerHTML = '<div class="yis-loading">Loading...</div>';
-    Core.image.gallery().then(function (res) {
+    ctrl.innerHTML = '<div class="yis-gallery-hint">이미지를 선택하면 생성 정보가 표시됩니다.</div>';
+    getImageApi().gallery().then(function (res) {
       var items = (res.data && res.data.items) || [];
-      if (!items.length) { ws.innerHTML = '<div class="yis-empty">갤러리가 비어 있습니다.</div>'; return; }
+      state.galleryItems = items;
+      if (!items.length) {
+        ws.innerHTML = '<div class="yis-empty">갤러리가 비어 있습니다.</div>';
+        ctrl.innerHTML = '<div class="yis-gallery-hint">Generate로 이미지를 생성하세요.</div>';
+        return;
+      }
+      if (!state.gallerySelectedId || !items.some(function (it) { return it.id === state.gallerySelectedId; })) {
+        state.gallerySelectedId = items[0].id;
+      }
       ws.innerHTML = '<div class="yis-header"><h2>Gallery</h2><span class="yis-badge">' + items.length + '</span></div>' +
-        '<div class="yis-grid">' + items.map(function (item) {
-          var url = item.output_url || item.url || item.thumbnail || '';
-          return '<div class="yis-thumb-card" data-yis-reuse="' + esc(item.id) + '" data-yis-source="gallery" data-yis-select="' + esc(url) + '">' +
-            '<img src="' + esc(item.thumbnail || url) + '" alt=""><span>' + esc(item.title) + '</span></div>';
+        '<div class="yis-grid yis-gallery-grid">' + items.map(function (item) {
+          if (item.asset_missing) {
+            return '<div class="yis-thumb-card yis-thumb-card--missing" data-yis-gallery-id="' + esc(item.id) + '"><span>Asset missing</span><span>' + esc(item.title) + '</span></div>';
+          }
+          var url = item.image_url || item.output_url || item.url || '';
+          var thumb = item.thumbnail_url || item.thumbnail || url;
+          var active = state.gallerySelectedId === item.id ? ' is-selected' : '';
+          return '<div class="yis-thumb-card' + active + '" data-yis-gallery-id="' + esc(item.id) + '">' +
+            '<img src="' + esc(thumb) + '" alt=""><span>' + esc(item.title) + '</span></div>';
         }).join('') + '</div>';
-      ctrl.innerHTML = '<p style="color:#888;font-size:13px">클릭: Prompt Reuse · 이미지 선택: Edit 탭에서 편집</p>';
+      if (root) renderGalleryDetail(root);
+    });
+  }
+
+  function findGalleryItem(id) {
+    return (state.galleryItems || []).find(function (it) { return it.id === id; }) || null;
+  }
+
+  function galleryOptimizedPrompt(item) {
+    if (!item) return '';
+    var meta = item.meta || {};
+    return meta.optimized_prompt || item.optimized_prompt || '';
+  }
+
+  function renderGalleryDetail(root) {
+    var ctrl = $('#yis-controls', root);
+    if (!ctrl) return;
+    var item = findGalleryItem(state.gallerySelectedId);
+    if (!item) {
+      ctrl.innerHTML = '<div class="yis-gallery-hint">이미지를 선택하세요.</div>';
+      return;
+    }
+    var url = item.image_url || item.output_url || item.url || '';
+    var thumb = item.thumbnail_url || item.thumbnail || url;
+    var meta = item.meta || {};
+    var optimized = galleryOptimizedPrompt(item) || (state.lastResult && state.lastResult.job_id && item.job_id === state.lastResult.job_id ? state.lastOptimizedPrompt : '');
+    var created = item.created_at || '';
+    var resolution = meta.resolution || item.resolution || '—';
+    var credits = item.credits_used != null ? item.credits_used : (meta.credits_used || '—');
+    var refUrl = meta.reference_url || item.reference_url || '';
+
+    ctrl.innerHTML = '<div class="yis-gallery-detail">' +
+      '<h3 class="yis-gallery-detail__title">생성 정보</h3>' +
+      (thumb ? '<img class="yis-gallery-detail__preview" src="' + esc(thumb) + '" alt="">' : '') +
+      '<dl class="yis-gallery-detail__meta">' +
+        detailRow('Provider', item.provider || '—') +
+        detailRow('Model', item.model || '—') +
+        detailRow('Prompt', item.prompt || '—') +
+        (optimized ? detailRow('Optimized Prompt', optimized) : '') +
+        (refUrl ? '<div class="yis-gallery-detail__ref"><dt>Reference</dt><dd><img src="' + esc(refUrl) + '" alt="ref"></dd></div>' : '') +
+        detailRow('생성시간', created ? formatGalleryDate(created) : '—') +
+        detailRow('해상도', resolution) +
+        detailRow('Credits', String(credits)) +
+      '</dl>' +
+      '<div class="yis-gallery-detail__actions">' +
+        '<button type="button" class="yis-btn-secondary" data-yis-gallery-action="regenerate" data-yis-gallery-id="' + esc(item.id) + '">재생성</button>' +
+        '<button type="button" class="yis-btn-secondary" data-yis-gallery-action="edit" data-yis-gallery-id="' + esc(item.id) + '">Edit</button>' +
+        '<button type="button" class="yis-btn-secondary" data-yis-gallery-action="variation" data-yis-gallery-id="' + esc(item.id) + '">Variation</button>' +
+        '<button type="button" class="yis-btn-secondary" data-yis-gallery-action="upscale" data-yis-gallery-id="' + esc(item.id) + '">Upscale</button>' +
+        '<button type="button" class="yis-btn-secondary" data-yis-gallery-action="download" data-yis-gallery-id="' + esc(item.id) + '">Download</button>' +
+        '<button type="button" class="yis-btn-secondary yis-btn-danger" data-yis-gallery-action="delete" data-yis-gallery-id="' + esc(item.id) + '">Delete</button>' +
+      '</div></div>';
+
+    root.querySelectorAll('[data-yis-gallery-id]').forEach(function (el) {
+      el.classList.toggle('is-selected', el.dataset.yisGalleryId === state.gallerySelectedId);
+    });
+  }
+
+  function detailRow(label, value) {
+    return '<div><dt>' + esc(label) + '</dt><dd>' + esc(value) + '</dd></div>';
+  }
+
+  function formatGalleryDate(iso) {
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleString();
+    } catch (e) { return iso; }
+  }
+
+  function handleGalleryAction(action, id, root) {
+    if (!id) return;
+    var item = findGalleryItem(id);
+    if (action === 'download' && Core && Core.gallery) {
+      Core.gallery.download(id).then(function (res) {
+        var info = res.data || {};
+        if (info.url) { var a = document.createElement('a'); a.href = info.url; a.download = info.filename || 'image'; a.target = '_blank'; a.click(); }
+      });
+      return;
+    }
+    if (action === 'delete') {
+      deleteGalleryItem(id).then(function () {
+        state.galleryItems = (state.galleryItems || []).filter(function (it) { return it.id !== id; });
+        state.gallerySelectedId = state.galleryItems[0] ? state.galleryItems[0].id : null;
+        renderGallery($('#yis-workspace', root), $('#yis-controls', root), root);
+      }).catch(function (err) {
+        showGenerateError(root, err.message || 'Delete failed.');
+      });
+      return;
+    }
+    if (action === 'edit') {
+      if (item) {
+        state.selectedImage = item.image_url || item.output_url || item.url || '';
+        state.activeGalleryId = id;
+      }
+      state.tab = 'edit';
+      setTab(root);
+      renderTab(root);
+      return;
+    }
+    if (action === 'upscale') {
+      var src = item && (item.image_url || item.output_url || item.url);
+      if (!src) return;
+      getImageApi().upscale({ source_url: src, provider: item.provider || state.settings.default_provider || 'auto', auto_save: true }).then(function (res) {
+        finalizeJob(res.data || res, root);
+        state.tab = 'generate';
+        setTab(root);
+        renderTab(root);
+      });
+      return;
+    }
+    if (action === 'variation') {
+      reusePrompt(id, 'gallery', root);
+      state.settings.last_prompt = (state.settings.last_prompt || '') + ' — creative variation';
+      state.tab = 'generate';
+      setTab(root);
+      renderTab(root);
+      return;
+    }
+    if (action === 'regenerate' && Core && Core.gallery) {
+      Core.gallery.regenerate(id).then(function () {
+        state.tab = 'generate';
+        setTab(root);
+        renderTab(root);
+      });
+    }
+  }
+
+  function deleteGalleryItem(id) {
+    var api = getImageApi();
+    if (api && api.deleteGallery) return api.deleteGallery(id);
+    var cfg = (Core && Core.config) || global.YooYStudio || {};
+    var url = (cfg.restUrl || '').replace(/\/$/, '') + '/image-studio/gallery/' + encodeURIComponent(id);
+    return fetch(url, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+      credentials: 'same-origin'
+    }).then(function (res) {
+      return res.json().then(function (json) {
+        if (!res.ok) throw new Error((json && json.message) || 'Delete failed');
+        return json;
+      });
     });
   }
 
   function renderHistory(ws, ctrl) {
     ws.innerHTML = '<div class="yis-loading">Loading...</div>';
-    Core.image.history().then(function (res) {
+    getImageApi().history().then(function (res) {
       var items = (res.data && res.data.history) || [];
       if (!items.length) { ws.innerHTML = '<div class="yis-empty">프롬프트 히스토리가 없습니다.</div>'; return; }
       ws.innerHTML = '<div class="yis-header"><h2>Prompt History</h2><span class="yis-badge">' + items.length + '</span></div>' +
@@ -421,7 +2108,7 @@
   }
 
   function reusePrompt(id, source, root) {
-    Core.image.promptReuse({ source_type: source, source_id: id }).then(function (res) {
+    getImageApi().promptReuse({ source_type: source, source_id: id }).then(function (res) {
       var reuse = (res.data && res.data.reuse) || {};
       Object.assign(state.settings, reuse);
       state.settings.last_prompt = reuse.prompt || '';
@@ -432,7 +2119,8 @@
   }
 
   function renderSettings(ws, ctrl) {
-    ws.innerHTML = '<div class="yis-header"><h2>Settings</h2></div><div style="margin-top:12px">' + controlsHtml() + '</div>' +
+    ws.innerHTML = '<div class="yis-header"><h2>Settings</h2></div>' +
+      '<div class="yis-advanced-inner" style="margin-top:12px">' + advancedFieldsInnerHtml() + '</div>' +
       '<button class="yis-btn-primary" id="yis-save-settings" type="button" style="margin-top:16px">Save Settings</button>';
     ctrl.innerHTML = '<h3 style="color:#d8a63a;font-size:13px">API Router</h3>' +
       state.providers.map(function (p) {
@@ -441,8 +2129,45 @@
   }
 
   function saveSettings(root) {
-    Core.image.updateSettings(state.settings).then(function () { renderTab(root); });
+    var api = getImageApi();
+    if (!api) return;
+    api.updateSettings(state.settings).then(function () { renderTab(root); });
   }
 
-  window.YooYImageStudio = { mount: mount, state: state };
-})();
+  publicApi.mount = mount;
+  publicApi.doGenerate = doGenerate;
+  publicApi.state = state;
+  global.YooYImageStudio = publicApi;
+
+  installGlobalGenerateHandler();
+
+  function bootImageStudio() {
+    try {
+      var el = document.getElementById('yai-image-studio');
+      if (!el) return;
+      var view = el.closest('.yai-view');
+      if (view && !view.classList.contains('is-active')) return;
+      if (el.dataset.mounted === '1') return;
+      mount(el);
+    } catch (bootErr) {
+      debugLog('boot error', bootErr);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootImageStudio);
+  } else {
+    bootImageStudio();
+  }
+
+  } catch (initErr) {
+    if (global.console && global.console.error) {
+      global.console.error('[YooYImageStudio] init failed', initErr);
+    }
+    publicApi.mount = function (container) {
+      if (container) {
+        container.innerHTML = '<div class="yis-error">Image Studio failed to initialize.</div>';
+      }
+    };
+  }
+})(window);

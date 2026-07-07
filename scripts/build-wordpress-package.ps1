@@ -1,6 +1,6 @@
 # YooY AI Studio — WordPress package build
 param(
-    [string]$Version = '11.3.0-beta',
+    [string]$Version = '12.0.0',
     [string]$ZipName = '',
     [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 )

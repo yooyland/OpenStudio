@@ -72,8 +72,8 @@ final class YooY_Video_Templates {
                 'id' => 'tpl_smartstore', 'title' => '스마트스토어 제품 영상', 'category' => 'ecommerce',
                 'prompt' => '스마트스토어 제품 소개 영상. 흰 배경, 360도 회전, 가격/혜택 뱃지 공간, 한국 이커머스 스타일.',
                 'aspect_ratio' => '1:1', 'duration' => 10, 'style' => 'commercial', 'camera_motion' => 'orbit',
-                'recommended_provider' => 'topview', 'tags' => ['스마트스토어', '제품', '이커머스'],
-                'guide' => 'Topview에 최적화된 상업용 템플릿입니다.',
+                'recommended_provider' => 'runway', 'tags' => ['스마트스토어', '제품', '이커머스'],
+                'guide' => 'Runway 상업용 템플릿에 최적화되어 있습니다.',
             ],
             [
                 'id' => 'tpl_yt_shorts', 'title' => '유튜브 쇼츠 3초 훅', 'category' => 'youtube',
@@ -86,7 +86,7 @@ final class YooY_Video_Templates {
                 'id' => 'tpl_instagram_reels', 'title' => '인스타 릴스 카페', 'category' => 'sns',
                 'prompt' => '한국 감성 카페 릴스. 따뜻한 톤, 라떼아트 클로즈업, BGM 리듬감, 세로 9:16.',
                 'aspect_ratio' => '9:16', 'duration' => 10, 'style' => 'documentary', 'camera_motion' => 'pan_right',
-                'recommended_provider' => 'topview', 'tags' => ['인스타', '릴스', '카페'],
+                'recommended_provider' => 'google-veo', 'tags' => ['인스타', '릴스', '카페'],
                 'guide' => '트렌디한 한국 SNS 감성에 맞춘 템플릿.',
             ],
             [

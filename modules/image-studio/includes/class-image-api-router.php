@@ -11,6 +11,10 @@ final class YooY_Image_API_Router {
     }
 
     public function providers(): array {
+        if (class_exists('YooY_Provider_Catalog')) {
+            return YooY_Provider_Catalog::list_for_studio('image', $this->providers);
+        }
+
         $list = [];
         foreach ($this->providers as $provider) {
             $list[] = [
@@ -27,7 +31,11 @@ final class YooY_Image_API_Router {
         $provider = $this->resolve($params['provider'] ?? 'mock');
         $params['job_id'] = $params['job_id'] ?? ('img_' . wp_generate_uuid4());
         $raw = $provider->generate($params);
-        $normalized = YooY_Job_Normalizer::normalize($raw, 'image');
+        if (isset($raw['type'], $raw['job_id'])) {
+            $normalized = $raw;
+        } else {
+            $normalized = YooY_Job_Normalizer::normalize($raw, 'image');
+        }
         return apply_filters('yoy_image_studio_generate', $normalized, $params);
     }
 
@@ -45,30 +53,29 @@ final class YooY_Image_API_Router {
     }
 
     private function resolve(string $id): YooY_Image_Provider_Interface {
-        if (!isset($this->providers[$id])) {
-            if (!isset($this->providers['mock'])) {
-                throw new Exception('Image provider not available.');
-            }
-            return $this->providers['mock'];
+        $route_id = class_exists('YooY_Provider_Catalog')
+            ? YooY_Provider_Catalog::route_id($id)
+            : $id;
+        if ($route_id === 'flux') {
+            $route_id = 'replicate';
         }
-        return $this->providers[$id];
+
+        if (isset($this->providers[$id])) {
+            return $this->providers[$id];
+        }
+        if (isset($this->providers[$route_id])) {
+            return $this->providers[$route_id];
+        }
+        if (!isset($this->providers['mock'])) {
+            throw new Exception('Image provider not available.');
+        }
+        return $this->providers['mock'];
     }
 
     private function boot_providers(): void {
-        $map = [
-            'mock'      => ['file' => 'mock-image/class-mock-image-provider.php', 'class' => 'YooY_Mock_Image_Provider'],
-            'openai'    => ['file' => 'openai-image/class-openai-image-provider.php', 'class' => 'YooY_OpenAI_Image_Provider'],
-            'replicate' => ['file' => 'replicate-image/class-replicate-image-provider.php', 'class' => 'YooY_Replicate_Image_Provider'],
-            'topview'   => ['file' => 'topview-image/class-topview-image-provider.php', 'class' => 'YooY_Topview_Image_Provider'],
-        ];
-
-        foreach ($map as $id => $info) {
-            $file = YOY_AI_STUDIO_PROVIDERS_DIR . $info['file'];
-            if (!file_exists($file)) continue;
-            require_once $file;
-            if (class_exists($info['class'])) {
-                $this->providers[$id] = new $info['class']();
-            }
+        require_once YOY_AI_STUDIO_PROVIDERS_DIR . 'helpers/class-yoy-provider-bootstrap.php';
+        if (class_exists('YooY_Provider_Bootstrap')) {
+            YooY_Provider_Bootstrap::register_image($this->providers);
         }
     }
 }

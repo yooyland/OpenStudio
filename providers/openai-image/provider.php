@@ -7,7 +7,7 @@ return [
     'id'     => 'openai',
     'name'   => 'GPT Image',
     'types'  => ['image'],
-    'status' => get_option('yoy_openai_api_key') ? 'active' : 'pending',
-    'mock'   => !get_option('yoy_openai_api_key'),
+    'status' => YooY_Secrets::has_api_key('yoy_openai_api_key') ? 'active' : 'pending',
+    'mock'   => !YooY_Secrets::has_api_key('yoy_openai_api_key'),
     'models' => ['dall-e-3', 'gpt-image-1'],
 ];

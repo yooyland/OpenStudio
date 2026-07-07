@@ -33,6 +33,7 @@ final class YooY_Job_Store {
 
     public function save(int $user_id, array $job, string $studio = ''): array {
         $normalized = YooY_Job_Normalizer::normalize($job, $job['type'] ?? 'image');
+        $normalized = YooY_Job_Normalizer::ensure_output_or_fail($normalized);
         $entry = array_merge($normalized, [
             'studio'     => $studio ?: ($job['studio'] ?? ''),
             'id'         => $normalized['job_id'],

@@ -46,17 +46,13 @@ final class YooY_Module_AI_Router extends YooY_Module_Base {
     }
 
     public function providers(WP_REST_Request $request): WP_REST_Response {
-        $providers = [];
-        if (is_dir(YOY_AI_STUDIO_PROVIDERS_DIR)) {
-            foreach (glob(YOY_AI_STUDIO_PROVIDERS_DIR . '*/provider.php') as $file) {
-                $meta = include $file;
-                if (is_array($meta)) $providers[] = $meta;
-            }
-        }
+        $providers = class_exists('YooY_Provider_Catalog')
+            ? YooY_Provider_Catalog::public_meta()
+            : [];
 
         return $this->success([
             'providers' => $providers,
-            'default'   => 'mock',
+            'default'   => 'auto',
             'statuses'  => YooY_Job_Status::all(),
         ]);
     }
@@ -66,12 +62,23 @@ final class YooY_Module_AI_Router extends YooY_Module_Base {
             $user_id = $this->require_user();
             if ($user_id instanceof WP_REST_Response) return $user_id;
 
-            $payload = [
-                'type'     => sanitize_text_field($request->get_param('type') ?: 'image'),
-                'prompt'   => sanitize_textarea_field($request->get_param('prompt') ?: ''),
-                'provider' => sanitize_text_field($request->get_param('provider') ?: 'mock'),
+            $body = $request->get_json_params() ?: [];
+            $payload = array_merge($body, [
+                'type'     => sanitize_text_field($body['type'] ?? $request->get_param('type') ?: 'image'),
+                'prompt'   => sanitize_textarea_field($body['prompt'] ?? $request->get_param('prompt') ?: ''),
+                'provider' => sanitize_text_field($body['provider'] ?? $request->get_param('provider') ?: 'auto'),
                 'job_id'   => 'job_' . wp_generate_uuid4(),
-            ];
+            ]);
+
+            if (!empty($body['reference_assets']) && is_array($body['reference_assets'])) {
+                if (!class_exists('YooY_Reference_Asset_Service')) {
+                    require_once YOY_AI_STUDIO_MODULES_DIR . 'reference-assets/includes/class-reference-asset-service.php';
+                }
+                $payload['reference_assets'] = YooY_Reference_Asset_Service::normalize_payload_list($body['reference_assets']);
+                if (!empty($payload['reference_assets'][0]['url'])) {
+                    $payload['reference_url'] = esc_url_raw($payload['reference_assets'][0]['url']);
+                }
+            }
 
             if ($payload['prompt'] === '') {
                 return $this->error('Prompt is required.');
@@ -90,7 +97,7 @@ final class YooY_Module_AI_Router extends YooY_Module_Base {
             if ($user_id instanceof WP_REST_Response) return $user_id;
 
             $type     = sanitize_text_field($request->get_param('type') ?: 'image');
-            $provider = sanitize_text_field($request->get_param('provider') ?: 'mock');
+            $provider = sanitize_text_field($request->get_param('provider') ?: 'auto');
             $job_id   = sanitize_text_field($request->get_param('id'));
 
             $result = $this->dispatcher->status($user_id, $type, $provider, $job_id);

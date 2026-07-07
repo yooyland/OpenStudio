@@ -15,7 +15,8 @@
     generating: false,
     lastResult: null,
     activeGalleryId: null,
-    referenceUrl: ''
+    referenceUrl: '',
+    refPanel: null
   };
 
   function $(s, c) { return (c || document).querySelector(s); }
@@ -78,8 +79,6 @@
 
       var reuse = e.target.closest('[data-yms-reuse]');
       if (reuse) { reusePrompt(reuse.dataset.ymsReuse, reuse.dataset.ymsSource || 'history', root); return; }
-
-      if (e.target.closest('#yms-ref-upload')) { $('#yms-ref-file', root).click(); return; }
     });
 
     root.addEventListener('change', function (e) {
@@ -87,7 +86,6 @@
         state.settings[e.target.dataset.ymsSetting] = e.target.type === 'range' ? parseInt(e.target.value, 10) : e.target.value;
         if (['duration', 'audio_quality'].indexOf(e.target.dataset.ymsSetting) >= 0) refreshCreditsEstimate();
       }
-      if (e.target.id === 'yms-ref-file') handleRefUpload(e.target);
     });
 
     root.addEventListener('input', function (e) {
@@ -203,7 +201,33 @@
       '<button class="yms-btn-primary" id="yms-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Creating...' : 'Create') + '</button>' +
       resultActionsHtml();
 
-    ctrl.innerHTML = controlsHtml() + refHtml(root);
+    ctrl.innerHTML = controlsHtml() + refHtml();
+    mountRefAssets($('#yms-ref-panel-host', ctrl), 'music-studio');
+  }
+
+  function mountRefAssets(host, studioKey) {
+    if (!host || !window.YooYReferenceAssetsPanel) return;
+    if (state.refPanel) state.refPanel.destroy();
+    state.refPanel = window.YooYReferenceAssetsPanel.mount(host, {
+      studio: studioKey || 'music-studio',
+      assets: state.settings.reference_assets || [],
+      onChange: function (assets) {
+        state.settings.reference_assets = assets;
+        state.referenceUrl = assets[0] ? assets[0].url : '';
+        state.settings.reference_url = state.referenceUrl;
+      }
+    });
+  }
+
+  function applyRefPayload(payload) {
+    if (window.YooYReferenceAssetsPanel && state.refPanel) {
+      return window.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+    }
+    return payload;
+  }
+
+  function refHtml() {
+    return '<div id="yms-ref-panel-host"></div>';
   }
 
   function playerHtml() {
@@ -226,7 +250,7 @@
   function controlsHtml() {
     var s = state.schema;
     var prov = state.providers.map(function (p) {
-      return '<option value="' + esc(p.id) + '"' + ((state.settings.default_provider || 'mock') === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+      return '<option value="' + esc(p.id) + '"' + ((state.settings.default_provider || 'auto') === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
     }).join('');
 
     function sel(key, label, items) {
@@ -246,31 +270,12 @@
       sel('duration', 'Duration', (s.durations || []).map(function (d) { return { id: d, label: d + 's' }; }));
   }
 
-  function refHtml(root) {
-    return '<div style="margin-top:12px"><h3 style="color:#d8a63a;font-size:13px">REFERENCE SONG</h3>' +
-      '<div class="yms-ref-upload" id="yms-ref-upload">' + (state.referenceUrl ? '✓ Reference loaded' : '참조 곡 업로드') + '</div>' +
-      '<input type="file" id="yms-ref-file" accept="audio/*" style="display:none"></div>';
-  }
-
   function loadSkeleton(id, root) {
     Core.music.skeleton(id, state.settings.language || 'ko').then(function (res) {
       state.settings.lyrics = (res.data && res.data.lyrics) || '';
       state.settings.structure_template = id;
       renderTab(root);
     });
-  }
-
-  function handleRefUpload(input) {
-    var file = input.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function (ev) {
-      Core.music.uploadRef({ title: file.name, audio_base64: ev.target.result }).then(function (res) {
-        state.referenceUrl = (res.data && res.data.reference && res.data.reference.url) || '';
-        state.settings.reference_url = state.referenceUrl;
-      });
-    };
-    reader.readAsDataURL(file);
   }
 
   function doGenerate(root) {
@@ -285,7 +290,8 @@
     if (prompt) state.settings.prompt = prompt;
     renderTab(root);
 
-    Core.music.generate(state.settings).then(function (res) {
+    var payload = applyRefPayload(Object.assign({}, state.settings));
+    Core.music.generate(payload).then(function (res) {
       finalizeJob(res.data || res, root);
     }).catch(function (err) {
       state.generating = false;
@@ -295,9 +301,30 @@
     });
   }
 
+  function hasOutputAsset(data) {
+    var url = data.audio_url || (data.output && (data.output.primary || data.output.audio_url || data.output.url));
+    return !!(url && String(url).indexOf('http') === 0);
+  }
+
   function finalizeJob(data, root) {
     if (data.status === 'queued' || data.status === 'running') {
       return pollUntilDone(data, root);
+    }
+    if (data.status === 'failed' || data.error) {
+      state.generating = false;
+      var ws = $('#yms-workspace', root);
+      if (ws) ws.insertAdjacentHTML('beforeend', '<div class="yms-error">' + esc(data.error || 'Generation failed.') + '</div>');
+      renderTab(root);
+      return data;
+    }
+    if (data.status === 'completed' && !hasOutputAsset(data)) {
+      data.status = 'failed';
+      data.error = 'Generation completed but no output asset was returned.';
+      state.generating = false;
+      var ws2 = $('#yms-workspace', root);
+      if (ws2) ws2.insertAdjacentHTML('beforeend', '<div class="yms-error">' + esc(data.error) + '</div>');
+      renderTab(root);
+      return data;
     }
     state.lastResult = data;
     state.generating = false;
@@ -312,7 +339,7 @@
   }
 
   function pollUntilDone(data, root) {
-    var provider = data.provider || state.settings.default_provider || 'mock';
+    var provider = data.provider || state.settings.default_provider || 'auto';
     var jobId = data.job_id;
     var attempts = 0;
 

@@ -6,13 +6,23 @@
 
   Core.gallery = {
     showcase: function () { return Core.get('gallery', '/showcase'); },
-    works: function () { return Core.get('gallery', '/works'); },
+    works: function (params) {
+      var q = '';
+      if (params) {
+        var parts = [];
+        if (params.type) parts.push('type=' + encodeURIComponent(params.type));
+        if (params.project_id) parts.push('project_id=' + encodeURIComponent(params.project_id));
+        if (parts.length) q = '?' + parts.join('&');
+      }
+      return Core.get('gallery', '/works' + q);
+    },
     types: function () { return Core.get('gallery', '/types'); },
     items: function (params) {
       var q = '';
       if (params) {
         var parts = [];
         if (params.type) parts.push('type=' + encodeURIComponent(params.type));
+        if (params.project_id) parts.push('project_id=' + encodeURIComponent(params.project_id));
         if (params.favorite) parts.push('favorite=1');
         if (params.sync) parts.push('sync=1');
         if (parts.length) q = '?' + parts.join('&');
@@ -29,10 +39,13 @@
     copy: function (id) { return Core.post('gallery', '/items/' + id + '/copy'); },
     regenerate: function (id) { return Core.post('gallery', '/items/' + id + '/regenerate'); },
     download: function (id) { return Core.get('gallery', '/items/' + id + '/download'); },
-    marketplace: function (id) { return Core.post('gallery', '/items/' + id + '/marketplace'); },
+    marketplace: function (id, data) { return Core.post('gallery', '/items/' + id + '/marketplace', data || {}); },
     community: function (id) { return Core.post('gallery', '/items/' + id + '/community'); },
     publish: function (id) { return Core.post('gallery', '/items/' + id + '/publish'); },
-    project: function (id, projectId) { return Core.post('gallery', '/items/' + id + '/project', { project_id: projectId || '' }); }
+    project: function (id, projectId) { return Core.post('gallery', '/items/' + id + '/project', { project_id: projectId || '' }); },
+    duplicate: function (id) { return Core.post('gallery', '/items/' + id + '/duplicate', {}); },
+    share: function (id) { return Core.get('gallery', '/items/' + id + '/share'); },
+    useAsReference: function (id, data) { return Core.post('gallery', '/items/' + id + '/reference', data || {}); }
   };
 
   Core.apiDelete = function (module, endpoint) {

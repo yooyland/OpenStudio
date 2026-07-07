@@ -58,7 +58,7 @@ final class YooY_Module_Voice_Studio extends YooY_Module_Base {
         $base = YOY_AI_STUDIO_URL . 'assets/modules/voice-studio/';
         wp_enqueue_style('yoy-voice-studio', $base . 'voice-studio.css', ['yoy-ai-studio'], $this->version());
         wp_enqueue_script('yoy-voice-api', $base . 'voice-api.js', ['yoy-ai-studio-core'], $this->version(), true);
-        wp_enqueue_script('yoy-voice-studio', $base . 'voice-studio.js', ['yoy-voice-api'], $this->version(), true);
+        wp_enqueue_script('yoy-voice-studio', $base . 'voice-studio.js', ['yoy-voice-api', 'yoy-reference-assets-panel'], $this->version(), true);
     }
 
     public function config(): WP_REST_Response {

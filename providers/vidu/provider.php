@@ -7,7 +7,7 @@ return [
     'id'     => 'vidu',
     'name'   => 'Vidu',
     'types'  => ['avatar', 'scene'],
-    'status' => get_option('yoy_vidu_api_key') ? 'active' : 'pending',
-    'mock'   => !get_option('yoy_vidu_api_key'),
+    'status' => YooY_Secrets::has_api_key('yoy_vidu_api_key') ? 'active' : 'pending',
+    'mock'   => !YooY_Secrets::has_api_key('yoy_vidu_api_key'),
     'models' => ['vidu-avatar', 'vidu-scene'],
 ];

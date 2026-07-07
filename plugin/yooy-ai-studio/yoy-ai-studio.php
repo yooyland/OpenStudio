@@ -2,7 +2,7 @@
 /**
  * Plugin Name: YooY AI Studio
  * Description: YooY Land AI Creator OS - Core Engine connecting AI Router, Credits, Gallery, Projects, and all modules.
- * Version: 11.3.0-beta
+ * Version: 11.7.8
  * Requires PHP: 7.4
  * Author: YooY Land
  * Text Domain: yooy-ai-studio
@@ -21,7 +21,7 @@ if (version_compare(PHP_VERSION, '7.4.0', '<')) {
     return;
 }
 
-define('YOY_AI_STUDIO_VERSION', '11.3.0-beta');
+define('YOY_AI_STUDIO_VERSION', '11.7.8');
 define('YOY_AI_STUDIO_FILE', __FILE__);
 define('YOY_AI_STUDIO_DIR', plugin_dir_path(__FILE__));
 define('YOY_AI_STUDIO_URL', plugin_dir_url(__FILE__));
@@ -52,15 +52,28 @@ define('YOY_AI_STUDIO_PROVIDERS_DIR', yoy_ai_studio_resolve_dir('providers'));
 $core_files = [
     'includes/core/interface-yoy-module.php',
     'includes/core/class-yoy-module-base.php',
+    'includes/core/class-yoy-rest-error.php',
+    'includes/core/class-yoy-generation-exception.php',
     'includes/core/class-yoy-module-registry.php',
     'includes/core/class-yoy-job-status.php',
     'includes/core/class-yoy-job-normalizer.php',
     'includes/core/class-yoy-job-store.php',
     'includes/core/class-yoy-credits-service.php',
+    'includes/core/class-yoy-credits-plans.php',
+    'includes/core/class-yoy-image-model-resolver.php',
+    'includes/core/class-yoy-image-size-resolver.php',
+    'includes/core/class-yoy-studio-model-resolver.php',
+    'includes/core/class-yoy-woocommerce-billing.php',
+    'includes/core/class-yoy-secrets.php',
+    'includes/core/class-yoy-provider-catalog.php',
+    'includes/core/class-yoy-provider-resolver.php',
+    'includes/core/class-yoy-system-log.php',
+    'includes/helpers/yoy-ui-icons.php',
     'includes/core/class-yoy-studio-credits.php',
     'includes/core/class-yoy-core-engine.php',
     'includes/core/class-yoy-rest-controller.php',
     'includes/class-yoy-ai-studio.php',
+    'includes/admin/class-yoy-wp-admin-console.php',
 ];
 
 foreach ($core_files as $relative) {
@@ -77,6 +90,10 @@ foreach ($core_files as $relative) {
 }
 
 add_action('plugins_loaded', function () {
+    if (class_exists('YooY_Rest_Error')) {
+        YooY_Rest_Error::register();
+    }
+
     $core = YooY_Core_Engine::instance();
     $core->boot();
 
@@ -84,4 +101,9 @@ add_action('plugins_loaded', function () {
     $rest->register();
 
     YooY_AI_Studio::instance($core);
+    YooY_WP_Admin_Console::register();
+
+    if (class_exists('YooY_WooCommerce_Billing')) {
+        YooY_WooCommerce_Billing::register();
+    }
 }, 5);

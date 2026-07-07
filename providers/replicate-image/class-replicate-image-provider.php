@@ -4,13 +4,14 @@ if (!defined('ABSPATH')) exit;
 require_once YOY_AI_STUDIO_PROVIDERS_DIR . 'interface-image-provider.php';
 require_once YOY_AI_STUDIO_PROVIDERS_DIR . 'interface-yoy-provider.php';
 require_once YOY_AI_STUDIO_PROVIDERS_DIR . 'mock-image/class-mock-image-provider.php';
+require_once YOY_AI_STUDIO_PROVIDERS_DIR . 'helpers/class-yoy-provider-guard.php';
 
 final class YooY_Replicate_Image_Provider implements YooY_Image_Provider_Interface, YooY_Provider_Interface {
 
     private string $api_key;
 
     public function __construct() {
-        $this->api_key = (string) get_option('yoy_replicate_api_key', '');
+        $this->api_key = YooY_Secrets::get_api_key('yoy_replicate_api_key');
     }
 
     public function id(): string { return 'replicate'; }
@@ -26,6 +27,7 @@ final class YooY_Replicate_Image_Provider implements YooY_Image_Provider_Interfa
     }
 
     public function generate(array $params): array {
+        YooY_Provider_Guard::require_key($this->name(), $this->api_key, $params);
         if ($this->api_key === '') {
             return (new YooY_Mock_Image_Provider())->generate(array_merge($params, [
                 'provider' => $this->id(),

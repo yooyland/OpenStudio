@@ -80,6 +80,12 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             'permission_callback' => 'is_user_logged_in',
         ]);
 
+        $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/reference', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'use_as_reference'],
+            'permission_callback' => 'is_user_logged_in',
+        ]);
+
         $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/download', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'download'],
@@ -107,6 +113,18 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
         $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/project', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'save_project'],
+            'permission_callback' => 'is_user_logged_in',
+        ]);
+
+        $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/duplicate', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'duplicate_item'],
+            'permission_callback' => 'is_user_logged_in',
+        ]);
+
+        $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/share', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [$this, 'share_link'],
             'permission_callback' => 'is_user_logged_in',
         ]);
 
@@ -172,20 +190,22 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
         if ($user instanceof WP_REST_Response) return $user;
 
         $filters = [
-            'type'     => sanitize_text_field($request->get_param('type') ?? ''),
-            'favorite' => $request->get_param('favorite'),
+            'type'        => sanitize_text_field($request->get_param('type') ?? ''),
+            'project_id'  => sanitize_text_field($request->get_param('project_id') ?? ''),
+            'favorite'    => $request->get_param('favorite'),
         ];
 
-        if ($request->get_param('sync') === '1') {
+        if ($request->get_param('sync') === '1' || $request->get_param('sync') === 'true') {
+            $this->aggregator->reconcile_jobs($user);
             $this->aggregator->sync($user);
+        } else {
+            $this->aggregator->reconcile_jobs($user);
         }
 
         $items = $this->store->list($user, $filters);
         if (empty($items)) {
-            $items = $this->aggregator->sync($user);
-            if ($filters['type'] !== '') {
-                $items = array_values(array_filter($items, fn($i) => ($i['type'] ?? '') === $filters['type']));
-            }
+            $this->aggregator->sync($user);
+            $items = $this->store->list($user, $filters);
         }
 
         return $this->success(['items' => $items, 'total' => count($items)]);
@@ -235,9 +255,17 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
         $user = $this->require_user();
         if ($user instanceof WP_REST_Response) return $user;
 
-        $id = sanitize_text_field($request->get_param('id'));
-        if (!$this->store->remove($user, $id)) return $this->error('Item not found.', 404);
-        return $this->success(['deleted' => true]);
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            $body = $request->get_json_params() ?: [];
+            $delete_media = !empty($body['delete_media']) && current_user_can('manage_options');
+            if (!$this->actions->delete_item($user, $id, $delete_media)) {
+                return $this->error('Item not found.', 404);
+            }
+            return $this->success(['deleted' => true]);
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 404);
+        }
     }
 
     public function toggle_favorite(WP_REST_Request $request): WP_REST_Response {
@@ -292,6 +320,24 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
         }
     }
 
+    public function use_as_reference(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            $body = $request->get_json_params() ?: [];
+            if (!class_exists('YooY_Reference_Asset_Service')) {
+                require_once YOY_AI_STUDIO_MODULES_DIR . 'reference-assets/includes/class-reference-asset-service.php';
+            }
+            $service = new YooY_Reference_Asset_Service();
+            $asset = $service->from_gallery($user, $id, $body);
+            return $this->success(['asset' => $asset], 201);
+        } catch (Exception $e) {
+            return $this->error($e->getMessage());
+        }
+    }
+
     public function download(WP_REST_Request $request): WP_REST_Response {
         $user = $this->require_user();
         if ($user instanceof WP_REST_Response) return $user;
@@ -310,7 +356,8 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
 
         try {
             $id = sanitize_text_field($request->get_param('id'));
-            return $this->success($this->actions->register_marketplace($user, $id));
+            $body = $request->get_json_params() ?: [];
+            return $this->success($this->actions->register_marketplace($user, $id, is_array($body) ? $body : []));
         } catch (Exception $e) {
             return $this->error($e->getMessage(), 404);
         }
@@ -354,19 +401,54 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
         }
     }
 
+    public function duplicate_item(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            $item = $this->actions->duplicate_item($user, $id);
+            return $this->success(['item' => $this->detail($item)], 201);
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 404);
+        }
+    }
+
+    public function share_link(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            return $this->success($this->actions->share_link($user, $id));
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 404);
+        }
+    }
+
     public function sync(): WP_REST_Response {
         $user = $this->require_user();
         if ($user instanceof WP_REST_Response) return $user;
 
+        $this->aggregator->reconcile_jobs($user);
         $items = $this->aggregator->sync($user);
         return $this->success(['items' => $items, 'total' => count($items)]);
     }
 
-    public function works(): WP_REST_Response {
+    public function works(WP_REST_Request $request): WP_REST_Response {
         $user = $this->require_user();
         if ($user instanceof WP_REST_Response) return $user;
 
-        $items = $this->aggregator->sync($user);
+        $this->aggregator->reconcile_jobs($user);
+        $filters = [
+            'type'       => sanitize_text_field($request->get_param('type') ?? ''),
+            'project_id' => sanitize_text_field($request->get_param('project_id') ?? ''),
+        ];
+        $items = $this->store->list($user, $filters);
+        if (empty($items)) {
+            $this->aggregator->sync($user);
+            $items = $this->store->list($user, $filters);
+        }
         return $this->success(['works' => $items, 'items' => $items]);
     }
 
@@ -375,6 +457,18 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             'type_label'     => $this->type_label($item['type'] ?? ''),
             'provider_label' => strtoupper($item['provider'] ?? 'MOCK'),
             'created_label'  => $this->format_date($item['created_at'] ?? ''),
+            'updated_label'  => $this->format_date($item['updated_at'] ?? ''),
+            'description'    => (string) ($item['description'] ?? ''),
+            'user_prompt'    => (string) ($item['user_prompt'] ?? $item['prompt'] ?? ''),
+            'optimized_prompt' => (string) ($item['optimized_prompt'] ?? ''),
+            'negative_prompt'  => (string) ($item['negative_prompt'] ?? ''),
+            'reference_assets' => is_array($item['reference_assets'] ?? null) ? $item['reference_assets'] : [],
+            'settings'         => is_array($item['settings'] ?? null) ? $item['settings'] : [],
+            'asset_url'        => (string) ($item['asset_url'] ?? $item['output_url'] ?? $item['image_url'] ?? ''),
+            'project_id'       => (string) ($item['project_id'] ?? ''),
+            'visibility'       => !empty($item['public']) ? 'public' : 'private',
+            'is_favorite'      => !empty($item['favorite']),
+            'marketplace_status' => (string) ($item['marketplace_status'] ?? 'none'),
         ]);
     }
 

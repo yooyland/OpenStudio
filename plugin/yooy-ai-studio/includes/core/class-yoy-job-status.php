@@ -27,6 +27,7 @@ final class YooY_Job_Status {
                 return self::QUEUED;
             case 'running':
             case 'processing':
+            case 'rendering':
             case 'in_progress':
             case 'in-progress':
             case 'active':

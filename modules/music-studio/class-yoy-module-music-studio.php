@@ -109,7 +109,7 @@ final class YooY_Module_Music_Studio extends YooY_Module_Base {
         $base = YOY_AI_STUDIO_URL . 'assets/modules/music-studio/';
         wp_enqueue_style('yoy-music-studio', $base . 'music-studio.css', ['yoy-ai-studio'], $this->version());
         wp_enqueue_script('yoy-music-api', $base . 'music-api.js', ['yoy-ai-studio-core'], $this->version(), true);
-        wp_enqueue_script('yoy-music-studio', $base . 'music-studio.js', ['yoy-music-api'], $this->version(), true);
+        wp_enqueue_script('yoy-music-studio', $base . 'music-studio.js', ['yoy-music-api', 'yoy-reference-assets-panel'], $this->version(), true);
     }
 
     public function config(): WP_REST_Response {

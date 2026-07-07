@@ -18,9 +18,17 @@ final class YooY_AI_Studio {
         $this->core = $core;
 
         add_shortcode('yoy_ai_studio', [$this, 'render_studio']);
+        add_filter('body_class', [$this, 'body_class']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('admin_menu', [$this, 'register_admin_menu']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+    }
+
+    public function body_class(array $classes): array {
+        if ($this->should_load_assets()) {
+            $classes[] = 'yoy-creator-os-active';
+        }
+        return $classes;
     }
 
     public function core(): YooY_Core_Engine {
@@ -33,9 +41,16 @@ final class YooY_AI_Studio {
         }
 
         wp_enqueue_style(
+            'yoy-creator-os-fonts',
+            'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
+            [],
+            null
+        );
+
+        wp_enqueue_style(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/css/studio.css',
-            [],
+            ['yoy-creator-os-fonts'],
             YOY_AI_STUDIO_VERSION
         );
 
@@ -73,10 +88,90 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-gallery-api', 'yoy-gallery'],
+            ['yoy-ai-studio-core', 'yoy-gallery-api', 'yoy-gallery', 'yoy-reference-assets-panel'],
             YOY_AI_STUDIO_VERSION,
             true
         );
+
+        wp_enqueue_style(
+            'yoy-image-studio',
+            YOY_AI_STUDIO_URL . 'assets/modules/image-studio/image-studio.css',
+            ['yoy-ai-studio'],
+            YOY_AI_STUDIO_VERSION
+        );
+        wp_enqueue_script(
+            'yoy-image-api',
+            YOY_AI_STUDIO_URL . 'assets/modules/image-studio/image-api.js',
+            ['yoy-ai-studio-core'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_style(
+            'yoy-reference-assets-panel',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/reference-assets-panel.css',
+            ['yoy-ai-studio'],
+            YOY_AI_STUDIO_VERSION
+        );
+        wp_enqueue_script(
+            'yoy-reference-assets-api',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/reference-assets-api.js',
+            ['yoy-ai-studio-core'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+        wp_enqueue_script(
+            'yoy-reference-assets-panel',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/reference-assets-panel.js',
+            ['yoy-reference-assets-api', 'yoy-gallery-api'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'yoy-image-studio',
+            YOY_AI_STUDIO_URL . 'assets/modules/image-studio/image-studio.js',
+            ['yoy-image-api', 'yoy-reference-assets-panel'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_style(
+            'yoy-import-engine',
+            YOY_AI_STUDIO_URL . 'assets/modules/import-engine/import-engine.css',
+            ['yoy-ai-studio'],
+            YOY_AI_STUDIO_VERSION
+        );
+        wp_enqueue_script(
+            'yoy-import-engine',
+            YOY_AI_STUDIO_URL . 'assets/modules/import-engine/import-engine.js',
+            ['yoy-ai-studio-core'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        if (current_user_can('manage_options')) {
+            wp_enqueue_style(
+                'yoy-admin-console',
+                YOY_AI_STUDIO_URL . 'assets/css/admin-console.css',
+                ['yoy-ai-studio'],
+                YOY_AI_STUDIO_VERSION
+            );
+            wp_enqueue_script(
+                'yoy-admin-console',
+                YOY_AI_STUDIO_URL . 'assets/js/admin-console.js',
+                ['yoy-ai-studio-core'],
+                YOY_AI_STUDIO_VERSION,
+                true
+            );
+            wp_enqueue_script(
+                'yoy-admin-console-providers',
+                YOY_AI_STUDIO_URL . 'assets/js/admin-console-providers.js',
+                ['yoy-admin-console'],
+                YOY_AI_STUDIO_VERSION,
+                true
+            );
+        }
 
         $user = wp_get_current_user();
 
@@ -84,7 +179,11 @@ final class YooY_AI_Studio {
             'restUrl'   => esc_url_raw(rest_url('yoy-ai-studio/v1')),
             'nonce'     => wp_create_nonce('wp_rest'),
             'version'   => YOY_AI_STUDIO_VERSION,
+            'debug'     => (defined('YOOY_DEBUG') && YOOY_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG),
             'loggedIn'  => is_user_logged_in(),
+            'isAdmin'   => current_user_can('manage_options'),
+            'loginUrl'  => esc_url_raw(wp_login_url(get_permalink())),
+            'logoutUrl' => esc_url_raw(wp_logout_url(get_permalink())),
             'user'      => [
                 'id'    => $user->ID,
                 'name'  => $user->display_name ?: 'Guest',
@@ -181,7 +280,7 @@ final class YooY_AI_Studio {
     }
 
     private function nav_routes(): array {
-        return [
+        $routes = [
             ['id' => 'home', 'label' => 'Home', 'module' => null],
             ['id' => 'projects', 'label' => 'Projects', 'module' => 'projects'],
             ['id' => 'video', 'label' => 'Video', 'module' => 'video-studio'],
@@ -190,12 +289,19 @@ final class YooY_AI_Studio {
             ['id' => 'voice', 'label' => 'Voice', 'module' => 'voice-studio'],
             ['id' => 'avatar', 'label' => 'Avatar', 'module' => 'avatar-studio'],
             ['id' => 'writing', 'label' => 'Writing', 'module' => 'ai-router'],
-            ['id' => 'prompt-library', 'label' => 'Prompts', 'module' => 'prompt-library'],
-            ['id' => 'market', 'label' => 'Market', 'module' => 'marketplace'],
-            ['id' => 'community', 'label' => 'Community', 'module' => 'community'],
+            ['id' => 'prompt-library', 'label' => 'Prompt Library', 'module' => 'prompt-library'],
+            ['id' => 'import', 'label' => 'Import', 'module' => 'import-engine'],
             ['id' => 'works', 'label' => 'Gallery', 'module' => 'gallery'],
+            ['id' => 'community', 'label' => 'Community', 'module' => 'community'],
+            ['id' => 'market', 'label' => 'Marketplace', 'module' => 'marketplace'],
             ['id' => 'credits', 'label' => 'Credits', 'module' => 'credits'],
             ['id' => 'settings', 'label' => 'Settings', 'module' => 'settings'],
         ];
+
+        if (current_user_can('manage_options')) {
+            $routes[] = ['id' => 'admin-console', 'label' => 'Operations Center', 'module' => 'admin-console'];
+        }
+
+        return $routes;
     }
 }

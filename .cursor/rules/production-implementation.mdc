@@ -64,5 +64,6 @@ if (empty($items)) {
 
 ## 관련 영구 규칙
 
+- **Creator OS SaaS UI** — `.cursor/rules/creator-os-saas-ui.mdc` (WordPress 플러그인 UI 금지, 독립 SaaS 느낌)
 - **PHP 7.4 호환** — `.cursor/rules/php-74-compatibility.mdc`
 - **릴리스 5종 완료** (commit, push, ZIP, audit, release notes) — `.cursor/rules/wordpress-release.mdc`

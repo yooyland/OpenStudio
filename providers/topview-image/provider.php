@@ -7,7 +7,7 @@ return [
     'id'     => 'topview',
     'name'   => 'Topview Image',
     'types'  => ['image', 'commercial'],
-    'status' => get_option('yoy_topview_api_key') ? 'active' : 'pending',
-    'mock'   => !get_option('yoy_topview_api_key'),
+    'status' => YooY_Secrets::has_api_key('yoy_topview_api_key') ? 'active' : 'pending',
+    'mock'   => !YooY_Secrets::has_api_key('yoy_topview_api_key'),
     'models' => ['topview-product', 'topview-banner'],
 ];

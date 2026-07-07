@@ -7,20 +7,14 @@ final class YooY_Avatar_API_Router {
     private array $providers = [];
 
     public function __construct() {
-        $map = [
-            'mock'   => ['file' => 'mock-avatar/class-mock-avatar-provider.php', 'class' => 'YooY_Mock_Avatar_Provider'],
-            'heygen' => ['file' => 'heygen/class-heygen-provider.php', 'class' => 'YooY_HeyGen_Provider'],
-            'vidu'   => ['file' => 'vidu/class-vidu-provider.php', 'class' => 'YooY_Vidu_Provider'],
-        ];
-        foreach ($map as $id => $info) {
-            $file = YOY_AI_STUDIO_PROVIDERS_DIR . $info['file'];
-            if (!file_exists($file)) continue;
-            require_once $file;
-            if (class_exists($info['class'])) $this->providers[$id] = new $info['class']();
-        }
+        $this->boot_providers();
     }
 
     public function providers(): array {
+        if (class_exists('YooY_Provider_Catalog')) {
+            return YooY_Provider_Catalog::list_for_studio('avatar', $this->providers);
+        }
+
         $list = [];
         foreach ($this->providers as $p) {
             $list[] = ['id' => $p->id(), 'name' => $p->name(), 'models' => $p->models()];
@@ -29,15 +23,40 @@ final class YooY_Avatar_API_Router {
     }
 
     public function generate(array $params): array {
-        $id = $params['provider'] ?? 'mock';
-        $provider = $this->providers[$id] ?? $this->providers['mock'] ?? null;
-        if (!$provider) throw new Exception('Avatar provider not available.');
+        $provider = $this->resolve($params['provider'] ?? 'mock');
+        if (!$provider) {
+            throw new Exception('Avatar provider not available.');
+        }
         $params['job_id'] = $params['job_id'] ?? ('avt_' . wp_generate_uuid4());
         return apply_filters('yoy_avatar_studio_generate', $provider->generate($params), $params);
     }
 
     public function status(string $provider_id, string $job_id): array {
-        $provider = $this->providers[$provider_id] ?? $this->providers['mock'];
+        $provider = $this->resolve($provider_id);
+        if (!$provider) {
+            throw new Exception('Avatar provider not available.');
+        }
         return $provider->status($job_id);
+    }
+
+    private function resolve(string $id): ?YooY_Avatar_Provider_Interface {
+        $route_id = class_exists('YooY_Provider_Catalog')
+            ? YooY_Provider_Catalog::route_id($id)
+            : $id;
+
+        if (isset($this->providers[$id])) {
+            return $this->providers[$id];
+        }
+        if (isset($this->providers[$route_id])) {
+            return $this->providers[$route_id];
+        }
+        return $this->providers['mock'] ?? null;
+    }
+
+    private function boot_providers(): void {
+        require_once YOY_AI_STUDIO_PROVIDERS_DIR . 'helpers/class-yoy-provider-bootstrap.php';
+        if (class_exists('YooY_Provider_Bootstrap')) {
+            YooY_Provider_Bootstrap::register_avatar($this->providers);
+        }
     }
 }

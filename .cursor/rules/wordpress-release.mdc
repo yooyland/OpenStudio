@@ -22,6 +22,10 @@ Also produce before marking complete:
 - **Activation Audit Report** — pass `scripts/audit-activation.ps1` (missing requires, duplicate classes/methods, PHP 8 syntax = 0).
 - **Release Notes** — version, changes, install steps, PHP/WP requirements.
 
+## Architecture Reminder
+
+WordPress Plugin packaging stays. User-facing UI must feel like a **standalone SaaS app** — see `.cursor/rules/creator-os-saas-ui.mdc`.
+
 ## Pre-Commit / Pre-Push Gate
 
 Every release MUST pass before commit and push:

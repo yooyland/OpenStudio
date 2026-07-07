@@ -13,8 +13,10 @@
     advanced: {},
     generating: false,
     lastResult: null,
+    lastPollJob: null,
     activeGalleryId: null,
-    credits: { balance: 0, unlimited: false, estimate: 0, can_afford: true }
+    credits: { balance: 0, unlimited: false, estimate: 0, can_afford: true },
+    refPanel: null
   };
 
   function $(s, c) { return (c || document).querySelector(s); }
@@ -136,7 +138,7 @@
 
   function renderGenerator(ws, ctrl, root) {
     ws.innerHTML =
-      '<div class="yvs-header"><h2>AI Video Generator</h2><span class="yvs-badge">Runway · Topview · Mock</span></div>' +
+      '<div class="yvs-header"><h2>AI Video Generator</h2><span class="yvs-badge">Runway · Veo · Kling · Mock</span></div>' +
       '<div class="yvs-canvas-area" id="yvs-preview" data-ratio="' + esc(state.settings.aspect_ratio || '16:9') + '">' +
         previewContent() +
       '</div>' +
@@ -145,8 +147,29 @@
         '<button class="yvs-btn-primary" id="yvs-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Generating...' : 'Generate') + '</button>' +
       '</div>' +
       resultActionsHtml();
-    ctrl.innerHTML = controlsPanel();
+    ctrl.innerHTML = controlsPanel() + '<div id="yvs-ref-panel-host"></div>';
+    mountRefAssets($('#yvs-ref-panel-host', ctrl), 'video-studio');
     updateCanvasRatio(root);
+  }
+
+  function mountRefAssets(host, studioKey) {
+    if (!host || !window.YooYReferenceAssetsPanel) return;
+    if (state.refPanel) state.refPanel.destroy();
+    state.refPanel = window.YooYReferenceAssetsPanel.mount(host, {
+      studio: studioKey || 'video-studio',
+      assets: state.settings.reference_assets || [],
+      onChange: function (assets) {
+        state.settings.reference_assets = assets;
+        state.settings.reference_url = assets[0] ? assets[0].url : '';
+      }
+    });
+  }
+
+  function applyRefPayload(payload) {
+    if (window.YooYReferenceAssetsPanel && state.refPanel) {
+      return window.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+    }
+    return payload;
   }
 
   function creditLabel() {
@@ -209,7 +232,13 @@
 
   function previewContent() {
     if (state.generating) {
-      return '<div class="yvs-canvas-placeholder"><strong>Generating...</strong><div class="yvs-progress"><div class="yvs-progress-bar" style="width:60%"></div></div></div>';
+      var job = state.lastPollJob || {};
+      var prog = typeof job.progress === 'number' ? job.progress : 0;
+      var stage = job.stage || job.status || 'running';
+      var stageLabel = stageLabelText(stage);
+      return '<div class="yvs-canvas-placeholder"><strong>' + esc(stageLabel) + '</strong>' +
+        '<div class="yvs-progress"><div class="yvs-progress-bar" style="width:' + Math.max(prog, 5) + '%"></div></div>' +
+        '<span class="yvs-stage">' + prog + '%</span></div>';
     }
     if (state.lastResult && state.lastResult.output) {
       var out = state.lastResult.output;
@@ -229,7 +258,7 @@
     var qualities = ['draft', 'standard', 'pro'];
     var motions = ['static', 'pan_left', 'pan_right', 'zoom_in', 'zoom_out', 'dolly_in', 'orbit'];
     var providerOpts = state.providers.map(function (p) {
-      var sel = (state.settings.default_provider || 'mock') === p.id ? ' selected' : '';
+      var sel = (state.settings.default_provider || 'auto') === p.id ? ' selected' : '';
       return '<option value="' + esc(p.id) + '"' + sel + '>' + esc(p.name) + '</option>';
     }).join('');
 
@@ -279,46 +308,156 @@
     if (!prompt.trim()) return;
 
     state.generating = true;
+    state.lastPollJob = null;
     state.settings.last_prompt = prompt;
     state.settings.prompt = prompt;
     renderTab(root);
 
-    Core.video.generate(Object.assign({}, state.settings, { prompt: prompt })).then(function (res) {
+    var payload = applyRefPayload(Object.assign({}, state.settings, { prompt: prompt }));
+    Core.video.generate(payload).then(function (res) {
       finalizeJob(res.data || res, root);
     }).catch(function (err) {
       state.generating = false;
-      var ws = $('#yvs-workspace', root);
-      if (ws) ws.insertAdjacentHTML('beforeend', '<div class="yvs-error">' + esc(err.message) + '</div>');
+      state.lastPollJob = null;
+      showJobError(root, err.message || String(err));
       renderTab(root);
     });
   }
 
+  function stageLabelText(stage) {
+    switch (stage) {
+      case 'queued': return 'Queued';
+      case 'processing': return 'Processing';
+      case 'rendering': return 'Rendering';
+      case 'running': return 'Running';
+      case 'completed': return 'Completed';
+      case 'failed': return 'Failed';
+      default: return 'Generating';
+    }
+  }
+
+  function showJobError(root, message) {
+    var ws = $('#yvs-workspace', root);
+    if (!ws) return;
+    var existing = ws.querySelector('.yvs-error');
+    if (existing) existing.remove();
+    ws.insertAdjacentHTML('beforeend', '<div class="yvs-error">' + esc(message || 'Generation failed.') + '</div>');
+  }
+
+  function showJobInfo(root, message) {
+    if (!message) return;
+    var ws = $('#yvs-workspace', root);
+    if (!ws) return;
+    var existing = ws.querySelector('.yvs-info');
+    if (existing) existing.remove();
+    ws.insertAdjacentHTML('beforeend', '<div class="yvs-info">' + esc(message) + '</div>');
+  }
+
+  function isInProgressStatus(status) {
+    return status === 'queued' || status === 'running' || status === 'processing' || status === 'pending' || status === 'rendering';
+  }
+
+  function hasOutputAsset(data) {
+    if (!data) return false;
+    var out = data.output || {};
+    var url = data.video_url || data.audio_url || out.primary || out.url || out.video_url || out.audio_url;
+    if (url && String(url).indexOf('http') === 0) return true;
+    if (out.attachment_id) return true;
+    return false;
+  }
+
   function finalizeJob(data, root) {
-    if (data.status === 'queued' || data.status === 'running') {
+    if (!data) {
+      state.generating = false;
+      state.lastPollJob = null;
+      showJobError(root, 'Empty response from server.');
+      renderTab(root);
+      return;
+    }
+
+    if (isInProgressStatus(data.status)) {
       return pollUntilDone(data, root);
     }
+
+    if (data.status === 'failed' || data.error) {
+      state.generating = false;
+      state.lastPollJob = null;
+      showJobError(root, data.error || 'Generation failed.');
+      renderTab(root);
+      return data;
+    }
+
+    if (data.status === 'completed' && !hasOutputAsset(data)) {
+      data.status = 'failed';
+      data.error = 'Generation completed but no output asset was returned.';
+      state.generating = false;
+      state.lastPollJob = null;
+      showJobError(root, data.error);
+      renderTab(root);
+      return data;
+    }
+
     state.lastResult = data;
     state.generating = false;
+    state.lastPollJob = null;
     state.activeGalleryId = data.job_id || '';
     if (data.credits) state.credits.balance = data.credits.balance;
+    if (data.warning) {
+      showJobInfo(root, data.warning);
+    } else if (data.fallback_reason) {
+      showJobInfo(root, 'Using Mock provider (' + data.fallback_reason + ').');
+    }
     notifyGalleryUpdated();
     renderTab(root);
     return data;
   }
 
+  var MAX_POLL_ATTEMPTS = 120;
+  var POLL_INTERVAL_MS = 2000;
+  var STALL_TIMEOUT_MS = 90000;
+
   function pollUntilDone(data, root) {
-    var provider = data.provider || state.settings.default_provider || 'mock';
+    var provider = data.provider_used || data.provider || state.settings.default_provider || 'mock';
     var jobId = data.job_id;
     var attempts = 0;
+    var lastProgress = typeof data.progress === 'number' ? data.progress : 0;
+    var lastProgressChange = Date.now();
+    state.lastPollJob = data;
 
     function tick() {
       attempts += 1;
       return Core.video.pollJob(jobId, provider).then(function (res) {
         var job = (res.data && res.data.job) || res.data || res;
-        if ((job.status === 'queued' || job.status === 'running') && attempts < 15) {
-          return new Promise(function (r) { setTimeout(r, 1000); }).then(tick);
+        state.lastPollJob = job;
+        renderTab(root);
+
+        var prog = typeof job.progress === 'number' ? job.progress : 0;
+        if (prog !== lastProgress) {
+          lastProgress = prog;
+          lastProgressChange = Date.now();
         }
+
+        var stalled = prog === 0 && (Date.now() - lastProgressChange) >= STALL_TIMEOUT_MS;
+        var maxed = attempts >= MAX_POLL_ATTEMPTS;
+
+        if (isInProgressStatus(job.status) && !stalled && !maxed) {
+          return new Promise(function (r) { setTimeout(r, POLL_INTERVAL_MS); }).then(tick);
+        }
+
+        if (isInProgressStatus(job.status)) {
+          job.status = 'failed';
+          job.stage = 'failed';
+          job.error = stalled
+            ? 'Job timed out: no progress from provider.'
+            : 'Job timed out waiting for provider.';
+        }
+
         return finalizeJob(job, root);
+      }).catch(function (err) {
+        state.generating = false;
+        state.lastPollJob = null;
+        showJobError(root, err.message || String(err));
+        renderTab(root);
       });
     }
     return tick();

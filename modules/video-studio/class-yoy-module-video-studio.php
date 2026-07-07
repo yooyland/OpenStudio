@@ -154,7 +154,7 @@ final class YooY_Module_Video_Studio extends YooY_Module_Base {
         $base = YOY_AI_STUDIO_URL . 'assets/modules/video-studio/';
         wp_enqueue_style('yoy-video-studio', $base . 'video-studio.css', ['yoy-ai-studio'], $this->version());
         wp_enqueue_script('yoy-video-api', $base . 'video-api.js', ['yoy-ai-studio-core'], $this->version(), true);
-        wp_enqueue_script('yoy-video-studio', $base . 'video-studio.js', ['yoy-video-api'], $this->version(), true);
+        wp_enqueue_script('yoy-video-studio', $base . 'video-studio.js', ['yoy-video-api', 'yoy-reference-assets-panel'], $this->version(), true);
     }
 
     public function config(): WP_REST_Response {

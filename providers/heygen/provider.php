@@ -7,7 +7,7 @@ return [
     'id'     => 'heygen',
     'name'   => 'HeyGen',
     'types'  => ['avatar'],
-    'status' => get_option('yoy_heygen_api_key') ? 'active' : 'pending',
-    'mock'   => !get_option('yoy_heygen_api_key'),
+    'status' => YooY_Secrets::has_api_key('yoy_heygen_api_key') ? 'active' : 'pending',
+    'mock'   => !YooY_Secrets::has_api_key('yoy_heygen_api_key'),
     'models' => ['heygen-v2', 'heygen-studio'],
 ];

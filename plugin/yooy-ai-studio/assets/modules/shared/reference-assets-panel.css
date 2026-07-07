@@ -1,0 +1,210 @@
+.yra-panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(216, 166, 58, 0.22);
+  border-radius: 14px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.yra-panel.is-collapsed .yra-body { display: none; }
+
+.yra-head {
+  align-items: center;
+  background: rgba(216, 166, 58, 0.06);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.yra-head h3 {
+  color: #d8a63a;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.yra-count {
+  color: #888;
+  font-size: 11px;
+}
+
+.yra-body { padding: 12px; }
+
+.yra-dropzone {
+  border: 1px dashed rgba(216, 166, 58, 0.45);
+  border-radius: 12px;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 16px 12px;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.yra-dropzone.is-dragover {
+  background: rgba(216, 166, 58, 0.08);
+  border-color: #d8a63a;
+  color: #d8a63a;
+}
+
+.yra-progress {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.yra-progress-bar {
+  background: linear-gradient(90deg, #b8862f, #ffd76a);
+  height: 100%;
+  transition: width 0.2s;
+  width: 0;
+}
+
+.yra-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.yra-src-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 5px 10px;
+}
+
+.yra-src-btn:hover { border-color: rgba(216, 166, 58, 0.45); color: #d8a63a; }
+
+.yra-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.yra-item {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 44px 1fr auto;
+  padding: 8px;
+}
+
+.yra-thumb {
+  align-items: center;
+  background: #111;
+  border-radius: 8px;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  overflow: hidden;
+  width: 44px;
+}
+
+.yra-thumb img, .yra-thumb video {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.yra-meta strong {
+  color: #eee;
+  display: block;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.yra-meta small { color: #888; font-size: 11px; }
+
+.yra-badge {
+  background: rgba(216, 166, 58, 0.12);
+  border: 1px solid rgba(216, 166, 58, 0.35);
+  border-radius: 999px;
+  color: #d8a63a;
+  display: inline-block;
+  font-size: 10px;
+  margin-right: 4px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.yra-actions { display: flex; flex-direction: column; gap: 4px; }
+
+.yra-actions button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #bbb;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 3px 6px;
+}
+
+.yra-actions button:hover { border-color: #d8a63a; color: #d8a63a; }
+
+.yra-picker {
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(216, 166, 58, 0.35);
+  border-radius: 12px;
+  inset: 12px;
+  overflow: auto;
+  padding: 12px;
+  position: fixed;
+  z-index: 99990;
+}
+
+.yra-picker-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  margin-top: 10px;
+}
+
+.yra-picker-card {
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 6px;
+}
+
+.yra-picker-card:hover { border-color: #d8a63a; }
+
+.yra-picker-card img {
+  border-radius: 6px;
+  display: block;
+  height: 72px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.yra-picker-card span {
+  color: #ccc;
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yra-empty {
+  color: #777;
+  font-size: 12px;
+  padding: 8px 0;
+  text-align: center;
+}

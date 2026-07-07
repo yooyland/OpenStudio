@@ -133,7 +133,8 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
         $base = YOY_AI_STUDIO_URL . 'assets/modules/image-studio/';
         wp_enqueue_style('yoy-image-studio', $base . 'image-studio.css', ['yoy-ai-studio'], $this->version());
         wp_enqueue_script('yoy-image-api', $base . 'image-api.js', ['yoy-ai-studio-core'], $this->version(), true);
-        wp_enqueue_script('yoy-image-studio', $base . 'image-studio.js', ['yoy-image-api'], $this->version(), true);
+        wp_enqueue_script('yoy-image-studio-smart-auto', $base . 'image-studio-smart-auto.js', [], $this->version(), true);
+        wp_enqueue_script('yoy-image-studio', $base . 'image-studio.js', ['yoy-image-api', 'yoy-image-studio-smart-auto'], $this->version(), true);
     }
 
     public function config(): WP_REST_Response {
@@ -152,7 +153,7 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
             $params  = array_merge($this->settings->get($user_id), $request->get_json_params() ?: []);
             return $this->success($this->generator->generate($user_id, $params), 201);
         } catch (Exception $e) {
-            return $this->error($e->getMessage());
+            return $this->from_exception($e);
         }
     }
 
@@ -320,7 +321,7 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
             );
             return $this->success(['job' => $status]);
         } catch (Exception $e) {
-            return $this->error($e->getMessage());
+            return $this->from_exception($e);
         }
     }
 

@@ -7,7 +7,7 @@ return [
     'id'     => 'runway',
     'name'   => 'Runway',
     'types'  => ['video'],
-    'status' => get_option('yoy_runway_api_key') ? 'active' : 'pending',
-    'mock'   => !get_option('yoy_runway_api_key'),
+    'status' => YooY_Secrets::has_api_key('yoy_runway_api_key') ? 'active' : 'pending',
+    'mock'   => !YooY_Secrets::has_api_key('yoy_runway_api_key'),
     'models' => ['gen-3-alpha', 'gen-4-turbo'],
 ];

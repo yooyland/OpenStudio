@@ -10,7 +10,7 @@ final class YooY_Suno_Provider implements YooY_Music_Provider_Interface {
     private string $api_base;
 
     public function __construct() {
-        $this->api_key  = (string) get_option('yoy_suno_api_key', '');
+        $this->api_key  = YooY_Secrets::get_api_key('yoy_suno_api_key');
         $this->api_base = (string) get_option('yoy_suno_api_base', 'https://api.sunoapi.org/api/v1');
     }
 

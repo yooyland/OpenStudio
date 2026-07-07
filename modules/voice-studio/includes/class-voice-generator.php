@@ -31,7 +31,7 @@ final class YooY_Voice_Generator {
         $advanced   = $this->advanced->apply($params);
 
         $payload = array_merge($advanced, [
-            'provider'       => sanitize_text_field($params['provider'] ?? $params['default_provider'] ?? 'mock'),
+            'provider'       => sanitize_text_field($params['provider'] ?? $params['default_provider'] ?? 'auto'),
             'model'          => sanitize_text_field($params['model'] ?? $params['default_model'] ?? 'mock-tts-v1'),
             'voice_id'       => sanitize_text_field($params['voice_id'] ?? 'ko_female_warm'),
             'text'           => $text,
@@ -39,9 +39,15 @@ final class YooY_Voice_Generator {
             'pauses'         => $pause_data['pauses'],
             'emotion'        => sanitize_text_field($params['emotion'] ?? 'neutral'),
             'language'       => sanitize_text_field($params['language'] ?? 'ko'),
+            'reference_assets' => $this->normalize_reference_assets($params),
+            'reference_url'  => esc_url_raw($params['reference_url'] ?? ''),
         ]);
 
+        $resolution = YooY_Provider_Resolver::apply($payload, 'voice', $user_id);
+
         $result = $this->router->speak($payload);
+        $result = YooY_Job_Normalizer::ensure_output_or_fail($result);
+        $result = YooY_Provider_Resolver::annotate($result, $resolution);
         $entry  = $this->history->add($user_id, array_merge($result, [
             'type'     => 'voice',
             'studio'   => 'voice-studio',
@@ -51,10 +57,13 @@ final class YooY_Voice_Generator {
             'pitch'    => $payload['pitch'],
         ]));
 
-        if (!empty($params['auto_save'])) {
+        if (!empty($params['auto_save']) && ($entry['status'] ?? '') === YooY_Job_Status::COMPLETED
+            && class_exists('YooY_Asset_Generator') && YooY_Asset_Generator::has_displayable_asset($entry)) {
             $this->gallery->auto_save($user_id, $entry);
         }
-        if (function_exists('yoy_gallery_capture')) {
+        if (($entry['status'] ?? '') === YooY_Job_Status::COMPLETED
+            && class_exists('YooY_Asset_Generator') && YooY_Asset_Generator::has_displayable_asset($entry)
+            && function_exists('yoy_gallery_capture')) {
             yoy_gallery_capture($user_id, $entry, 'voice', 'voice-studio');
         }
 
@@ -69,5 +78,12 @@ final class YooY_Voice_Generator {
             'advanced'  => $this->advanced->schema(),
             'pause_syntax' => '[pause:0.5s] or [pause:1s] — inline pause tags',
         ];
+    }
+
+    private function normalize_reference_assets(array $params): array {
+        if (!class_exists('YooY_Reference_Asset_Service')) {
+            require_once YOY_AI_STUDIO_MODULES_DIR . 'reference-assets/includes/class-reference-asset-service.php';
+        }
+        return YooY_Reference_Asset_Service::normalize_payload_list($params['reference_assets'] ?? []);
     }
 }

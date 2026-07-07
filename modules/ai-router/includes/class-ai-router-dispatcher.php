@@ -101,7 +101,7 @@ final class YooY_AI_Router_Dispatcher {
 
         $result = $module->run_generate($user_id, [
             'prompt'   => $payload['prompt'] ?? '',
-            'provider' => $payload['provider'] ?? 'mock',
+            'provider' => $payload['provider'] ?? 'auto',
             'auto_save'=> true,
         ]);
 
@@ -116,7 +116,7 @@ final class YooY_AI_Router_Dispatcher {
 
         $result = $module->run_generate($user_id, array_merge($payload, [
             'prompt'   => $payload['prompt'] ?? '',
-            'provider' => $payload['provider'] ?? 'mock',
+            'provider' => $payload['provider'] ?? 'auto',
             'auto_save'=> true,
         ]));
 

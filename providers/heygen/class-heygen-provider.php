@@ -9,7 +9,7 @@ final class YooY_HeyGen_Provider implements YooY_Avatar_Provider_Interface {
     private string $api_key;
 
     public function __construct() {
-        $this->api_key = (string) get_option('yoy_heygen_api_key', '');
+        $this->api_key = YooY_Secrets::get_api_key('yoy_heygen_api_key');
     }
 
     public function id(): string { return 'heygen'; }

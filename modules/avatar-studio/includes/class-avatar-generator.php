@@ -25,6 +25,7 @@ final class YooY_Avatar_Generator {
 
     public function generate(int $user_id, array $params): array {
         $payload = $this->normalize($params);
+        $resolution = YooY_Provider_Resolver::apply($payload, 'avatar', $user_id);
 
         if (empty($payload['script'])) {
             throw new Exception('Script is required.');
@@ -38,6 +39,7 @@ final class YooY_Avatar_Generator {
         $payload['subtitle'] = $subtitle_data;
 
         $result = $this->router->generate($payload);
+        $result = YooY_Provider_Resolver::annotate($result, $resolution);
 
         if (!empty($subtitle_data['enabled']) && isset($result['output'])) {
             $result['output']['subtitle_srt'] = $subtitle_data['srt'];
@@ -88,7 +90,7 @@ final class YooY_Avatar_Generator {
 
     private function normalize(array $params): array {
         return [
-            'provider'         => sanitize_text_field($params['provider'] ?? $params['default_provider'] ?? 'mock'),
+            'provider'         => sanitize_text_field($params['provider'] ?? $params['default_provider'] ?? 'auto'),
             'model'            => sanitize_text_field($params['model'] ?? $params['default_model'] ?? 'mock-avatar-v1'),
             'avatar_id'        => sanitize_text_field($params['avatar_id'] ?? 'ko_female_01'),
             'voice_id'         => sanitize_text_field($params['voice_id'] ?? 'ko_female_warm'),

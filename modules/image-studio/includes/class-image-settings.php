@@ -31,12 +31,7 @@ final class YooY_Image_Settings {
                 ['id' => '3:2', 'label' => '3:2 Photo', 'use' => '제품 사진'],
                 ['id' => '2:3', 'label' => '2:3 Portrait', 'use' => '포스터'],
             ],
-            'providers' => [
-                ['id' => 'mock', 'label' => 'Mock (Local)'],
-                ['id' => 'openai', 'label' => 'OpenAI GPT Image'],
-                ['id' => 'replicate', 'label' => 'Replicate FLUX'],
-                ['id' => 'topview', 'label' => 'Topview Image'],
-            ],
+            'providers' => $this->provider_options(),
             'resolutions' => ['512', '1024', '1536', '2048'],
             'qualities'     => [
                 ['id' => 'draft', 'label' => 'Draft', 'credits' => 5],
@@ -104,10 +99,30 @@ final class YooY_Image_Settings {
         ];
     }
 
+    private function provider_options(): array {
+        $options = [
+            ['id' => 'auto', 'label' => 'Auto (Best Available)'],
+        ];
+        if (class_exists('YooY_Provider_Catalog')) {
+            foreach (YooY_Provider_Catalog::for_studio('image') as $id => $def) {
+                $options[] = ['id' => $id, 'label' => $def['name']];
+            }
+            return $options;
+        }
+        return array_merge($options, [
+            ['id' => 'mock-image', 'label' => 'Mock Image'],
+            ['id' => 'openai', 'label' => 'OpenAI Image'],
+            ['id' => 'gemini-image', 'label' => 'Gemini Image'],
+            ['id' => 'flux', 'label' => 'Flux'],
+            ['id' => 'replicate', 'label' => 'Replicate'],
+            ['id' => 'stability', 'label' => 'Stability AI'],
+        ]);
+    }
+
     private function defaults(): array {
         return [
-            'default_provider' => 'mock',
-            'default_model'    => 'mock-image-v1',
+            'default_provider' => 'auto',
+            'default_model'    => '',
             'aspect_ratio'     => '1:1',
             'resolution'       => '1024',
             'quality'          => 'standard',

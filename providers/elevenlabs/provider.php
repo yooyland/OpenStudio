@@ -7,7 +7,7 @@ return [
     'id'     => 'elevenlabs',
     'name'   => 'ElevenLabs',
     'types'  => ['voice', 'tts'],
-    'status' => get_option('yoy_elevenlabs_api_key') ? 'active' : 'pending',
-    'mock'   => !get_option('yoy_elevenlabs_api_key'),
+    'status' => YooY_Secrets::has_api_key('yoy_elevenlabs_api_key') ? 'active' : 'pending',
+    'mock'   => !YooY_Secrets::has_api_key('yoy_elevenlabs_api_key'),
     'models' => ['eleven_multilingual_v2', 'eleven_turbo_v2_5', 'eleven_flash_v2_5'],
 ];

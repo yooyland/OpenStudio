@@ -20,28 +20,46 @@ final class YooY_Gallery_Actions {
         if (!$item) throw new Exception('Item not found.');
 
         $studio = $item['studio'] ?? '';
+        $user_prompt = (string) ($item['user_prompt'] ?? $item['prompt'] ?? '');
+        $optimized = (string) ($item['optimized_prompt'] ?? '');
+        $settings = is_array($item['settings'] ?? null) ? $item['settings'] : [];
+
         $payload = [
-            'studio'   => $studio,
-            'type'     => $item['type'],
-            'prompt'   => $item['prompt'],
-            'provider' => $item['provider'],
-            'model'    => $item['model'],
-            'remix_source' => ['gallery_id' => $id],
+            'studio'           => $studio,
+            'type'             => $item['type'],
+            'prompt'           => $user_prompt !== '' ? $user_prompt : ($item['prompt'] ?? ''),
+            'user_prompt'      => $user_prompt,
+            'optimized_prompt' => $optimized,
+            'provider'         => $settings['provider'] ?? $item['provider'] ?? 'auto',
+            'model'            => $settings['model'] ?? $item['model'] ?? '',
+            'reference_assets' => $item['reference_assets'] ?? [],
+            'settings'         => $settings,
+            'remix_source'     => ['gallery_id' => $id],
         ];
 
         switch ($item['type']) {
             case 'video':
-                return array_merge($payload, ['prompt' => $item['prompt']]);
+                return array_merge($payload, [
+                    'reference_url' => $item['output_url'] ?? $item['image_url'] ?? '',
+                ]);
             case 'image':
-                return array_merge($payload, ['prompt' => $item['prompt']]);
+                return array_merge($payload, [
+                    'reference_url' => $item['output_url'] ?? $item['image_url'] ?? '',
+                    'aspect_ratio'  => $settings['aspect_ratio'] ?? '1:1',
+                    'quality'       => $settings['quality'] ?? 'standard',
+                    'style'         => $settings['style'] ?? '',
+                ]);
             case 'music':
-                return array_merge($payload, ['lyrics' => $item['prompt']]);
+                return array_merge($payload, [
+                    'lyrics' => $user_prompt,
+                    'reference_url' => $item['output_url'] ?? '',
+                ]);
             case 'voice':
-                return array_merge($payload, ['text' => $item['prompt']]);
+                return array_merge($payload, ['text' => $user_prompt]);
             case 'avatar':
-                return array_merge($payload, ['script' => $item['prompt']]);
+                return array_merge($payload, ['script' => $user_prompt]);
             case 'writing':
-                return array_merge($payload, ['prompt' => $item['prompt']]);
+                return $payload;
             default:
                 return $payload;
         }
@@ -59,21 +77,39 @@ final class YooY_Gallery_Actions {
         return $updated;
     }
 
-    public function register_marketplace(int $user_id, string $id): array {
+    public function register_marketplace(int $user_id, string $id, array $options = []): array {
         $item = $this->store->get($user_id, $id);
         if (!$item) throw new Exception('Item not found.');
 
+        $title = sanitize_text_field($options['title'] ?? $item['title'] ?? '');
+        $description = sanitize_textarea_field($options['description'] ?? ($item['description'] ?? ''));
+        $price = max(0, (int) ($options['price'] ?? 0));
+        $category = sanitize_text_field($options['category'] ?? 'general');
+        $tags = is_array($options['tags'] ?? null) ? array_map('sanitize_text_field', $options['tags']) : [];
+        $license = sanitize_text_field($options['license'] ?? 'standard');
+        $prompt_public = !empty($options['prompt_public']);
+        $reference_public = !empty($options['reference_public']);
+        $allow_download = !empty($options['allow_download']);
+
         $listing = [
-            'id'         => 'mkt_gal_' . $id,
-            'gallery_id' => $id,
-            'title'      => $item['title'],
-            'prompt'     => $item['prompt'],
-            'type'       => $item['type'],
-            'provider'   => $item['provider'],
-            'creator'    => wp_get_current_user()->display_name,
-            'price'      => 0,
-            'tier'       => 'free',
-            'created_at' => gmdate('c'),
+            'id'               => 'mkt_gal_' . $id,
+            'gallery_id'       => $id,
+            'title'            => $title !== '' ? $title : $item['title'],
+            'description'      => $description,
+            'prompt'           => $prompt_public ? ($item['user_prompt'] ?? $item['prompt']) : '',
+            'type'             => $item['type'],
+            'provider'         => $item['provider'],
+            'creator'          => wp_get_current_user()->display_name,
+            'price'            => $price,
+            'tier'             => $price > 0 ? 'paid' : 'free',
+            'category'         => $category,
+            'tags'             => $tags,
+            'license'          => $license,
+            'prompt_public'    => $prompt_public,
+            'reference_public' => $reference_public,
+            'allow_download'   => $allow_download,
+            'status'           => 'draft',
+            'created_at'       => gmdate('c'),
         ];
 
         $listings = get_user_meta($user_id, 'yoy_marketplace_listings', true);
@@ -86,8 +122,12 @@ final class YooY_Gallery_Actions {
         array_unshift($global, $listing);
         update_option('yoy_marketplace_catalog', array_slice($global, 0, 200));
 
-        $updated = $this->store->update($user_id, $id, ['marketplace' => true]);
-        return ['item' => $updated, 'listing' => $listing];
+        $updated = $this->store->update($user_id, $id, [
+            'marketplace' => true,
+            'marketplace_status' => 'draft',
+            'description' => $description,
+        ]);
+        return ['item' => $this->store->get($user_id, $id), 'listing' => $listing, 'draft' => true];
     }
 
     public function share_community(int $user_id, string $id): array {
@@ -145,61 +185,139 @@ final class YooY_Gallery_Actions {
 
     public function save_to_project(int $user_id, string $id, ?string $project_id = null): array {
         $item = $this->store->get($user_id, $id);
-        if (!$item) throw new Exception('Gallery item not found.');
+        if (!$item) {
+            throw new Exception('Gallery item not found.');
+        }
 
-        $projects = get_user_meta($user_id, 'yoy_projects', true);
-        $projects = is_array($projects) ? $projects : [];
-
-        $target_idx = null;
-        if ($project_id !== null && $project_id !== '') {
-            foreach ($projects as $idx => $project) {
-                if (($project['id'] ?? '') === $project_id) {
-                    $target_idx = $idx;
-                    break;
-                }
+        if (!class_exists('YooY_Project_Store')) {
+            if (defined('YOY_AI_STUDIO_MODULES_DIR')) {
+                require_once YOY_AI_STUDIO_MODULES_DIR . 'projects/includes/class-project-store.php';
             }
-        } elseif (!empty($projects)) {
-            $target_idx = 0;
+        }
+        if (!class_exists('YooY_Project_Store')) {
+            throw new Exception('Project store unavailable.');
         }
 
-        if ($target_idx === null) {
-            $projects[] = [
-                'id'         => 'proj_' . wp_generate_uuid4(),
-                'title'      => 'My Project',
-                'type'       => 'mixed',
-                'status'     => 'active',
-                'created_at' => gmdate('c'),
-                'updated_at' => gmdate('c'),
-                'items'      => 0,
-                'assets'     => [],
+        $project_store = new YooY_Project_Store();
+        $current_project_id = (string) ($item['project_id'] ?? '');
+
+        if ($project_id === '') {
+            if ($current_project_id !== '') {
+                $project_store->unlink_gallery_item($user_id, $current_project_id, $id);
+            }
+            $updated = $this->store->update($user_id, $id, ['project_id' => '']);
+            return [
+                'project' => null,
+                'item'    => $updated,
+                'removed' => true,
             ];
-            $target_idx = count($projects) - 1;
         }
 
-        $asset = [
-            'id'         => 'asset_' . wp_generate_uuid4(),
-            'gallery_id' => $id,
-            'type'       => $item['type'] ?? '',
-            'title'      => $item['title'] ?? '',
-            'output_url' => $item['output_url'] ?? '',
-            'thumbnail'  => $item['thumbnail'] ?? '',
-            'prompt'     => $item['prompt'] ?? '',
-            'provider'   => $item['provider'] ?? '',
-            'added_at'   => gmdate('c'),
-        ];
+        $target_project = null;
+        if ($project_id !== null && $project_id !== '') {
+            $target_project = $project_store->get($user_id, $project_id);
+        }
 
-        $assets = $projects[$target_idx]['assets'] ?? [];
-        array_unshift($assets, $asset);
-        $projects[$target_idx]['assets'] = array_slice($assets, 0, 200);
-        $projects[$target_idx]['items'] = count($projects[$target_idx]['assets']);
-        $projects[$target_idx]['updated_at'] = gmdate('c');
+        if (!$target_project) {
+            $target_project = $project_store->create($user_id, [
+                'title'       => 'My Project',
+                'description' => '',
+                'type'        => $item['type'] ?? 'mixed',
+                'visibility'  => 'private',
+                'status'      => 'active',
+                'assets'      => [],
+            ]);
+        }
 
-        update_user_meta($user_id, 'yoy_projects', $projects);
+        if ($current_project_id !== '' && $current_project_id !== ($target_project['id'] ?? '')) {
+            $project_store->unlink_gallery_item($user_id, $current_project_id, $id);
+        }
+
+        $project = $project_store->link_gallery_item($user_id, $target_project['id'], $item);
+        $updated = $this->store->update($user_id, $id, ['project_id' => $target_project['id'] ?? '']);
+        $project_store->sync_asset_counts($user_id);
 
         return [
-            'project' => $projects[$target_idx],
-            'asset'   => $asset,
+            'project' => $project,
+            'item'    => $updated,
+            'asset'   => [
+                'gallery_id' => $id,
+                'type'       => $item['type'] ?? '',
+                'title'      => $item['title'] ?? '',
+            ],
         ];
+    }
+
+    public function delete_item(int $user_id, string $id, bool $delete_media = false): bool {
+        $item = $this->store->get($user_id, $id);
+        if (!$item) {
+            throw new Exception('Item not found.');
+        }
+
+        $projects = get_user_meta($user_id, 'yoy_projects', true);
+        if (is_array($projects)) {
+            foreach ($projects as $pidx => $project) {
+                $assets = is_array($project['assets'] ?? null) ? $project['assets'] : [];
+                $assets = array_values(array_filter($assets, function ($asset) use ($id) {
+                    return ($asset['gallery_id'] ?? '') !== $id;
+                }));
+                $projects[$pidx]['assets'] = $assets;
+                $projects[$pidx]['items'] = count($assets);
+            }
+            update_user_meta($user_id, 'yoy_projects', $projects);
+        }
+
+        $listings = get_user_meta($user_id, 'yoy_marketplace_listings', true);
+        if (is_array($listings)) {
+            $listings = array_values(array_filter($listings, function ($listing) use ($id) {
+                return ($listing['gallery_id'] ?? '') !== $id;
+            }));
+            update_user_meta($user_id, 'yoy_marketplace_listings', $listings);
+        }
+
+        $global = get_option('yoy_marketplace_catalog', []);
+        if (is_array($global)) {
+            $global = array_values(array_filter($global, function ($listing) use ($id) {
+                return ($listing['gallery_id'] ?? '') !== $id;
+            }));
+            update_option('yoy_marketplace_catalog', $global);
+        }
+
+        if ($delete_media && !empty($item['attachment_id']) && current_user_can('manage_options')) {
+            wp_delete_attachment((int) $item['attachment_id'], true);
+        }
+
+        return $this->store->remove($user_id, $id);
+    }
+
+    public function duplicate_item(int $user_id, string $id): array {
+        $item = $this->store->get($user_id, $id);
+        if (!$item) {
+            throw new Exception('Item not found.');
+        }
+        unset($item['id'], $item['job_id']);
+        $item['id'] = 'gal_' . wp_generate_uuid4();
+        $item['title'] = ($item['title'] ?? 'Work') . ' (복제)';
+        $item['favorite'] = false;
+        $item['marketplace'] = false;
+        $item['community_shared'] = false;
+        $item['public'] = false;
+        $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+        $meta['marketplace_status'] = 'none';
+        $item['meta'] = $meta;
+        return $this->store->save($user_id, $item);
+    }
+
+    public function share_link(int $user_id, string $id): array {
+        $item = $this->store->get($user_id, $id);
+        if (!$item) {
+            throw new Exception('Item not found.');
+        }
+        $url = $item['asset_url'] ?? $item['output_url'] ?? $item['image_url'] ?? '';
+        if ($url === '') {
+            throw new Exception('No shareable asset URL.');
+        }
+        return ['url' => $url, 'title' => $item['title'] ?? ''];
     }
 
     private function ext(string $type): string {

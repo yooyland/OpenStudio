@@ -12,7 +12,8 @@
     voices: [],
     generating: false,
     lastResult: null,
-    cloneSample: null
+    cloneSample: null,
+    refPanel: null
   };
 
   function $(s, c) { return (c || document).querySelector(s); }
@@ -120,7 +121,28 @@
       '<div class="yvs-field"><label>Text</label><textarea id="yvs-text" data-yvs-setting="text" placeholder="읽을 텍스트를 입력하세요. [pause:0.5s] 태그로 쉼을 넣을 수 있습니다.">' + esc(state.settings.text || '') + '</textarea></div>' +
       '<button class="yvs-btn-primary" id="yvs-speak" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Generating...' : 'Generate Speech') + '</button>';
 
-    ctrl.innerHTML = controlsHtml();
+    ctrl.innerHTML = controlsHtml() + '<div id="yvs-ref-panel-host"></div>';
+    mountRefAssets($('#yvs-ref-panel-host', ctrl), 'voice-studio');
+  }
+
+  function mountRefAssets(host, studioKey) {
+    if (!host || !window.YooYReferenceAssetsPanel) return;
+    if (state.refPanel) state.refPanel.destroy();
+    state.refPanel = window.YooYReferenceAssetsPanel.mount(host, {
+      studio: studioKey || 'voice-studio',
+      assets: state.settings.reference_assets || [],
+      onChange: function (assets) {
+        state.settings.reference_assets = assets;
+        state.settings.reference_url = assets[0] ? assets[0].url : '';
+      }
+    });
+  }
+
+  function applyRefPayload(payload) {
+    if (window.YooYReferenceAssetsPanel && state.refPanel) {
+      return window.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+    }
+    return payload;
   }
 
   function playerHtml() {
@@ -168,7 +190,8 @@
     state.generating = true;
     state.settings.text = text;
     renderTab(root);
-    Core.voice.speak(state.settings).then(function (res) {
+    var payload = applyRefPayload(Object.assign({}, state.settings, { text: text }));
+    Core.voice.speak(payload).then(function (res) {
       state.lastResult = res.data || res;
       state.generating = false;
       renderTab(root);

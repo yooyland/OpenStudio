@@ -20,34 +20,64 @@ final class YooY_Mock_Video_Provider implements YooY_Video_Provider_Interface {
         $prompt   = $params['prompt'] ?? '';
         $ratio    = $params['aspect_ratio'] ?? '16:9';
         $duration = (int) ($params['duration'] ?? 5);
+        $user_id  = (int) ($params['user_id'] ?? get_current_user_id());
 
         [$w, $h] = $this->dimensions($ratio);
-        $preview = YooY_Asset_Generator::svg_data_uri($w, $h, 'YooY Video');
-        $thumb   = YooY_Asset_Generator::svg_data_uri((int) ($w / 4), (int) ($h / 4), 'Preview', '#1a1a1a', '#ffd76a');
+        $base    = sanitize_file_name($job_id);
+        $label   = mb_substr(trim($prompt), 0, 60) ?: 'YooY Video';
+        $asset   = YooY_Asset_Generator::import_mock_image($base, $w, $h, $label, $user_id);
 
-        return [
-            'job_id'       => $job_id,
-            'status'       => YooY_Job_Status::COMPLETED,
-            'provider'     => $this->id(),
-            'model'        => $params['model'] ?? 'mock-v1',
-            'prompt'       => $prompt,
-            'duration'     => $duration,
-            'aspect_ratio' => $ratio,
-            'progress'     => 100,
-            'output'       => [
-                'url'          => $preview,
-                'thumbnail'    => $thumb,
-                'format'       => 'mp4',
-                'duration_sec' => $duration,
-                'mime'         => 'image/svg+xml',
+        if (empty($asset['url'])) {
+            return YooY_Job_Normalizer::normalize([
+                'job_id'   => $job_id,
+                'status'   => YooY_Job_Status::FAILED,
+                'provider' => $params['provider'] ?? $this->id(),
+                'prompt'   => $prompt,
+                'error'    => 'Generation completed but no output asset was returned.',
+            ], 'video');
+        }
+
+        $url   = $asset['url'];
+        $thumb = $asset['thumbnail'] ?: $url;
+
+        return YooY_Job_Normalizer::normalize([
+            'job_id'          => $job_id,
+            'provider_job_id' => $job_id,
+            'status'          => YooY_Job_Status::COMPLETED,
+            'provider'        => $params['provider'] ?? $this->id(),
+            'model'           => $params['model'] ?? 'mock-v1',
+            'prompt'          => $prompt,
+            'duration'        => $duration,
+            'aspect_ratio'    => $ratio,
+            'progress'        => 100,
+            'stage'           => 'completed',
+            'output'          => [
+                'url'           => $url,
+                'thumbnail'     => $thumb,
+                'format'        => 'mp4',
+                'duration_sec'  => $duration,
+                'mime'          => 'image/png',
+                'attachment_id' => (int) ($asset['attachment_id'] ?? 0),
             ],
-            'credits_used' => $this->estimate_credits($params),
-            'meta'         => ['mock' => true, 'preview_mode' => true, 'korean_context' => !empty($params['korean_context'])],
-        ];
+            'credits_used'    => $this->estimate_credits($params),
+            'meta'            => [
+                'mock' => true,
+                'preview_mode' => true,
+                'korean_context' => !empty($params['korean_context']),
+                'reference_url' => $params['reference_url'] ?? '',
+                'reference_assets' => $params['reference_assets'] ?? [],
+            ],
+        ], 'video');
     }
 
     public function status(string $job_id): array {
-        return ['job_id' => $job_id, 'status' => YooY_Job_Status::COMPLETED, 'progress' => 100];
+        return YooY_Job_Normalizer::normalize([
+            'job_id'          => $job_id,
+            'provider_job_id' => $job_id,
+            'status'          => YooY_Job_Status::COMPLETED,
+            'progress'        => 100,
+            'stage'           => 'completed',
+        ], 'video');
     }
 
     private function dimensions(string $ratio): array {

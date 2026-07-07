@@ -55,7 +55,21 @@ final class YooY_Mock_Image_Provider implements YooY_Image_Provider_Interface, Y
         $job_id = $params['job_id'] ?? ('imgedit_' . wp_generate_uuid4());
         $size   = $this->resolve_size($params);
         [$w, $h] = array_map('intval', explode('x', $size));
-        $url = YooY_Asset_Generator::svg_data_uri($w, $h, ucfirst($mode) . ' Result', '#12121a', '#ffd76a');
+        $user_id = (int) ($params['user_id'] ?? get_current_user_id());
+        $base   = sanitize_file_name($job_id . '_edit');
+        $label  = mb_substr(trim($params['prompt'] ?? ''), 0, 60) ?: (ucfirst($mode) . ' Result');
+        $asset  = YooY_Asset_Generator::import_mock_image($base, $w, $h, $label, $user_id);
+        if (empty($asset['url'])) {
+            return YooY_Job_Normalizer::normalize([
+                'job_id'   => $job_id,
+                'status'   => YooY_Job_Status::FAILED,
+                'provider' => $this->id(),
+                'error'    => 'Generation completed but no output asset was returned.',
+            ], 'image');
+        }
+
+        $url   = $asset['url'];
+        $thumb = $asset['thumbnail'] ?: $url;
 
         $result = [
             'job_id'       => $job_id,
@@ -65,8 +79,12 @@ final class YooY_Mock_Image_Provider implements YooY_Image_Provider_Interface, Y
             'mode'         => $mode,
             'prompt'       => $params['prompt'] ?? '',
             'source'       => $params['source_url'] ?? '',
-            'output'       => ['url' => $url, 'thumbnail' => YooY_Asset_Generator::svg_data_uri((int) ($w / 4), (int) ($h / 4), $mode, '#1a1a1a', '#d8a63a')],
-            'images'       => [['url' => $url, 'thumbnail' => $url]],
+            'output'       => ['url' => $url, 'thumbnail' => $thumb],
+            'images'       => [[
+                'url'           => $url,
+                'thumbnail'     => $thumb,
+                'attachment_id' => (int) ($asset['attachment_id'] ?? 0),
+            ]],
             'credits_used' => ['edit' => 8, 'upscale' => 15, 'inpaint' => 12, 'outpaint' => 12][$mode] ?? 10,
             'meta'         => ['mock' => true],
         ];
@@ -81,33 +99,39 @@ final class YooY_Mock_Image_Provider implements YooY_Image_Provider_Interface, Y
     }
 
     private function build_generate_result(string $job_id, array $params): array {
-        $prompt = $params['prompt'] ?? '';
-        $count  = min(4, max(1, (int) ($params['image_count'] ?? 1)));
-        $size   = $this->resolve_size($params);
+        $prompt  = $params['prompt'] ?? '';
+        $count   = min(4, max(1, (int) ($params['image_count'] ?? 1)));
+        $size    = $this->resolve_size($params);
         [$w, $h] = array_map('intval', explode('x', $size));
-        $images = [];
+        $user_id = (int) ($params['user_id'] ?? get_current_user_id());
+        $images  = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $label = 'YooY Image ' . ($i + 1);
-            $url   = YooY_Asset_Generator::svg_data_uri($w, $h, $label);
-            $thumb = YooY_Asset_Generator::svg_data_uri((int) max(64, $w / 4), (int) max(64, $h / 4), 'Thumb ' . ($i + 1), '#1a1a1a', '#ffd76a');
+            $base  = sanitize_file_name($job_id . '_' . $i);
+            $label = mb_substr(trim($prompt), 0, 60) ?: ('YooY Image ' . ($i + 1));
+            $asset = YooY_Asset_Generator::import_mock_image($base, $w, $h, $label, $user_id);
+            if (empty($asset['url'])) {
+                continue;
+            }
             $images[] = [
-                'url'       => $url,
-                'thumbnail' => $thumb,
-                'width'     => $w,
-                'height'    => $h,
-                'seed'      => $params['seed'] ?? random_int(1, 999999),
+                'url'           => $asset['url'],
+                'thumbnail'     => $asset['thumbnail'] ?: $asset['url'],
+                'attachment_id' => (int) ($asset['attachment_id'] ?? 0),
+                'width'         => $w,
+                'height'        => $h,
+                'seed'          => $params['seed'] ?? random_int(1, 999999),
             ];
         }
 
         return [
             'job_id'       => $job_id,
-            'status'       => YooY_Job_Status::COMPLETED,
+            'status'       => empty($images) ? YooY_Job_Status::FAILED : YooY_Job_Status::COMPLETED,
             'provider'     => $params['provider'] ?? $this->id(),
             'model'        => $params['model'] ?? 'mock-image-v1',
             'prompt'       => $prompt,
             'images'       => $images,
-            'image_count'  => $count,
+            'image_count'  => count($images),
+            'error'        => empty($images) ? 'Generation completed but no output asset was returned.' : null,
             'credits_used' => $this->estimate_credits($params),
             'meta'         => ['mock' => true, 'korean_context' => !empty($params['korean_context'])],
         ];

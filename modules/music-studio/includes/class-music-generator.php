@@ -25,6 +25,7 @@ final class YooY_Music_Generator {
 
     public function generate(int $user_id, array $params): array {
         $payload = $this->normalize($params);
+        $resolution = YooY_Provider_Resolver::apply($payload, 'music', $user_id);
 
         if ($payload['mode'] === 'custom' && empty($payload['lyrics']) && !empty($payload['structure_template'])) {
             $payload['lyrics'] = $this->structure->build_lyrics_skeleton(
@@ -52,10 +53,15 @@ final class YooY_Music_Generator {
 
         $estimate = $this->credits->estimate($payload);
         if (!$this->credits->can_afford($user_id, $payload)) {
+            if (($payload['provider'] ?? 'mock') !== 'mock') {
+                throw new Exception('Provider is connected but billing or credits are unavailable.');
+            }
             throw new Exception('Insufficient credits. Required: ' . $estimate);
         }
 
         $result = $this->router->generate($payload);
+        $result = YooY_Job_Normalizer::ensure_output_or_fail($result);
+        $result = YooY_Provider_Resolver::annotate($result, $resolution);
 
         if (YooY_Job_Status::is_terminal($result['status'] ?? '')) {
             $credit_info = $this->credits->deduct(
@@ -83,7 +89,8 @@ final class YooY_Music_Generator {
             'estimate'        => $estimate,
         ]));
 
-        if (!empty($params['auto_save']) && ($entry['status'] ?? '') === YooY_Job_Status::COMPLETED) {
+        if (!empty($params['auto_save']) && ($entry['status'] ?? '') === YooY_Job_Status::COMPLETED
+            && class_exists('YooY_Asset_Generator') && YooY_Asset_Generator::has_displayable_asset($entry)) {
             $this->gallery->auto_save($user_id, $entry);
             $this->capture_gallery($user_id, $entry);
         }
@@ -102,6 +109,7 @@ final class YooY_Music_Generator {
 
     public function poll_and_finalize(int $user_id, string $provider, string $job_id): ?array {
         $status = $this->router->status($provider, $job_id);
+        $status = YooY_Job_Normalizer::ensure_output_or_fail($status);
         if (!YooY_Job_Status::is_terminal($status['status'] ?? '')) {
             $this->history->add($user_id, array_merge($status, ['studio' => 'music-studio', 'type' => 'music']));
             return $status;
@@ -113,7 +121,8 @@ final class YooY_Music_Generator {
         }
 
         $estimate = $this->credits->estimate($existing ?? $status);
-        if (($status['status'] ?? '') === YooY_Job_Status::COMPLETED) {
+        if (($status['status'] ?? '') === YooY_Job_Status::COMPLETED
+            && class_exists('YooY_Asset_Generator') && YooY_Asset_Generator::has_displayable_asset($status)) {
             $credit_info = $this->credits->deduct(
                 $user_id,
                 (int) ($status['credits_used'] ?? $estimate),
@@ -123,6 +132,9 @@ final class YooY_Music_Generator {
             $status['credits_used'] = $credit_info['deducted'] ?: (int) ($status['credits_used'] ?? $estimate);
             $this->gallery->auto_save($user_id, $status);
             $this->capture_gallery($user_id, $status);
+        } elseif (($status['status'] ?? '') === YooY_Job_Status::COMPLETED) {
+            $status['status'] = YooY_Job_Status::FAILED;
+            $status['error'] = 'Generation completed but no output asset was returned.';
         }
 
         return $this->history->add($user_id, array_merge($status, ['studio' => 'music-studio', 'type' => 'music']));
@@ -147,7 +159,7 @@ final class YooY_Music_Generator {
 
     private function normalize(array $params): array {
         return [
-            'provider'          => sanitize_text_field($params['provider'] ?? $params['default_provider'] ?? 'mock'),
+            'provider'          => sanitize_text_field($params['provider'] ?? $params['default_provider'] ?? 'auto'),
             'model'             => sanitize_text_field($params['model'] ?? $params['default_model'] ?? 'mock-music-v1'),
             'mode'              => sanitize_text_field($params['mode'] ?? 'custom'),
             'title'             => sanitize_text_field($params['title'] ?? ''),
@@ -164,6 +176,7 @@ final class YooY_Music_Generator {
             'negative_prompt'   => sanitize_textarea_field($params['negative_prompt'] ?? ''),
             'reference_url'     => esc_url_raw($params['reference_url'] ?? ''),
             'reference_clip_id' => sanitize_text_field($params['reference_clip_id'] ?? ''),
+            'reference_assets'  => $this->normalize_reference_assets($params),
             'weirdness'         => (int) ($params['weirdness'] ?? 50),
             'style_influence'   => (int) ($params['style_influence'] ?? 65),
             'audio_quality'     => sanitize_text_field($params['audio_quality'] ?? 'standard'),
@@ -191,5 +204,20 @@ final class YooY_Music_Generator {
             $parts[] = 'instrumental';
         }
         return implode(', ', array_filter($parts));
+    }
+
+    private function normalize_reference_assets(array $params): array {
+        if (!class_exists('YooY_Reference_Asset_Service')) {
+            require_once YOY_AI_STUDIO_MODULES_DIR . 'reference-assets/includes/class-reference-asset-service.php';
+        }
+        $assets = YooY_Reference_Asset_Service::normalize_payload_list($params['reference_assets'] ?? []);
+        if (empty($assets) && !empty($params['reference_url'])) {
+            $assets[] = [
+                'url' => esc_url_raw($params['reference_url']),
+                'asset_type' => 'audio',
+                'role' => 'audio',
+            ];
+        }
+        return $assets;
     }
 }

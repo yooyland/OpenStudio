@@ -2,6 +2,8 @@
 if (!defined('ABSPATH')) exit;
 
 require_once __DIR__ . '/includes/class-gallery-store.php';
+require_once __DIR__ . '/includes/class-gallery-title-service.php';
+require_once __DIR__ . '/includes/class-gallery-asset-resolver.php';
 require_once __DIR__ . '/includes/class-gallery-aggregator.php';
 require_once __DIR__ . '/includes/class-gallery-actions.php';
 require_once __DIR__ . '/class-yoy-module-gallery.php';

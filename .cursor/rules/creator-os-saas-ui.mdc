@@ -1,0 +1,100 @@
+---
+description: WordPress=백엔드, YooY AI Studio=프론트 SaaS. WP 플러그인 UI 금지, 독립 웹앱처럼 디자인
+alwaysApply: true
+---
+
+# Architecture — WordPress Backend + YooY SaaS Frontend
+
+## 한 줄 원칙
+
+> **Do not design it like a WordPress admin plugin.**  
+> **Design it like a standalone SaaS web app.**  
+> WordPress is only the backend. YooY AI Studio is the frontend application.
+
+**WordPress Plugin 방식은 유지한다.** 배포·후이즈 운영·회원/결제/DB 연동의 장점을 그대로 쓴다.  
+**단, 사용자가 보는 화면은 WordPress가 아니라 YooY Studio 앱이다.**
+
+---
+
+## WordPress = 백엔드 (숨겨진 인프라)
+
+| 역할 | 예 |
+|------|-----|
+| 회원 | `wp_users`, 로그인/세션 |
+| 권한 | `current_user_can()`, roles/capabilities |
+| DB | `user_meta`, `options`, custom tables |
+| 결제 | WooCommerce / PG 연동 |
+| 크레딧 | `YooY_Credits_Service`, ledger |
+| 관리자 | `manage_options`, wp-admin 메뉴 등록 |
+| REST API | `yoy-ai-studio/v1` |
+
+Cursor는 WordPress를 **CMS·인증·저장·API 레이어**로만 사용한다.  
+프론트 markup/CSS/copy에 "WordPress", "Plugin", "Module loaded" 같은 백엔드 언어를 노출하지 않는다.
+
+---
+
+## YooY AI Studio = 프론트 SaaS 앱 (사용자가 보는 것)
+
+| 화면 | 설명 |
+|------|------|
+| 독립형 대시보드 | Home — credits, projects, activity, showcase |
+| Creator OS UI | black/gold sidebar shell, SPA `data-route` |
+| AI 생성 화면 | Video, Image, Music, Voice, Avatar, Writing |
+| Gallery | works, history |
+| Projects | workspace |
+| Marketplace / Community | creator platform |
+
+참고 UX 수준: **ChatGPT, Canva, Runway** — 독립 AI 플랫폼.
+
+---
+
+## UI 정책 (영역별)
+
+| 영역 | 위치 | 디자인 |
+|------|------|--------|
+| Creator OS (일반 사용자) | `[yoy_ai_studio]` shortcode | **100% 독립 SaaS** — WP 테마/Admin Bar/플러그인 UI 흔적 없음 |
+| Admin Console (관리자, 프론트) | `data-route="admin-console"` | **SaaS 운영 콘솔** — WP Admin 스타일 금지 |
+| Admin Console (관리자, wp-admin) | `admin.php?page=yooy_admin_console` | **wp-admin 안에 있어도 됨** — 단 UI는 SaaS 운영 콘솔 (`.yai-admin-root`, black/gold) |
+| Core Engine (개발/운영) | `wp-admin` toplevel | 백엔드 진단용 — 사용자-facing 아님 |
+
+---
+
+## 금지
+
+- WordPress Admin UI 패턴을 Creator OS에 복사: `.wrap`, `.widefat`, `.striped`, `dashicons`, WP default button/table
+- 테마 header/footer/sidebar/title이 Studio 위에 보이게 두기
+- WP Admin Bar가 Creator OS 위에 겹치기 (`body.yoy-creator-os-active`에서 숨김)
+- 데모/placeholder/fake stats
+- 프론트에 플러그인·엔진·모듈 개발자 용어
+
+---
+
+## 필수
+
+- **Full-viewport app shell**: `.yai-app` — `position: fixed; inset: 0`
+- **Theme isolation**: `body.yoy-creator-os-active` + scoped CSS reset
+- **Design system**: Inter, black/gold, card/grid, 8–12px radius
+- **Branding**: YooY Studio / Creator OS (WordPress 브랜딩 X)
+- **Routing**: 기존 `data-route` 구조 유지 — breaking change 금지
+- **Empty state**: premium empty card + real CTA (Store/API 기반)
+
+---
+
+## 구현 체크리스트
+
+새 페이지·컴포넌트 추가 시:
+
+1. REST → Store/Service → UI (WordPress는 데이터·권한만)
+2. Markup은 `.yai-app` 또는 `.yai-admin-root` 내부
+3. CSS는 descendant scope (테마 bleed 방지)
+4. Copy는 크리에이터·사용자 관점
+5. Admin Console도 SaaS ops console 톤 유지
+
+---
+
+## 참고 파일
+
+- Shell: `plugin/yooy-ai-studio/templates/studio-shell.php`
+- Theme isolation: `plugin/yooy-ai-studio/assets/css/studio.css`
+- Admin Console UI: `assets/css/admin-console.css`, `assets/js/admin-console.js`
+- Body class: `YooY_AI_Studio::body_class()`
