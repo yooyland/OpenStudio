@@ -279,7 +279,7 @@ $studio_quick = [
             <section class="yai-view" data-page="import"><div id="yai-import-engine"></div></section>
             <section class="yai-view" data-page="market"><header class="yai-page-head"><h1>Marketplace</h1><p>프롬프트 템플릿, 가이드, 크리에이터 마켓.</p></header><div id="yai-marketplace"></div></section>
             <section class="yai-view" data-page="community"><header class="yai-page-head"><h1>Community</h1><p>크리에이터 피드, 공개 갤러리, 프롬프트 공유.</p></header><div id="yai-community"></div></section>
-            <section class="yai-view" data-page="works"><header class="yai-page-head"><h1>Gallery</h1><p>생성 및 Import된 모든 에셋 — 영상, 이미지, 음악, 글, 아바타, 음성.</p></header><div id="yai-works"></div></section>
+            <section class="yai-view" data-page="works"><header class="yai-page-head"><h1>Gallery</h1><p>생성 및 Import된 모든 에셋 — 영상, 이미지, 음악, 글, 번역, 아바타, 음성.</p></header><div id="yai-works"></div></section>
             <section class="yai-view" data-page="credits"><header class="yai-page-head"><h1>Credits</h1><p>크레딧 잔액, 사용 내역, 플랜 비교.</p></header><div id="yai-credits-panel"></div></section>
             <section class="yai-view" data-page="billing"><header class="yai-page-head"><h1>Billing</h1><p>현재 플랜, 결제 내역, 구독 관리.</p></header><div id="yai-billing-panel"></div></section>
             <section class="yai-view" data-page="settings"><header class="yai-page-head"><h1>Settings</h1><p>스튜디오 기본 설정과 한국 컨텍스트 옵션.</p></header><div class="yai-settings-grid" id="yai-settings"></div></section>

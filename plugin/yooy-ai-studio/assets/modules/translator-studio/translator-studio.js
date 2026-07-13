@@ -26,14 +26,16 @@
     fallbackUsed: false,
     lastModel: '',
     openaiReady: false,
-    projectId: '',
-    projects: [],
     history: [],
     galleryItemId: '',
+    projectId: '',
+    projectsEnabled: true,
     translating: false,
     error: '',
     toast: '',
     creditsLabel: '—',
+    creditEstimate: 0,
+    creditsEnabled: true,
     charCount: 0,
     abort: null
   };
@@ -99,12 +101,6 @@
             '<span>번역 모드</span>' +
             '<select id="yts-mode" aria-label="번역 모드"></select>' +
           '</label>' +
-          '<label class="yts-field yts-field--project">' +
-            '<span>Project</span>' +
-            '<select id="yts-project" aria-label="Project">' +
-              '<option value="">저장만 (프로젝트 없음)</option>' +
-            '</select>' +
-          '</label>' +
         '</div>' +
 
         '<div class="yts-panels">' +
@@ -126,6 +122,7 @@
             '<div id="yts-result" class="yts-result" tabindex="0" aria-live="polite"></div>' +
             '<div class="yts-result-actions">' +
               '<button type="button" class="yts-btn yts-btn--ghost" id="yts-copy" disabled>복사</button>' +
+              '<button type="button" class="yts-btn yts-btn--ghost" id="yts-project" disabled hidden>Project 저장</button>' +
               '<button type="button" class="yts-btn yts-btn--ghost" id="yts-clear" disabled>초기화</button>' +
             '</div>' +
           '</section>' +
@@ -155,19 +152,71 @@
     var src = $('#yts-source-lang', root);
     var tgt = $('#yts-target-lang', root);
     var mode = $('#yts-mode', root);
-    var project = $('#yts-project', root);
     if (src) src.innerHTML = optionHtml(state.languages, state.sourceLanguage, false);
     if (tgt) tgt.innerHTML = optionHtml(state.languages, state.targetLanguage, true);
     if (mode) mode.innerHTML = modeOptionsHtml();
-    if (project) {
-      var opts = '<option value="">저장만 (프로젝트 없음)</option>';
-      state.projects.forEach(function (p) {
-        var id = p.id || '';
-        opts += '<option value="' + esc(id) + '"' + (id === state.projectId ? ' selected' : '') + '>' +
-          esc(p.title || id) + '</option>';
-      });
-      project.innerHTML = opts;
-    }
+  }
+
+  function langIso(code) {
+    var raw = String(code || '').trim();
+    if (!raw || raw.toLowerCase() === 'auto') return 'AUTO';
+    var base = raw.split(/[-_]/)[0];
+    return base.toUpperCase().slice(0, 3);
+  }
+
+  function langBadgeHtml(source, target) {
+    return '<span class="yts-lang-badge" title="' + esc(langIso(source) + ' → ' + langIso(target)) + '">' +
+      '<span class="yts-lang-code">' + esc(langIso(source)) + '</span>' +
+      '<span class="yts-lang-arrow" aria-hidden="true">→</span>' +
+      '<span class="yts-lang-code">' + esc(langIso(target)) + '</span>' +
+      '</span>';
+  }
+
+  function historyBucket(iso) {
+    var d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return 'older';
+    var now = new Date();
+    var startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var startYesterday = new Date(startToday.getTime());
+    startYesterday.setDate(startYesterday.getDate() - 1);
+    var startWeek = new Date(startToday.getTime());
+    startWeek.setDate(startWeek.getDate() - 7);
+    if (d >= startToday) return 'today';
+    if (d >= startYesterday) return 'yesterday';
+    if (d >= startWeek) return 'last_week';
+    return 'older';
+  }
+
+  var HISTORY_GROUP_LABELS = {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    last_week: 'Last Week',
+    older: 'Older'
+  };
+
+  function historyItemHtml(item) {
+    var favClass = item.favorite ? ' is-favorite' : '';
+    var srcLang = item.source_language === 'auto' && item.detected_language
+      ? item.detected_language
+      : item.source_language;
+    return '<div class="yts-history-item' + favClass + '" data-history-id="' + esc(item.id) + '">' +
+      '<button type="button" class="yts-history-main" data-history-reopen="' + esc(item.id) + '">' +
+        '<span class="yts-history-item-top">' +
+          langBadgeHtml(srcLang, item.target_language) +
+          '<span class="yts-history-item-title">' + esc(item.title || item.preview || 'Translation') + '</span>' +
+        '</span>' +
+        '<span class="yts-history-item-meta">' + esc(item.provider || '') +
+          (item.project_id ? ' · Project' : '') +
+        '</span>' +
+      '</button>' +
+      '<div class="yts-history-actions">' +
+        '<button type="button" class="yts-history-action" data-history-fav="' + esc(item.id) + '" title="즐겨찾기" aria-label="즐겨찾기">' +
+          (item.favorite ? '★' : '☆') +
+        '</button>' +
+        '<button type="button" class="yts-history-action" data-history-copy="' + esc(item.id) + '" title="번역문 복사" aria-label="번역문 복사">복사</button>' +
+        '<button type="button" class="yts-history-action yts-history-action--danger" data-history-delete="' + esc(item.id) + '" title="삭제" aria-label="삭제">삭제</button>' +
+      '</div>' +
+    '</div>';
   }
 
   function renderHistory(root) {
@@ -177,14 +226,20 @@
       list.innerHTML = '<p class="yts-history-empty">아직 저장된 번역이 없습니다.</p>';
       return;
     }
-    list.innerHTML = state.history.map(function (item) {
-      var langs = esc((item.source_language || '?') + ' → ' + (item.target_language || '?'));
-      return '<button type="button" class="yts-history-item" data-history-id="' + esc(item.id) + '">' +
-        '<span class="yts-history-item-title">' + esc(item.title || item.preview || 'Translation') + '</span>' +
-        '<span class="yts-history-item-meta">' + langs + ' · ' + esc(item.provider || '') +
-          (item.credits_used ? (' · ' + item.credits_used + ' cr') : '') + '</span>' +
-      '</button>';
-    }).join('');
+    var order = ['today', 'yesterday', 'last_week', 'older'];
+    var groups = { today: [], yesterday: [], last_week: [], older: [] };
+    state.history.forEach(function (item) {
+      groups[historyBucket(item.created_at)].push(item);
+    });
+    var html = '';
+    order.forEach(function (key) {
+      if (!groups[key].length) return;
+      html += '<div class="yts-history-group" data-history-group="' + key + '">' +
+        '<h3 class="yts-history-group-title">' + HISTORY_GROUP_LABELS[key] + '</h3>' +
+        groups[key].map(historyItemHtml).join('') +
+        '</div>';
+    });
+    list.innerHTML = html;
   }
 
   function loadHistory(root) {
@@ -199,16 +254,61 @@
     });
   }
 
-  function loadProjects() {
-    if (!Core.projects || typeof Core.projects.list !== 'function') {
-      state.projects = [];
-      return Promise.resolve();
+  function findHistoryItem(id) {
+    for (var i = 0; i < state.history.length; i++) {
+      if (state.history[i].id === id) return state.history[i];
     }
-    return Core.projects.list().then(function (res) {
+    return null;
+  }
+
+  function copyText(text, root, okMsg) {
+    var value = String(text || '');
+    if (!value) {
+      showToast(root, '복사할 내용이 없습니다.');
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(function () {
+        showToast(root, okMsg || '복사되었습니다.');
+      }).catch(function () {
+        fallbackCopy(value);
+        showToast(root, okMsg || '복사되었습니다.');
+      });
+      return;
+    }
+    fallbackCopy(value);
+    showToast(root, okMsg || '복사되었습니다.');
+  }
+
+  function toggleFavoriteHistory(root, id) {
+    if (!id || !Core.translator.favorite) return;
+    Core.translator.favorite(id).then(function (res) {
       var data = (res && (res.data || res)) || {};
-      state.projects = data.projects || data.items || [];
-    }).catch(function () {
-      state.projects = [];
+      var item = data.item || null;
+      if (item && item.id) {
+        state.history = state.history.map(function (h) {
+          return h.id === item.id ? Object.assign({}, h, item) : h;
+        });
+        renderHistory(root);
+        showToast(root, item.favorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기를 해제했습니다.');
+      }
+    }).catch(function (e) {
+      showStatus(root, 'error', (e && e.message) || '즐겨찾기를 변경할 수 없습니다.');
+    });
+  }
+
+  function deleteHistoryItem(root, id) {
+    if (!id || !Core.translator.removeHistory) return;
+    if (!global.confirm('이 번역 기록을 삭제할까요?')) return;
+    Core.translator.removeHistory(id).then(function () {
+      state.history = state.history.filter(function (h) { return h.id !== id; });
+      if (state.galleryItemId === id) state.galleryItemId = '';
+      renderHistory(root);
+      showToast(root, '기록을 삭제했습니다.');
+      if (Core.notifyGalleryUpdated) Core.notifyGalleryUpdated();
+      document.dispatchEvent(new CustomEvent('yoy:gallery:updated'));
+    }).catch(function (e) {
+      showStatus(root, 'error', (e && e.message) || '기록을 삭제할 수 없습니다.');
     });
   }
 
@@ -220,8 +320,8 @@
     state.targetLanguage = payload.target_language || state.targetLanguage;
     state.mode = payload.mode || state.mode;
     state.detectedLanguage = payload.detected_language || '';
-    state.projectId = payload.project_id || '';
     state.galleryItemId = payload.gallery_item_id || payload.id || '';
+    state.projectId = payload.project_id || '';
     state.fallbackUsed = false;
     state.providerId = payload.provider || state.providerId;
     state.lastModel = payload.model || '';
@@ -267,7 +367,6 @@
         mode: payload.mode || (payload.settings && payload.settings.mode) || 'natural',
         provider: payload.provider || 'auto',
         model: payload.model || '',
-        project_id: payload.project_id || '',
         gallery_item_id: (payload.remix_source && payload.remix_source.gallery_id) || ''
       });
       showToast(root, 'Gallery에서 번역을 불러왔습니다.');
@@ -372,7 +471,7 @@
       if (state.fallbackUsed) {
         hint.textContent = 'OpenAI 번역에 실패하여 Mock Fallback으로 표시했습니다. 실제 번역 품질은 OpenAI 연결 상태를 확인한 뒤 다시 시도하세요.';
       } else if (state.providerId === 'openai') {
-        hint.textContent = 'OpenAI로 번역되었습니다. Gallery·History·Credits 연동은 다음 Phase에서 제공됩니다.';
+        hint.textContent = 'OpenAI로 번역되었습니다. 결과는 Gallery(My Works)와 History에 저장됩니다.';
       } else if (state.providerId === 'mock') {
         hint.textContent = 'Mock Provider는 화면과 작업 흐름을 확인하기 위한 개발용 번역 시뮬레이션입니다. 실제 번역 품질은 OpenAI·Google·DeepL Provider 연결 후 제공됩니다.';
       } else if (state.openaiReady) {
@@ -384,12 +483,22 @@
     var pill = $('#yts-provider-pill', root);
     if (pill) pill.textContent = providerPillText();
     var cred = $('#yts-credits-pill', root);
-    if (cred) cred.textContent = state.creditsLabel;
+    if (cred) {
+      var est = state.creditsEnabled && state.creditEstimate > 0
+        ? (' · 예상 ' + state.creditEstimate)
+        : '';
+      cred.textContent = state.creditsLabel + est;
+    }
     var copyBtn = $('#yts-copy', root);
     var clearBtn = $('#yts-clear', root);
+    var projectBtn = $('#yts-project', root);
     var hasResult = !!state.translatedText;
     if (copyBtn) copyBtn.disabled = !hasResult;
     if (clearBtn) clearBtn.disabled = !hasResult && !state.sourceText;
+    if (projectBtn) {
+      projectBtn.hidden = !state.projectsEnabled;
+      projectBtn.disabled = !state.galleryItemId || !state.projectsEnabled;
+    }
     var btn = $('#yts-translate', root);
     if (btn) {
       btn.disabled = !!state.translating;
@@ -403,11 +512,9 @@
     var src = $('#yts-source-lang', root);
     var tgt = $('#yts-target-lang', root);
     var mode = $('#yts-mode', root);
-    var project = $('#yts-project', root);
     if (src) state.sourceLanguage = src.value;
     if (tgt) state.targetLanguage = tgt.value;
     if (mode) state.mode = mode.value;
-    if (project) state.projectId = project.value || '';
   }
 
   var SAME_LANG_MSG = '감지된 원문 언어와 대상 언어가 같습니다. 다른 대상 언어를 선택해 주세요.';
@@ -481,8 +588,7 @@
       target_language: state.targetLanguage,
       mode: state.mode,
       context: '',
-      provider: 'auto',
-      project_id: state.projectId || ''
+      provider: 'auto'
     };
 
     Core.translator.translate(body, state.abort ? state.abort.signal : null).then(function (res) {
@@ -492,6 +598,7 @@
       state.fallbackUsed = !!data.fallback_used;
       state.lastModel = data.model || '';
       state.galleryItemId = data.gallery_item_id || '';
+      state.projectId = data.project_id || '';
       if (data.provider) state.providerId = data.provider;
       if (state.fallbackUsed) {
         state.providerName = 'Mock Fallback';
@@ -506,14 +613,18 @@
       setResult(root, state.translatedText, false);
       updateMeta(root);
       var toastMsg = '번역이 완료되었습니다.';
-      if (data.saved) toastMsg = '번역 완료 · My Works에 저장됨';
-      if (data.credits && data.credits.deducted > 0) {
-        toastMsg += ' · -' + data.credits.deducted + ' credits';
-      } else if (data.credits && data.credits.skipped) {
-        toastMsg += ' · Credits 미차감';
+      if (data.saved) toastMsg = '번역 완료 · Language Asset 저장됨';
+      var cred = data.credits || {};
+      if (cred.deducted > 0) {
+        toastMsg += ' · -' + cred.deducted + ' credits';
+      } else if (cred.unlimited) {
+        toastMsg += ' · Unlimited';
+      } else if (cred.skipped && (cred.reason === 'mock' || cred.reason === 'fallback')) {
+        toastMsg += ' · 무료';
       }
       showToast(root, toastMsg);
       loadCreditsLabel().then(function () { updateMeta(root); });
+      refreshEstimate(root);
       loadHistory(root);
       if (Core.notifyGalleryUpdated) Core.notifyGalleryUpdated();
       document.dispatchEvent(new CustomEvent('yoy:gallery:updated'));
@@ -524,6 +635,12 @@
       var msg = (e && e.message) ? e.message : '번역에 실패했습니다.';
       if (code === 'same_source_target_language') {
         msg = SAME_LANG_MSG;
+      }
+      if (code === 'insufficient_credits') {
+        msg = (e && e.message) || '크레딧이 부족합니다.';
+      }
+      if (code === 'gallery_save_failed') {
+        msg = (e && e.message) || '저장에 실패하여 크레딧을 차감하지 않았습니다.';
       }
       state.error = msg;
       // Do not invent a new result; restore previous display if any.
@@ -599,11 +716,39 @@
     state.providerId = 'auto';
     state.providerName = 'Auto';
     state.galleryItemId = '';
+    state.projectId = '';
     var ta = $('#yts-source', root);
     if (ta) ta.value = '';
     setResult(root, '', false);
     showStatus(root, '', '');
     updateMeta(root);
+  }
+
+  function doSaveProject(root) {
+    if (!state.galleryItemId || !state.projectsEnabled) return;
+    if (!Core.gallery || !Core.gallery.project) {
+      showStatus(root, 'error', 'Gallery Project API를 사용할 수 없습니다.');
+      return;
+    }
+    // Same path as Music/Image: POST /gallery/items/{id}/project (null → create/link My Project).
+    Core.gallery.project(state.galleryItemId).then(function (res) {
+      var data = (res && (res.data || res)) || {};
+      var project = data.project || null;
+      var item = data.item || null;
+      if (item && item.project_id) state.projectId = item.project_id;
+      else if (project && project.id) state.projectId = project.id;
+      state.history = state.history.map(function (h) {
+        if (h.id !== state.galleryItemId) return h;
+        return Object.assign({}, h, { project_id: state.projectId });
+      });
+      renderHistory(root);
+      updateMeta(root);
+      showToast(root, 'Project에 저장됨: ' + ((project && project.title) || 'My Project'));
+      if (Core.notifyGalleryUpdated) Core.notifyGalleryUpdated();
+      document.dispatchEvent(new CustomEvent('yoy:gallery:updated'));
+    }).catch(function (e) {
+      showStatus(root, 'error', (e && e.message) || 'Project에 저장할 수 없습니다.');
+    });
   }
 
   function bindEvents(root) {
@@ -614,10 +759,34 @@
       if (e.target.closest('#yts-translate')) { doTranslate(root); return; }
       if (e.target.closest('#yts-swap')) { doSwap(root); return; }
       if (e.target.closest('#yts-copy')) { doCopy(root); return; }
+      if (e.target.closest('#yts-project')) { doSaveProject(root); return; }
       if (e.target.closest('#yts-clear')) { doClear(root); return; }
       if (e.target.closest('#yts-history-refresh')) { loadHistory(root); return; }
-      var hist = e.target.closest('[data-history-id]');
-      if (hist) { reopenHistory(root, hist.getAttribute('data-history-id')); return; }
+      var reopenBtn = e.target.closest('[data-history-reopen]');
+      if (reopenBtn) {
+        reopenHistory(root, reopenBtn.getAttribute('data-history-reopen'));
+        return;
+      }
+      var favBtn = e.target.closest('[data-history-fav]');
+      if (favBtn) {
+        e.preventDefault();
+        toggleFavoriteHistory(root, favBtn.getAttribute('data-history-fav'));
+        return;
+      }
+      var copyBtn = e.target.closest('[data-history-copy]');
+      if (copyBtn) {
+        e.preventDefault();
+        var copyId = copyBtn.getAttribute('data-history-copy');
+        var hist = findHistoryItem(copyId);
+        copyText(hist && hist.translated_text, root, '번역문을 복사했습니다.');
+        return;
+      }
+      var delBtn = e.target.closest('[data-history-delete]');
+      if (delBtn) {
+        e.preventDefault();
+        deleteHistoryItem(root, delBtn.getAttribute('data-history-delete'));
+        return;
+      }
     });
 
     root.addEventListener('input', function (e) {
@@ -625,6 +794,7 @@
         state.sourceText = e.target.value;
         updateMeta(root);
         showStatus(root, '', '');
+        scheduleEstimate(root);
       }
     });
 
@@ -634,7 +804,6 @@
       if (t.id === 'yts-source-lang') state.sourceLanguage = t.value;
       if (t.id === 'yts-target-lang') state.targetLanguage = t.value;
       if (t.id === 'yts-mode') state.mode = t.value;
-      if (t.id === 'yts-project') state.projectId = t.value || '';
     });
 
     root.addEventListener('keydown', function (e) {
@@ -646,6 +815,24 @@
   }
 
   function loadCreditsLabel() {
+    if (Core.translator && Core.translator.credits) {
+      return Core.translator.credits().then(function (res) {
+        var d = (res && (res.data || res)) || {};
+        if (d.unlimited) {
+          state.creditsLabel = 'Credits · Unlimited';
+        } else if (typeof d.balance !== 'undefined') {
+          state.creditsLabel = 'Credits · ' + d.balance;
+        } else {
+          state.creditsLabel = 'Credits · —';
+        }
+      }).catch(function () {
+        return loadCreditsLabelFallback();
+      });
+    }
+    return loadCreditsLabelFallback();
+  }
+
+  function loadCreditsLabelFallback() {
     if (!Core.credits || !Core.credits.balance) {
       state.creditsLabel = 'Credits · —';
       return Promise.resolve();
@@ -664,6 +851,43 @@
     });
   }
 
+  function refreshEstimate(root) {
+    if (!state.creditsEnabled || !Core.translator.estimate) {
+      state.creditEstimate = 0;
+      return Promise.resolve();
+    }
+    var text = state.sourceText || '';
+    if (!String(text).trim()) {
+      state.creditEstimate = 0;
+      if (root) updateMeta(root);
+      return Promise.resolve();
+    }
+    return Core.translator.estimate({
+      text: text,
+      provider: 'auto'
+    }).then(function (res) {
+      var d = (res && (res.data || res)) || {};
+      state.creditEstimate = parseInt(d.estimate, 10) || 0;
+      if (d.unlimited) {
+        state.creditsLabel = 'Credits · Unlimited';
+      } else if (typeof d.balance !== 'undefined') {
+        state.creditsLabel = 'Credits · ' + d.balance;
+      }
+      if (root) updateMeta(root);
+    }).catch(function () {
+      state.creditEstimate = 0;
+      if (root) updateMeta(root);
+    });
+  }
+
+  var estimateTimer = null;
+  function scheduleEstimate(root) {
+    clearTimeout(estimateTimer);
+    estimateTimer = setTimeout(function () {
+      refreshEstimate(root);
+    }, 400);
+  }
+
   function mount(container) {
     if (!container || container.dataset.mounted === '1') return;
     container.dataset.mounted = '1';
@@ -677,7 +901,6 @@
       Core.translator.config().catch(function () { return { data: {} }; }),
       Core.translator.languages().catch(function () { return { data: { languages: [] } }; }),
       loadCreditsLabel(),
-      loadProjects(),
       loadHistory(root)
     ]).then(function (res) {
       var cfg = (res[0] && (res[0].data || res[0])) || {};
@@ -687,6 +910,8 @@
       state.providers = cfg.providers || [];
       if (cfg.max_chars) MAX_CHARS = parseInt(cfg.max_chars, 10) || MAX_CHARS;
       state.openaiReady = !!cfg.openai_ready;
+      state.projectsEnabled = !(cfg.features && cfg.features.projects === false);
+      state.creditsEnabled = !(cfg.features && cfg.features.credits === false);
       state.providerId = 'auto';
       state.providerName = 'Auto';
       state.fallbackUsed = false;
@@ -707,6 +932,7 @@
       }
       fillSelects(root);
       updateMeta(root);
+      refreshEstimate(root);
       consumeRegeneratePayload(root);
     }).catch(function (e) {
       showStatus(root, 'error', (e && e.message) || 'Translator 설정을 불러오지 못했습니다.');

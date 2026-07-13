@@ -2,8 +2,11 @@
 if (!defined('ABSPATH')) exit;
 
 /**
- * Saves Translator results into Gallery Store as type=translation.
- * History / My Works reuse the same Gallery items.
+ * Saves Translator results into Gallery Store as Language Assets (type=translation).
+ * History = Gallery filter(type=translation). Projects via Gallery_Actions.
+ *
+ * Meta is open for future Language Asset keys (parent_asset_id, revision, …)
+ * without writing them yet — see docs/LANGUAGE_ASSET.md.
  */
 final class YooY_Translator_Gallery {
 
@@ -19,7 +22,7 @@ final class YooY_Translator_Gallery {
     }
 
     /**
-     * @return array{saved:bool,gallery_item_id:?string,item:?array,error?:string}
+     * @return array{saved:bool,gallery_item_id:?string,item:?array,project_id?:string,error?:string}
      */
     public function save_translation(int $user_id, array $payload): array {
         if (!$this->store) {
@@ -43,6 +46,7 @@ final class YooY_Translator_Gallery {
             'model'           => (string) ($payload['model'] ?? ''),
         ];
 
+        // Same Gallery schema as Image/Video/Music/Voice — text-only asset for translation.
         $item = [
             'id'            => 'tr_' . wp_generate_uuid4(),
             'type'          => 'translation',
@@ -54,9 +58,12 @@ final class YooY_Translator_Gallery {
             'model'         => (string) ($payload['model'] ?? ''),
             'credits_used'  => (int) ($payload['credits_used'] ?? 0),
             'user_id'       => $user_id,
+            'public'        => false,
+            'favorite'      => false,
             'project_id'    => $project_id,
             'settings'      => $settings,
             'meta'          => [
+                // Canonical Language Asset fields (active).
                 'translated_text'   => $translated,
                 'source_language'   => $settings['source_language'],
                 'target_language'   => $settings['target_language'],
@@ -66,18 +73,31 @@ final class YooY_Translator_Gallery {
                 'fallback_used'     => !empty($payload['fallback_used']),
                 'fallback_from'     => (string) ($payload['fallback_from'] ?? ''),
                 'project_id'        => $project_id,
+                // Reserved Language Asset meta (NOT written yet — see docs/LANGUAGE_ASSET.md):
+                // asset_uuid, parent_asset_uuid, parent_asset_id, revision, revision_of,
+                // origin, asset_origin, asset_category, asset_version, asset_source,
+                // pipeline, pipeline_step, workflow_id.
+                // Gallery Store preserves arbitrary meta keys when producers start writing them.
             ],
         ];
 
         try {
             $saved = $this->store->save($user_id, $item);
-            if ($project_id !== '') {
-                $this->link_project($user_id, $project_id, $saved);
+            $gid = (string) ($saved['id'] ?? '');
+
+            // Reuse Gallery → Projects link path (no Translator-specific project store).
+            if ($gid !== '' && $project_id !== '') {
+                $linked = $this->link_to_project($user_id, $gid, $project_id);
+                if ($linked) {
+                    $saved = $linked;
+                }
             }
+
             return [
                 'saved'           => true,
-                'gallery_item_id' => (string) ($saved['id'] ?? ''),
+                'gallery_item_id' => $gid,
                 'item'            => $saved,
+                'project_id'      => (string) ($saved['project_id'] ?? $project_id),
             ];
         } catch (Exception $e) {
             return [
@@ -112,6 +132,99 @@ final class YooY_Translator_Gallery {
     }
 
     /**
+     * @throws YooY_Translator_Exception
+     */
+    public function toggle_favorite(int $user_id, string $id): array {
+        $item = $this->get_item($user_id, $id);
+        if (!$item || !$this->store) {
+            throw new YooY_Translator_Exception('번역 기록을 찾을 수 없습니다.', 'history_not_found', 404);
+        }
+        $next = empty($item['favorite']);
+        $updated = $this->store->update($user_id, $id, ['favorite' => $next]);
+        if (!$updated || ($updated['type'] ?? '') !== 'translation') {
+            throw new YooY_Translator_Exception('즐겨찾기를 변경할 수 없습니다.', 'favorite_failed', 400);
+        }
+        return $this->history_row($updated);
+    }
+
+    /**
+     * Deletes via Gallery_Actions (cleans Project assets) — same path as Gallery UI.
+     *
+     * @throws YooY_Translator_Exception
+     */
+    public function delete_item(int $user_id, string $id): bool {
+        $item = $this->get_item($user_id, $id);
+        if (!$item || !$this->store) {
+            throw new YooY_Translator_Exception('번역 기록을 찾을 수 없습니다.', 'history_not_found', 404);
+        }
+
+        $actions = $this->boot_actions();
+        if ($actions) {
+            try {
+                $actions->delete_item($user_id, $id, false);
+                return true;
+            } catch (Exception $e) {
+                throw new YooY_Translator_Exception('번역 기록을 삭제할 수 없습니다.', 'delete_failed', 400);
+            }
+        }
+
+        $ok = $this->store->remove($user_id, $id);
+        if (!$ok) {
+            throw new YooY_Translator_Exception('번역 기록을 삭제할 수 없습니다.', 'delete_failed', 400);
+        }
+        return true;
+    }
+
+    /**
+     * Attach an existing Gallery translation item to a Project (Gallery_Actions).
+     *
+     * @return array{project:?array,item:?array}
+     * @throws YooY_Translator_Exception
+     */
+    public function attach_to_project(int $user_id, string $id, ?string $project_id = null): array {
+        $item = $this->get_item($user_id, $id);
+        if (!$item || !$this->store) {
+            throw new YooY_Translator_Exception('번역 기록을 찾을 수 없습니다.', 'history_not_found', 404);
+        }
+        $actions = $this->boot_actions();
+        if (!$actions) {
+            throw new YooY_Translator_Exception('Project 연동을 사용할 수 없습니다.', 'projects_unavailable', 503);
+        }
+        try {
+            // null → create/link default project (same as Music/Image Gallery.project()).
+            $result = $actions->save_to_project($user_id, $id, $project_id);
+            return [
+                'project' => $result['project'] ?? null,
+                'item'    => $result['item'] ?? null,
+            ];
+        } catch (Exception $e) {
+            throw new YooY_Translator_Exception(
+                $e->getMessage() !== '' ? $e->getMessage() : 'Project에 저장할 수 없습니다.',
+                'project_link_failed',
+                400
+            );
+        }
+    }
+
+    /**
+     * Best-effort stamp of credits_used after successful ledger deduct.
+     */
+    public function stamp_credits_used(int $user_id, string $id, int $credits_used): void {
+        if (!$this->store || $credits_used < 0) {
+            return;
+        }
+        $item = $this->get_item($user_id, $id);
+        if (!$item) {
+            return;
+        }
+        try {
+            $this->store->update($user_id, $id, ['credits_used' => $credits_used]);
+        } catch (Exception $e) {
+            // non-fatal
+        }
+    }
+
+    /**
      * Payload for reopening a translation in Translator Studio.
      */
     public function reopen_payload(int $user_id, string $id): ?array {
@@ -131,31 +244,64 @@ final class YooY_Translator_Gallery {
             'provider'           => (string) ($item['provider'] ?? 'mock'),
             'model'              => (string) ($item['model'] ?? ''),
             'detected_language'  => (string) ($meta['detected_language'] ?? ''),
-            'project_id'         => (string) ($item['project_id'] ?? $meta['project_id'] ?? ''),
+            'favorite'           => !empty($item['favorite']),
             'gallery_item_id'    => (string) ($item['id'] ?? ''),
+            'project_id'         => (string) ($item['project_id'] ?? $meta['project_id'] ?? ''),
         ];
     }
 
     private function history_row(array $item): array {
         $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
         $source = (string) ($item['user_prompt'] ?? $item['prompt'] ?? '');
+        $translated = (string) ($meta['translated_text'] ?? $item['translated_text'] ?? '');
         $preview = function_exists('mb_substr') ? mb_substr($source, 0, 80, 'UTF-8') : substr($source, 0, 80);
         return [
             'id'                => (string) ($item['id'] ?? ''),
             'title'             => (string) ($item['title'] ?? ''),
             'preview'           => $preview,
+            'translated_text'   => $translated,
             'source_language'   => (string) ($meta['source_language'] ?? $item['source_language'] ?? ''),
             'target_language'   => (string) ($meta['target_language'] ?? $item['target_language'] ?? ''),
+            'detected_language' => (string) ($meta['detected_language'] ?? ''),
             'mode'              => (string) ($meta['mode'] ?? $item['translation_mode'] ?? ''),
             'provider'          => (string) ($item['provider'] ?? ''),
             'model'             => (string) ($item['model'] ?? ''),
             'credits_used'      => (int) ($item['credits_used'] ?? 0),
+            'favorite'          => !empty($item['favorite']),
+            'public'            => !empty($item['public']),
+            'project_id'        => (string) ($item['project_id'] ?? $meta['project_id'] ?? ''),
             'created_at'        => (string) ($item['created_at'] ?? ''),
-            'project_id'        => (string) ($item['project_id'] ?? ''),
         ];
     }
 
-    private function link_project(int $user_id, string $project_id, array $item): void {
+    /**
+     * @return array|null Updated gallery item after link, or null on soft failure.
+     */
+    private function link_to_project(int $user_id, string $gallery_id, string $project_id): ?array {
+        $actions = $this->boot_actions();
+        if (!$actions) {
+            return null;
+        }
+        try {
+            $result = $actions->save_to_project($user_id, $gallery_id, $project_id);
+            return is_array($result['item'] ?? null) ? $result['item'] : null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    private function boot_actions(): ?YooY_Gallery_Actions {
+        if (!$this->store) {
+            return null;
+        }
+        if (!class_exists('YooY_Gallery_Actions')) {
+            $path = defined('YOY_AI_STUDIO_MODULES_DIR')
+                ? YOY_AI_STUDIO_MODULES_DIR . 'gallery/includes/class-gallery-actions.php'
+                : '';
+            if ($path && file_exists($path)) {
+                require_once $path;
+            }
+        }
         if (!class_exists('YooY_Project_Store')) {
             $path = defined('YOY_AI_STUDIO_MODULES_DIR')
                 ? YOY_AI_STUDIO_MODULES_DIR . 'projects/includes/class-project-store.php'
@@ -164,14 +310,7 @@ final class YooY_Translator_Gallery {
                 require_once $path;
             }
         }
-        if (!class_exists('YooY_Project_Store')) {
-            return;
-        }
-        try {
-            (new YooY_Project_Store())->link_gallery_item($user_id, $project_id, $item);
-        } catch (Exception $e) {
-            // Project link failure must not roll back a successful translation save.
-        }
+        return class_exists('YooY_Gallery_Actions') ? new YooY_Gallery_Actions($this->store) : null;
     }
 
     private function boot_store(): ?YooY_Gallery_Store {

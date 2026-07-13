@@ -101,6 +101,9 @@ final class YooY_Gallery_Store {
             if (array_key_exists('community_shared', $data)) {
                 $items[$idx]['community_shared'] = !empty($data['community_shared']);
             }
+            if (array_key_exists('credits_used', $data)) {
+                $items[$idx]['credits_used'] = max(0, (int) $data['credits_used']);
+            }
 
             $meta = is_array($items[$idx]['meta'] ?? null) ? $items[$idx]['meta'] : [];
             if (array_key_exists('description', $data)) {

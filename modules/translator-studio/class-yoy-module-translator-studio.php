@@ -25,7 +25,7 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
     }
 
     public function version(): string {
-        return '1.1.0';
+        return '1.5.0';
     }
 
     public function init(YooY_Core_Engine $core): void {
@@ -78,6 +78,26 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
             'callback'            => [$this, 'reopen'],
             'permission_callback' => $auth,
         ]);
+        $this->register_route('/history/(?P<id>[a-zA-Z0-9_-]+)/favorite', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'favorite'],
+            'permission_callback' => $auth,
+        ]);
+        $this->register_route('/history/(?P<id>[a-zA-Z0-9_-]+)/delete', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'delete_history'],
+            'permission_callback' => $auth,
+        ]);
+        $this->register_route('/credits', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [$this, 'credits_snapshot'],
+            'permission_callback' => $auth,
+        ]);
+        $this->register_route('/credits/estimate', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'credits_estimate'],
+            'permission_callback' => $auth,
+        ]);
     }
 
     public function enqueue_assets(): void {
@@ -123,7 +143,7 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
             'studio' => [
                 'name'    => 'YooY Translator Studio',
                 'version' => $this->version(),
-                'phase'   => 'gallery-credits',
+                'phase'   => 'release-2d-rc',
             ],
             'max_chars' => YooY_Translator_Validator::MAX_CHARS,
             'default_provider' => 'auto',
@@ -143,6 +163,7 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
                 'chars_per_credit' => YooY_Translator_Credits::CHARS_PER_CREDIT,
                 'min_credits'      => YooY_Translator_Credits::MIN_CREDITS,
                 'mock_cost'        => 0,
+                'ledger_enabled'   => true,
             ],
         ]);
     }
@@ -204,6 +225,62 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
 
     public function reopen(WP_REST_Request $request): WP_REST_Response {
         return $this->history_item($request);
+    }
+
+    public function favorite(WP_REST_Request $request): WP_REST_Response {
+        try {
+            $uid = $this->require_user();
+            if ($uid instanceof WP_REST_Response) {
+                return $uid;
+            }
+            $id = sanitize_text_field((string) $request->get_param('id'));
+            $item = $this->service->toggle_favorite((int) $uid, $id);
+            return $this->success(['item' => $item], 200);
+        } catch (YooY_Translator_Exception $e) {
+            return $this->error($e->to_rest_detail(), $e->http_status());
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 400);
+        }
+    }
+
+    public function delete_history(WP_REST_Request $request): WP_REST_Response {
+        try {
+            $uid = $this->require_user();
+            if ($uid instanceof WP_REST_Response) {
+                return $uid;
+            }
+            $id = sanitize_text_field((string) $request->get_param('id'));
+            $this->service->delete_history((int) $uid, $id);
+            return $this->success(['deleted' => true, 'id' => $id], 200);
+        } catch (YooY_Translator_Exception $e) {
+            return $this->error($e->to_rest_detail(), $e->http_status());
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 400);
+        }
+    }
+
+    public function credits_snapshot(WP_REST_Request $request): WP_REST_Response {
+        $uid = $this->require_user();
+        if ($uid instanceof WP_REST_Response) {
+            return $uid;
+        }
+        $payload = $this->service->estimate_credits((int) $uid, [
+            'text'     => '',
+            'provider' => 'auto',
+        ]);
+        return $this->success($payload);
+    }
+
+    public function credits_estimate(WP_REST_Request $request): WP_REST_Response {
+        $uid = $this->require_user();
+        if ($uid instanceof WP_REST_Response) {
+            return $uid;
+        }
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            $params = [];
+        }
+        return $this->success($this->service->estimate_credits((int) $uid, $params));
     }
 
     private function boot_services(): void {

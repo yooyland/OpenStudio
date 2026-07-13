@@ -9,6 +9,11 @@ final class YooY_Credits_Service {
     private const RENEWAL_KEY  = 'yoy_credits_renewal_at';
     private const BILLING_KEY  = 'yoy_billing_orders';
 
+    /**
+     * Ledger type vocabulary is documented in docs/CREDITS_LEDGER_TYPES.md
+     * and YooY_Credits_Ledger_Types (not enforced here yet).
+     * Future atomic flow: docs/CREDITS_TRANSACTION.md + YooY_Credits_Transaction_Interface.
+     */
     public function balance(int $user_id): int {
         $balance = (int) get_user_meta($user_id, self::BALANCE_KEY, true);
         if ($balance === 0 && !metadata_exists('user', $user_id, self::BALANCE_KEY)) {

@@ -1726,7 +1726,7 @@
           : '<div class="yai-project-card-cover--gold" style="min-height:180px;display:flex;align-items:center;justify-content:center;">Gold Crystal</div>';
       }
 
-      var types = ['all', 'image', 'video', 'music', 'voice'];
+      var types = ['all', 'image', 'video', 'music', 'voice', 'writing', 'translation', 'avatar'];
       if (filtersEl) {
         filtersEl.innerHTML = types.map(function (t) {
           var label = t === 'all' ? 'All' : typeBadgeLabel(t);

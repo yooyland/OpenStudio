@@ -1,0 +1,47 @@
+---
+description: OpenStudio Core Architecture 재사용 — 신규 시스템 금지, 통합 AI OS
+alwaysApply: true
+---
+
+# Core Architecture Reuse
+
+새로운 기능이 필요하면 새로운 시스템을 만드는 것이 아니라,
+기존 Core Engine, Store, Gallery, Projects, Credits, AI Router를 최대한 재사용한다.
+
+YooY AI Studio는 하나의 통합 AI Operating System이며,
+모든 Studio는 동일한 Core Architecture를 공유한다.
+
+## Platform Asset taxonomy (6)
+
+기능을 Studio별로 늘리지 말고, 아래 공통 Asset 체계를 확장한다.
+
+1. **Image Asset**
+2. **Video Asset**
+3. **Music Asset**
+4. **Voice Asset**
+5. **Language Asset** — Translator / Writing / OCR / PDF / Subtitle / Rewrite / Summarize
+6. **Avatar Asset**
+
+공통 흐름:
+
+```
+Asset 생성 → Gallery → History(filter) → Projects → Credits → Community(선택)
+```
+
+상세: `docs/LANGUAGE_ASSET.md`
+
+## 적용
+
+1. **Store / Gallery / Projects / Credits / Favorite / Search** 가 이미 있으면 복제하지 않는다. **기존 Core를 확장**한다.
+2. **Translator**는 단독 번역기가 아니라 **Language Intelligence Engine**이다. Language 관련 기능은 이 Engine·Language Asset을 재사용한다.
+3. History는 Gallery `filter(type=…)` 패턴을 따른다. History 전용 Store·user_meta·DB를 만들지 않는다.
+4. Credits는 `YooY_Credits_Service`만 사용한다. Studio별 ledger를 만들지 않는다.
+5. 기존 Image / Video / Music / Voice / Gallery / Credits / Projects / Admin Console에 회귀가 없도록 **최소 변경**한다.
+6. 대규모 리팩터·안정성 해치는 구조 변경은 하지 않는다.
+
+## 금지 예
+
+- Translator 전용 Gallery / History / Favorite / Delete / Search / Credits Store
+- Studio마다 다른 Project 링크 스키마
+- 동일 역할의 두 번째 Credits / Router 계층
+- Language Asset과 별개의 번역 결과 DB

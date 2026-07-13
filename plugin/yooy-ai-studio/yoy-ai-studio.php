@@ -2,7 +2,7 @@
 /**
  * Plugin Name: YooY AI Studio
  * Description: YooY Land AI Creator OS - Core Engine connecting AI Router, Credits, Gallery, Projects, and all modules.
- * Version: 11.15.1
+ * Version: 11.16.0
  * Requires PHP: 7.4
  * Author: YooY Land
  * Text Domain: yooy-ai-studio
@@ -21,7 +21,7 @@ if (version_compare(PHP_VERSION, '7.4.0', '<')) {
     return;
 }
 
-define('YOY_AI_STUDIO_VERSION', '11.15.1');
+define('YOY_AI_STUDIO_VERSION', '11.16.0');
 define('YOY_AI_STUDIO_FILE', __FILE__);
 define('YOY_AI_STUDIO_DIR', plugin_dir_path(__FILE__));
 define('YOY_AI_STUDIO_URL', plugin_dir_url(__FILE__));

@@ -1,52 +1,37 @@
-# Translator Studio (Version 1 — Phase 1)
+# Translator Studio
 
-Context-aware text translation module for YooY AI Studio.
+Language Intelligence Engine for YooY AI Studio. Produces **Language Assets** into Gallery.
 
-## Phase 1 scope
+Baseline snapshot: `v11.15.1-development-snapshot` (`1d7cf9d`).
+Release candidate: **11.16.0**.
 
-- Studio Shell menu + SPA mount
-- Languages / modes / Mock provider
-- `POST /translator-studio/translate`
-- `GET /translator-studio/languages`
-- UI: dual-panel editor, swap, copy, reset, loading/errors
+## Phase status
 
-## Not in Phase 1
+| Phase | Scope | Status |
+|-------|--------|--------|
+| 1 | Mock + OpenAI + same-lang gate | Code + prior live OpenAI smoke |
+| 2-A | Gallery + History | Code complete |
+| 2-B | My Works + Projects | Code complete |
+| 2-C | Credits ledger | Code complete |
+| **2-D** | RC verify + version + ZIP + tag | Packaging in progress — **live Whois pending operator** |
 
-- Gallery / My Works save
-- History
-- Credits ledger deduct
-- OpenAI / Google / DeepL
-- Admin settings
-- OCR / speech / documents
+## Phase 2-D live checklist (operator — not claimed here)
 
-## REST
+1. OpenAI translate → text result OK
+2. Credits balance decreases; ledger `deduct` row
+3. Mock / Mock Fallback → balance unchanged
+4. Gallery `type=translation` row; History groups/badges
+5. Project 저장 → Project detail shows translation
+6. Admin Unlimited → deducted 0
+7. Regression: Image / Video / Music / Voice / Avatar / Writing / Gallery / Projects / Credits / Marketplace / Community / Admin Console
 
-Namespace: `yoy-ai-studio/v1`
+## Extension points (not implemented)
 
-| Method | Path | Auth |
-|--------|------|------|
-| GET | `/translator-studio/config` | public |
-| GET | `/translator-studio/languages` | public |
-| GET | `/translator-studio/modes` | public |
-| GET | `/translator-studio/providers` | public |
-| POST | `/translator-studio/translate` | logged-in + nonce |
+- `docs/CREDITS_TRANSACTION.md`
+- `docs/CREDITS_LEDGER_TYPES.md`
+- `docs/LANGUAGE_ASSET.md` (asset_uuid chain)
+- Cost Strategy interface under `includes/cost/`
 
-## Manual checklist
+## Reuse
 
-1. Activate plugin — no fatals
-2. Left nav shows Translator (번역)
-3. SPA open — no JS console errors
-4. Languages load
-5. Mock translate known KO↔EN phrases
-6. Empty text blocked
-7. Same source/target blocked
-8. 20,000 char limit
-9. Duplicate request blocked while in flight
-10. Image / Video / Music / Voice / Gallery / Projects still work
-
-## Next (Phase 2)
-
-- `type=translation` Gallery Store save (relax `has_valid_asset` for translation only)
-- History via Gallery
-- Credits deduct on success
-- OpenAI chat translator provider
+No new Gallery / Credits / History / Projects stores. Core only.

@@ -31,6 +31,10 @@ YooY AI Studio is not a single generator. It is an AI Creator OS.
 - AI Router: provider selection and failover
 - Generator Engines: Video, Image, Music, Voice, Avatar, Writing
 - Korean Context Engine: Korea-first prompt localization
+- Source Authority (internal): official primary sources for Korea-related grounding — see `docs/SOURCE_AUTHORITY.md` (no user-facing UI)
+- Language Asset (internal schema): Translator and future language pipelines — see `docs/LANGUAGE_ASSET.md`
+- Credits Transaction (design only): `docs/CREDITS_TRANSACTION.md`
+- Credits Ledger types (docs): `docs/CREDITS_LEDGER_TYPES.md`
 - Gallery Engine: Official Showcase, Community Gallery, My Works
 - Prompt Market: prompt, guide, settings, remix flow
 - Credit Engine: KRW-fixed credits, YOY realtime conversion, WooCommerce payment

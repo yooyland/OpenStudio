@@ -61,6 +61,18 @@
     reopen: function (id) {
       return Core.post('translator-studio', '/history/' + encodeURIComponent(id) + '/reopen', {});
     },
+    favorite: function (id) {
+      return Core.post('translator-studio', '/history/' + encodeURIComponent(id) + '/favorite', {});
+    },
+    removeHistory: function (id) {
+      return Core.post('translator-studio', '/history/' + encodeURIComponent(id) + '/delete', {});
+    },
+    credits: function () {
+      return Core.get('translator-studio', '/credits');
+    },
+    estimate: function (body) {
+      return Core.post('translator-studio', '/credits/estimate', body || {});
+    },
     translate: function (body, signal) {
       // Core.post provides wp-json / rest_route fallback + nonce.
       // AbortController cancels UI handling of a late response.

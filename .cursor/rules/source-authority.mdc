@@ -1,0 +1,21 @@
+---
+description: Korea Source Authority — official primary sources for internal grounding only; no new user UI
+alwaysApply: true
+---
+
+# Source Authority (Internal)
+
+## Hard rules
+
+1. Do **not** add user-visible menus, screens, banners, or settings for source priority.
+2. Do **not** advertise this policy to end users.
+3. Korea-related fact search / verification / grounding in **Korean Context Engine, Writing, Translator, Research, Chat** (internal pipelines only) must prefer official primary sources.
+4. President / Presidential Office / speeches / briefings / schedules / national vision / national agenda → **https://www.president.go.kr/** first.
+5. Law, statistics, judgments, elections, finance → the **direct official agency** for that domain first.
+6. Use existing citation UI only when the feature already shows sources — do not invent new citation chrome.
+7. Do **not** full-crawl or bulk-mirror official sites; fetch claim-specific materials only.
+8. Canonical doc: `docs/SOURCE_AUTHORITY.md`. Constants: `class-yoy-source-authority.php` (no UI wiring unless a later Phase explicitly ships Source Authority Layer).
+
+## When translating
+
+Ordinary phrase translation does not need presidential portal fetches. Apply this policy when the pipeline asserts or verifies **Korea-specific official facts**.
