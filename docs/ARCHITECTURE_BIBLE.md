@@ -167,9 +167,15 @@ Projects / Community / Marketplace
 | Class | `YooY_Project_Store` |
 | Storage | user_meta `yoy_projects` |
 | Link | Gallery `meta.project_id` + project `assets[]` via `link_gallery_item` |
+| UI | **Project Workspace** (route id `project-detail`) — Overview / Assets / History / Notes / Settings; Members & Timeline reserved |
+| Context | `YooYActiveProject` (sessionStorage `{id,name}`) + Studio banner when active |
 
 Do not invent per-studio project tables.  
 Projects store **references + snapshots**, never a second Asset body.
+
+**IA note:** Global Studio sidebar entry remains available. Project is the Creator Workspace hub; Gallery remains the Canonical Asset Store (My Works library), not the primary creation surface.
+
+Canonical doc: [`PROJECT_WORKSPACE.md`](PROJECT_WORKSPACE.md)
 
 ---
 

@@ -115,14 +115,26 @@ final class YooY_Projects_REST {
             return $this->fail('프로젝트 이름은 120자 이하여야 합니다.', 400);
         }
 
+        $type = sanitize_text_field((string) $this->param($request, 'category', ''));
+        if ($type === '') {
+            $type = sanitize_text_field((string) $this->param($request, 'type', 'mixed'));
+        }
+        if ($type === '') {
+            $type = 'mixed';
+        }
+
         $project = $this->store->create($user_id, [
-            'title'       => $title,
-            'description' => sanitize_textarea_field((string) $this->param($request, 'description', '')),
-            'type'        => sanitize_text_field((string) $this->param($request, 'type', 'mixed')),
-            'visibility'  => sanitize_text_field((string) $this->param($request, 'visibility', 'private')),
-            'status'      => 'active',
-            'items'       => 0,
-            'assets'      => [],
+            'title'         => $title,
+            'description'   => sanitize_textarea_field((string) $this->param($request, 'description', '')),
+            'type'          => $type,
+            'category'      => $type,
+            'language'      => sanitize_text_field((string) $this->param($request, 'language', 'ko')) ?: 'ko',
+            'visibility'    => sanitize_text_field((string) $this->param($request, 'visibility', 'private')),
+            'thumbnail_url' => esc_url_raw((string) ($this->param($request, 'thumbnail_url', '') ?: $this->param($request, 'cover', ''))),
+            'status'        => 'active',
+            'items'         => 0,
+            'assets'        => [],
+            'notes'         => '',
         ]);
 
         $work_ids = $this->param($request, 'work_ids', []);
@@ -153,8 +165,12 @@ final class YooY_Projects_REST {
         }
         $id = sanitize_text_field((string) $request->get_param('id'));
         $data = $this->params($request, [
-            'title', 'description', 'type', 'visibility', 'thumbnail_url', 'cover_asset_id', 'status',
+            'title', 'description', 'type', 'category', 'visibility', 'language',
+            'thumbnail_url', 'cover_asset_id', 'status', 'notes',
         ]);
+        if (isset($data['category']) && !isset($data['type'])) {
+            $data['type'] = $data['category'];
+        }
         $project = $this->store->update($user_id, $id, $data);
         if (!$project) {
             return $this->fail('프로젝트를 찾을 수 없습니다.', 404);

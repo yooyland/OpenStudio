@@ -3045,3 +3045,110 @@ body.yai-failure-open { overflow: hidden; }
   border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer;
 }
 .yoy-sys-report button:hover { border-color: rgba(214, 176, 90, 0.5); color: #ffd98a; }
+
+/* ?? Project Workspace Foundation (Phase 3-A) ?? */
+.yai-eyebrow {
+  color: var(--yai-gold, #d8a63a);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+.yai-workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+.yai-workspace-tab {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--yai-muted, #9a9a9a);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+.yai-workspace-tab.is-active {
+  border-color: rgba(216,166,58,0.45);
+  color: var(--yai-text, #f5f5f5);
+}
+.yai-workspace-tab--reserved { opacity: 0.7; }
+.yai-tab-badge {
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.75;
+}
+.yai-workspace-panel { min-height: 200px; }
+.yai-workspace-meta-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  margin-bottom: 16px;
+}
+.yai-workspace-meta-grid span { display: block; font-size: 11px; margin-bottom: 4px; }
+.yai-workspace-desc { color: var(--yai-muted); margin: 0 0 16px; }
+.yai-workspace-section { margin-top: 20px; }
+.yai-workspace-section h3 { font-size: 15px; margin: 0 0 10px; }
+.yai-studio-launcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.yai-workspace-recent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.yai-workspace-asset-list,
+.yai-workspace-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.yai-workspace-history-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 0;
+}
+.yai-workspace-asset-card strong { display: block; margin-bottom: 4px; }
+.yai-recent-work-actions { margin-top: 8px; }
+.yai-empty--reserved { border-style: dashed; }
+.yai-project-context-banner {
+  margin: 0 0 12px;
+}
+.yai-project-context-banner__inner {
+  align-items: center;
+  background: rgba(216,166,58,0.08);
+  border: 1px solid rgba(216,166,58,0.25);
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.yai-project-context-banner__inner--idle {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.08);
+}
+.yai-project-context-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+@media (max-width: 720px) {
+  .yai-workspace-tabs { gap: 4px; }
+  .yai-workspace-tab { font-size: 12px; padding: 6px 10px; }
+  .yai-project-context-banner__inner { align-items: flex-start; flex-direction: column; }
+}

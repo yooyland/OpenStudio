@@ -890,6 +890,10 @@
 
   function doSaveProject(root) {
     if (!state.galleryItemId || !state.projectsEnabled) return;
+    if (typeof window.YooYStudioSaveToProject === 'function') {
+      window.YooYStudioSaveToProject(state.galleryItemId);
+      return;
+    }
     if (!Core.gallery || !Core.gallery.project) {
       showStatus(root, 'error', 'Gallery Project API를 사용할 수 없습니다.');
       return;

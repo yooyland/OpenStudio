@@ -78,6 +78,24 @@ final class YooY_Project_Store {
             if (isset($data['cover_asset_id'])) {
                 $items[$idx]['cover_asset_id'] = sanitize_text_field($data['cover_asset_id']);
             }
+            if (isset($data['category'])) {
+                $cat = sanitize_text_field($data['category']);
+                $allowed = ['mixed', 'video', 'image', 'music', 'writing', 'translation', 'avatar', 'voice'];
+                if (in_array($cat, $allowed, true)) {
+                    $items[$idx]['type'] = $cat;
+                    $items[$idx]['category'] = $cat;
+                }
+            }
+            if (isset($data['language'])) {
+                $lang = sanitize_text_field($data['language']);
+                if ($lang !== '') {
+                    $items[$idx]['language'] = substr($lang, 0, 16);
+                }
+            }
+            if (array_key_exists('notes', $data)) {
+                $items[$idx]['notes'] = sanitize_textarea_field((string) $data['notes']);
+                $items[$idx]['notes_updated_at'] = gmdate('c');
+            }
             $items[$idx]['updated_at'] = gmdate('c');
             update_user_meta($user_id, self::META_KEY, $items);
             return $this->normalize($items[$idx], $user_id);
@@ -324,14 +342,29 @@ final class YooY_Project_Store {
         $assets = is_array($item['assets'] ?? null) ? $item['assets'] : [];
         $asset_count = (int) ($item['asset_count'] ?? $item['items'] ?? count($assets));
 
+        $language = sanitize_text_field($item['language'] ?? 'ko');
+        if ($language === '') {
+            $language = 'ko';
+        }
+        $language = substr($language, 0, 16);
+
+        $category = sanitize_text_field($item['category'] ?? $type);
+        if (!in_array($category, $allowed_types, true)) {
+            $category = $type;
+        }
+
         $normalized = [
             'id'               => sanitize_text_field($item['id'] ?? ('proj_' . wp_generate_uuid4())),
             'user_id'          => $user_id,
             'title'            => $title,
             'description'      => sanitize_textarea_field($item['description'] ?? ''),
             'type'             => $type,
+            'category'         => $category,
+            'language'         => $language,
             'visibility'       => $visibility,
             'status'           => sanitize_text_field($item['status'] ?? 'active'),
+            'notes'            => sanitize_textarea_field($item['notes'] ?? ''),
+            'notes_updated_at' => sanitize_text_field($item['notes_updated_at'] ?? ''),
             'items'            => $asset_count,
             'asset_count'      => $asset_count,
             'assets'           => $assets,

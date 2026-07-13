@@ -151,9 +151,17 @@ final class YooY_AI_Studio {
         );
 
         wp_enqueue_script(
+            'yoy-active-project',
+            YOY_AI_STUDIO_URL . 'assets/js/active-project.js',
+            [],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel'],
             YOY_AI_STUDIO_VERSION,
             true
         );

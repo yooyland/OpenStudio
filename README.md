@@ -25,12 +25,13 @@ Video · Image · Music · Voice · Avatar · Writing · Translator가
 | **하나의 Core** | `YooY_Core_Engine` · 모듈 디스커버리 · REST |
 | **하나의 AI Router** | Provider 선택 · Failover · Mock/Real 동일 계약 |
 | **하나의 Gallery** | Canonical Asset Store (`yoy_gallery_items`) · My Works · History 필터 |
-| **하나의 Projects** | Gallery Asset 참조로 작업 묶음 |
+| **하나의 Projects** | **Project Workspace** — Gallery Asset 참조로 Creator 작업 묶음 · Active Project Context |
 | **하나의 Credits** | `YooY_Credits_Service` · ledger |
 | **하나의 Marketplace** | Gallery `gallery_id` 기반 등록 |
 | **하나의 Community** | Gallery 공개 작품 피드 |
 
-상세 철학: [`docs/ARCHITECTURE_BIBLE.md`](docs/ARCHITECTURE_BIBLE.md)
+상세 철학: [`docs/ARCHITECTURE_BIBLE.md`](docs/ARCHITECTURE_BIBLE.md)  
+Project Workspace: [`docs/PROJECT_WORKSPACE.md`](docs/PROJECT_WORKSPACE.md)
 
 Language 경로의 목표 구조:
 
