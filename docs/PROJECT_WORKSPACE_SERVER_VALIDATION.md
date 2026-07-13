@@ -1,9 +1,9 @@
 # Project Workspace — Server Smoke Validation
 
-Release Candidate: `yooy-ai-studio-11.16.0-project-workspace-rc1.zip`  
-Plugin version: **11.16.0** (unchanged)  
-Scope: Phase 3-A Project Workspace Foundation  
-Status: **packaged / live server not yet verified**
+Release Candidate: `yooy-ai-studio-11.17.0-project-workspace.zip`  
+Plugin version: **11.17.0**  
+Scope: Project Workspace operations (Create → Workspace → Studio → Assets)  
+Status: **packaged / live server smoke still required**
 
 Check an item only after confirming it on the live WordPress host.
 

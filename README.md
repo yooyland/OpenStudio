@@ -11,7 +11,7 @@ Video · Image · Music · Voice · Avatar · Writing · Translator가
 
 - GitHub: https://github.com/yooyland/OpenStudio
 - 배포 단위: WordPress 플러그인 `plugin/yooy-ai-studio/`
-- 현재 버전: **11.16.0**
+- 현재 버전: **11.17.0**
 
 ---
 

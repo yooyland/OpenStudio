@@ -3152,3 +3152,44 @@ body.yai-failure-open { overflow: hidden; }
   .yai-workspace-tab { font-size: 12px; padding: 6px 10px; }
   .yai-project-context-banner__inner { align-items: flex-start; flex-direction: column; }
 }
+
+.yai-work-card-thumb--text,
+.yai-work-card-thumb--audio {
+  align-items: flex-start;
+  background: rgba(255,255,255,0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  padding: 14px;
+}
+.yai-work-card-thumb__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.yai-work-card-thumb__preview {
+  color: var(--yai-muted, #9a9a9a);
+  display: -webkit-box;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.yai-work-card-thumb__label {
+  color: var(--yai-muted, #9a9a9a);
+  font-size: 12px;
+}
+.yai-workspace-history-item {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.yai-workspace-history-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
