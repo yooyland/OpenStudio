@@ -22,10 +22,13 @@ YooY AI Studio is not a single generator. It is an AI Creator OS.
 
 | Theme | Doc |
 |-------|-----|
-| Asset taxonomy (6) | `LANGUAGE_ASSET.md` |
+| Asset taxonomy (6) | `LANGUAGE_ASSET.md`, `UNIVERSAL_ASSET.md` |
 | Language Engine + Input Adapters | `AI_INPUT_ADAPTER.md`, `TRANSLATOR_SOURCE_TYPES.md` |
 | Source Authority (internal) | `SOURCE_AUTHORITY.md` |
 | Credits Transaction / ledger types | `CREDITS_TRANSACTION.md`, `CREDITS_LEDGER_TYPES.md` |
+
+## Canonical Asset Store
+`YooY_Gallery_Store` is the sole Asset SoT. Universal Asset is a convention (+ optional future Thin Facade), not a new database. See `UNIVERSAL_ASSET.md`.
 
 ## Result lifecycle
 Generate → Gallery Asset → History / My Works → Projects → Credits → optional Community / Marketplace.

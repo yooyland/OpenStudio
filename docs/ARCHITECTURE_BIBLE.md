@@ -1,11 +1,28 @@
 # OpenStudio Architecture Bible
 
 **Product:** YooY AI Studio (OpenStudio)  
-**Role:** Canonical design philosophy for all future versions  
-**Companion docs:** linked below — this file is the map; details live in topic docs.
+**Role:** Canonical design philosophy for all Studio development  
+**Status:** Architecture finalized for Canonical Asset Model (docs phase)  
+**Entry point:** [`README.md`](../README.md)  
+**Companion:** [`UNIVERSAL_ASSET.md`](UNIVERSAL_ASSET.md), [`AI_INPUT_ADAPTER.md`](AI_INPUT_ADAPTER.md), [`LANGUAGE_ASSET.md`](LANGUAGE_ASSET.md), [`SOURCE_AUTHORITY.md`](SOURCE_AUTHORITY.md)
 
 > YooY AI Studio는 도구 모음이 아니라 **AI Creator Operating System**이다.  
 > 새 기능은 새 시스템을 만들지 않고 **기존 Core를 확장**한다.
+
+---
+
+## 0. Official architecture decisions (adopted)
+
+1. **`YooY_Gallery_Store` = Canonical Asset Store.**  
+   Do not create a Universal Asset Store.
+2. **Universal Asset** is an **architecture concept**, not a database.  
+   Runtime may later expose a **Thin Facade (Repository)** only — **not implemented in this phase**.
+3. Image / Video / Music / Voice / Language / Avatar / Writing, and future OCR / Document / Website / YouTube outputs, all persist through Gallery.
+4. **Projects / Community / Marketplace** reference Assets by `gallery_id`; they do not clone Asset bodies.
+5. **Writing Studio** does not invent a separate Asset structure — it reuses Language Intelligence Engine → Language Asset → Gallery.
+6. **README** is the official product Entry Point; this Bible is the design map for every Studio.
+
+Cursor / team rule: `.cursor/rules/core-architecture-reuse.mdc`
 
 ---
 
@@ -15,16 +32,26 @@
 2. **Reuse over rewrite** — Gallery, Projects, Credits, AI Router, Provider contracts are shared.
 3. **Production quality** — Mock providers allowed; demo/placeholder business data forbidden.
 4. **Korea-first** — Korean Context + internal Source Authority for Korea-related grounding.
-5. **Asset-centric** — Features produce Assets into Gallery; History/Projects/Credits hang off Assets.
-6. **Document then extend** — Large structural ideas (Transactions, Input Adapters) are designed before code.
+5. **Asset-centric** — Features produce Assets into Gallery; History / Projects / Credits hang off Assets.
+6. **Document then extend** — Large structural ideas are designed before code.
 
-Cursor / team rule: `.cursor/rules/core-architecture-reuse.mdc`
+### One of each
+
+| One | Meaning |
+|-----|---------|
+| Core | `YooY_Core_Engine` · module discovery · REST |
+| AI Router | Provider selection · failover · Mock/Real contract |
+| Gallery | Canonical Asset Store |
+| Projects | Gallery Asset references |
+| Credits | `YooY_Credits_Service` |
+| Marketplace | `gallery_id` listings |
+| Community | Gallery-backed public feed |
 
 ---
 
 ## 2. Boot & module map
 
-```
+```text
 plugin/yooy-ai-studio/yoy-ai-studio.php
   → YooY_Core_Engine::boot()
   → glob modules/*/module.php
@@ -47,8 +74,6 @@ plugin/yooy-ai-studio/yoy-ai-studio.php
 
 `YooY_Core_Engine` — central hub: register modules, expose services, no Studio-specific business logic.
 
-Surrounding core pieces:
-
 | Concern | Class / doc |
 |---------|-------------|
 | REST | `YooY_REST_Controller` |
@@ -61,7 +86,7 @@ Surrounding core pieces:
 
 ## 4. AI Router & Providers
 
-```
+```text
 Studio request
   → Provider Resolver / Catalog
   → Mock or Real Provider
@@ -80,9 +105,13 @@ Studio request
 
 ---
 
-## 5. Platform Asset taxonomy (6)
+## 5. Universal Asset & Platform taxonomy
 
-See `docs/LANGUAGE_ASSET.md`.
+**Canonical doc:** [`UNIVERSAL_ASSET.md`](UNIVERSAL_ASSET.md)
+
+- **Gallery Store** = Canonical Asset Store (SoT)
+- **Universal Asset** = shared naming / lifecycle / mapping convention
+- **Thin Facade** = optional future read layer only (not built yet)
 
 | Family | Gallery `type` examples | Producers |
 |--------|-------------------------|-----------|
@@ -90,13 +119,29 @@ See `docs/LANGUAGE_ASSET.md`.
 | Video Asset | `video` | Video Studio |
 | Music Asset | `music` | Music Studio |
 | Voice Asset | `voice` | Voice Studio |
-| Language Asset | `translation`, `writing`, … | Translator, Writing, future OCR/Rewrite/… |
+| Language Asset | `translation`, `writing`, … | Translator, **Writing**, future OCR / Rewrite / Summarize / Subtitle |
 | Avatar Asset | `avatar` | Avatar Studio |
 
 Shared lifecycle:
 
+```text
+Studio Engine → Gallery Store → History (filter) → Projects → Credits → Community / Marketplace (optional)
 ```
-Studio Engine → Gallery Store → History (filter) → Projects → Credits → Community (optional)
+
+Language pipeline (target shape):
+
+```text
+AI Router
+      │
+Input Adapter
+      │
+Language Intelligence Engine
+      │
+Language Asset
+      │
+Canonical Asset Store (Gallery)
+      │
+Projects / Community / Marketplace
 ```
 
 ---
@@ -123,7 +168,8 @@ Studio Engine → Gallery Store → History (filter) → Projects → Credits �
 | Storage | user_meta `yoy_projects` |
 | Link | Gallery `meta.project_id` + project `assets[]` via `link_gallery_item` |
 
-Do not invent per-studio project tables.
+Do not invent per-studio project tables.  
+Projects store **references + snapshots**, never a second Asset body.
 
 ---
 
@@ -139,22 +185,23 @@ Language Asset rule (Translator): **save success → then deduct**; Mock/Fallbac
 
 Design extensions (not enforced yet):
 
-- `docs/CREDITS_TRANSACTION.md` — atomic begin/commit/rollback
-- `docs/CREDITS_LEDGER_TYPES.md` — type vocabulary
+- `CREDITS_TRANSACTION.md` — atomic begin/commit/rollback
+- `CREDITS_LEDGER_TYPES.md` — type vocabulary
 
 ---
 
-## 9. Language Intelligence Engine & Input Adapters
+## 9. Language Intelligence Engine, Input Adapters & Writing
 
-Translator is **not** a standalone translator product. It is the Language Intelligence Engine.
+Translator is **not** a standalone translator product. It is the **Language Intelligence Engine**.
 
-```
+```text
 Input Adapter → Content Extractor → Normalized Content
   → Language Engine → Language Asset → Gallery / Credits
 ```
 
-Canonical design: **`docs/AI_INPUT_ADAPTER.md`**  
-Source Type UI/REST table: **`docs/TRANSLATOR_SOURCE_TYPES.md`**
+Canonical design: [`AI_INPUT_ADAPTER.md`](AI_INPUT_ADAPTER.md)  
+Language Asset: [`LANGUAGE_ASSET.md`](LANGUAGE_ASSET.md)  
+Source Type UI/REST table: [`TRANSLATOR_SOURCE_TYPES.md`](TRANSLATOR_SOURCE_TYPES.md)
 
 | Source / Adapter | Extractor (future) | Runtime today |
 |------------------|--------------------|---------------|
@@ -168,17 +215,33 @@ Source Type UI/REST table: **`docs/TRANSLATOR_SOURCE_TYPES.md`**
 
 **Extension rule:** add Adapter + Extractor only; do not fork Translator Core / Gallery / Credits.
 
+### Writing Studio (mandatory)
+
+Writing Studio는 **별도 Asset Store / Asset family DB를 만들지 않는다.**
+
+| Writing must use | Must not create |
+|------------------|-----------------|
+| Language Intelligence Engine (shared path) | Writing-only Gallery |
+| Language Asset (`type` e.g. `writing`) | Writing History Store |
+| Canonical Gallery Store | Writing Credits ledger |
+| Projects / Credits / Community via `gallery_id` | Parallel Writing Asset schema |
+
+```text
+Writing Studio → (Language Engine path) → Language Asset → Gallery
+```
+
 ---
 
 ## 10. Marketplace & Community
 
-| Module | Persistence |
-|--------|-------------|
-| Marketplace | option `yoy_marketplace_catalog` (+ user listings) |
-| Community | option `yoy_community_feed` |
-| Public works | Gallery-backed public feed helpers |
+| Module | Persistence | Asset link |
+|--------|-------------|------------|
+| Marketplace | option `yoy_marketplace_catalog` (+ user listings) | `gallery_id` + listing snapshot |
+| Community | option `yoy_community_feed` | `gallery_id` + feed snapshot |
+| Public works | Gallery-backed public feed helpers | Gallery SoT |
 
-Feature flags / enable options exist; content comes from Stores, not hardcoded demos.
+Feature flags / enable options exist; content comes from Stores, not hardcoded demos.  
+**Never clone full Asset payloads** into Marketplace/Community as a second SoT.
 
 ---
 
@@ -186,7 +249,7 @@ Feature flags / enable options exist; content comes from Stores, not hardcoded d
 
 | Topic | Doc / code |
 |-------|------------|
-| Source Authority (internal) | `docs/SOURCE_AUTHORITY.md`, `YooY_Source_Authority` |
+| Source Authority (internal) | [`SOURCE_AUTHORITY.md`](SOURCE_AUTHORITY.md), `YooY_Source_Authority` |
 | Presidency priority | `https://www.president.go.kr/` |
 | Korean Context | Studio-level localization hooks; Admin roadmap for dedicated engine |
 
@@ -210,18 +273,22 @@ UI philosophy: `.cursor/rules/creator-os-saas-ui.mdc`
 
 | Stub | Doc / file | Wired? |
 |------|------------|--------|
-| Credits Transaction | `docs/CREDITS_TRANSACTION.md`, `interface-yoy-credits-transaction.php` | No |
-| Ledger types | `docs/CREDITS_LEDGER_TYPES.md` | Doc only |
+| Universal Asset Thin Facade | `UNIVERSAL_ASSET.md` | **No** (docs only) |
+| Credits Transaction | `CREDITS_TRANSACTION.md`, `interface-yoy-credits-transaction.php` | No |
+| Ledger types | `CREDITS_LEDGER_TYPES.md` | Doc only |
 | Cost Strategy | `modules/translator-studio/includes/cost/interface-translator-cost-strategy.php` | No |
-| Input Adapter / Extractor | `docs/AI_INPUT_ADAPTER.md` | No |
-| Language Asset UUID chain | `docs/LANGUAGE_ASSET.md` reserved meta | No |
+| Input Adapter / Extractor (non-Text) | `AI_INPUT_ADAPTER.md` | Text path only |
+| Language Asset UUID chain | `LANGUAGE_ASSET.md` reserved meta | No |
 
 ---
 
 ## 14. What never to do
 
 - Second Gallery / History / Credits / Projects store for one Studio
+- **New Universal Asset Store** (Gallery is already Canonical)
+- Writing-specific Asset / History / Credits stores
 - Per-Source-Type translation engines that bypass Normalized Content
+- Cloning Asset bodies into Projects / Community / Marketplace
 - User UI for Source Authority
 - Demo catalogs as production API responses
 - PHP 8-only syntax (minimum PHP 7.4) — `.cursor/rules/php-74-compatibility.mdc`
@@ -232,15 +299,17 @@ UI philosophy: `.cursor/rules/creator-os-saas-ui.mdc`
 
 | Doc | Topic |
 |-----|--------|
-| `docs/ARCHITECTURE_BIBLE.md` | **This file** — OS map |
-| `docs/ARCHITECTURE.md` | Short overview (points here) |
-| `docs/LANGUAGE_ASSET.md` | Asset taxonomy + Language meta |
-| `docs/AI_INPUT_ADAPTER.md` | Adapter → Extractor → Engine |
-| `docs/TRANSLATOR_SOURCE_TYPES.md` | Source Type table, REST, security |
-| `docs/SOURCE_AUTHORITY.md` | Korea official sources |
-| `docs/CREDITS_TRANSACTION.md` | Atomic credits design |
-| `docs/CREDITS_LEDGER_TYPES.md` | Ledger type vocabulary |
-| `docs/RELEASE_NOTES_*.md` | Version notes |
+| `README.md` | **Official Entry Point** — product face |
+| `ARCHITECTURE_BIBLE.md` | **This file** — OS map / Studio law |
+| `ARCHITECTURE.md` | Short overview |
+| `UNIVERSAL_ASSET.md` | Canonical Asset Store · Facade rules |
+| `LANGUAGE_ASSET.md` | Language Asset meta |
+| `AI_INPUT_ADAPTER.md` | Adapter → Extractor → Engine |
+| `TRANSLATOR_SOURCE_TYPES.md` | Source Type table, REST, security |
+| `SOURCE_AUTHORITY.md` | Korea official sources |
+| `CREDITS_TRANSACTION.md` | Atomic credits design |
+| `CREDITS_LEDGER_TYPES.md` | Ledger type vocabulary |
+| `CONTRIBUTING.md` / `ROADMAP.md` | Dev rules / version entry |
 
 ---
 
@@ -248,8 +317,18 @@ UI philosophy: `.cursor/rules/creator-os-saas-ui.mdc`
 
 기능이 늘수록 문서와 Core 계약을 먼저 갱신한다.
 
-```
+```text
 Idea → Architecture Bible / topic doc → minimal Core extension → Studio UI
 ```
 
-OpenStudio grows by **architecture documentation + Core reuse**, not by accumulating parallel systems.
+다음 안정 확장 순서(권장):
+
+```text
+README + Bible + UNIVERSAL_ASSET (done)
+  → Website Adapter
+  → File / OCR / other Adapters
+  → optional Thin Asset Facade (approval)
+```
+
+OpenStudio grows by **architecture documentation + Core reuse**, not by accumulating parallel systems.  
+이 단계부터는 기능 나열보다 **설계 완성도**가 우선이다.
