@@ -11,6 +11,77 @@ final class YooY_Translator_Validator {
     const ERR_SAME_LANGUAGE = 'same_source_target_language';
     const MSG_SAME_LANGUAGE = '감지된 원문 언어와 대상 언어가 같습니다. 다른 대상 언어를 선택해 주세요.';
 
+    const ERR_SOURCE_TYPE_NOT_IMPLEMENTED = 'source_type_not_implemented';
+    const MSG_SOURCE_TYPE_NOT_IMPLEMENTED = '선택한 입력 방식은 아직 사용할 수 없습니다.';
+
+    /** Implemented source types that may call translate providers. */
+    const SOURCE_TYPE_TEXT = 'text';
+
+    /**
+     * Translator input source types (Language Intelligence Engine).
+     *
+     * @return array<string,array{id:string,label:string,badge:string,status:string}>
+     */
+    public static function source_types(): array {
+        return [
+            'text' => [
+                'id'     => 'text',
+                'label'  => 'Text',
+                'badge'  => 'TEXT',
+                'status' => 'available',
+            ],
+            'file' => [
+                'id'     => 'file',
+                'label'  => 'File',
+                'badge'  => 'FILE',
+                'status' => 'planned',
+            ],
+            'website' => [
+                'id'     => 'website',
+                'label'  => 'Website',
+                'badge'  => 'WEB',
+                'status' => 'planned',
+            ],
+            'image' => [
+                'id'     => 'image',
+                'label'  => 'Image',
+                'badge'  => 'OCR',
+                'status' => 'planned',
+            ],
+            'audio' => [
+                'id'     => 'audio',
+                'label'  => 'Audio',
+                'badge'  => 'AUDIO',
+                'status' => 'planned',
+            ],
+            'video' => [
+                'id'     => 'video',
+                'label'  => 'Video',
+                'badge'  => 'VIDEO',
+                'status' => 'planned',
+            ],
+            'youtube' => [
+                'id'     => 'youtube',
+                'label'  => 'YouTube',
+                'badge'  => 'YOUTUBE',
+                'status' => 'planned',
+            ],
+        ];
+    }
+
+    public static function normalize_source_type(string $raw): string {
+        $id = sanitize_key($raw);
+        if ($id === '') {
+            return self::SOURCE_TYPE_TEXT;
+        }
+        $types = self::source_types();
+        return isset($types[$id]) ? $id : '';
+    }
+
+    public static function is_source_type_implemented(string $source_type): bool {
+        return self::normalize_source_type($source_type) === self::SOURCE_TYPE_TEXT;
+    }
+
     /** @return array<string,string> code => label */
     public static function languages(): array {
         return [
@@ -160,6 +231,20 @@ final class YooY_Translator_Validator {
      * @throws YooY_Translator_Exception|Exception
      */
     public static function validate_translate(array $params): array {
+        $source_type = self::normalize_source_type(
+            isset($params['source_type']) ? (string) $params['source_type'] : self::SOURCE_TYPE_TEXT
+        );
+        if ($source_type === '') {
+            throw new YooY_Translator_Exception('지원하지 않는 입력 방식입니다.', 'unsupported_source_type', 400);
+        }
+        if (!self::is_source_type_implemented($source_type)) {
+            throw new YooY_Translator_Exception(
+                self::MSG_SOURCE_TYPE_NOT_IMPLEMENTED,
+                self::ERR_SOURCE_TYPE_NOT_IMPLEMENTED,
+                400
+            );
+        }
+
         $text = self::sanitize_text(isset($params['text']) ? (string) $params['text'] : '');
         if (trim($text) === '') {
             throw new YooY_Translator_Exception('원문을 입력해 주세요.', 'empty_text', 400);
@@ -220,6 +305,7 @@ final class YooY_Translator_Validator {
         }
 
         return [
+            'source_type'      => $source_type,
             'text'             => $text,
             'source_language'  => $source,
             'target_language'  => $target,

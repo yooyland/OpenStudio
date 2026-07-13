@@ -49,6 +49,23 @@
     return map[type] || type || 'Work';
   }
 
+  var SOURCE_TYPE_BADGE = {
+    text: 'TEXT', file: 'FILE', website: 'WEB', image: 'OCR',
+    audio: 'AUDIO', video: 'VIDEO', youtube: 'YOUTUBE'
+  };
+
+  function translationSourceBadge(item) {
+    var key = String((item && (item.source_type || (item.meta && item.meta.source_type))) || 'text').toLowerCase();
+    return SOURCE_TYPE_BADGE[key] || 'TEXT';
+  }
+
+  function cardTypeBadge(item) {
+    if (item.type === 'translation') {
+      return translationSourceBadge(item) + ' · ' + (item.type_label || typeLabel(item.type));
+    }
+    return item.type_label || typeLabel(item.type);
+  }
+
   function galleryImg(item, opts) {
     opts = opts || {};
     if (global.YooYGalleryImage && typeof global.YooYGalleryImage.imgTag === 'function') {
@@ -182,6 +199,7 @@
         '</div>' +
         '<dl class="ygl-meta">' +
           metaRow('타입', item.type_label || typeLabel(item.type)) +
+          (item.type === 'translation' ? metaRow('Source', translationSourceBadge(item)) : '') +
           metaRow('Provider', item.provider_label || item.provider) +
           metaRow('Model', item.model || '—') +
           metaRow('생성 시간', item.created_label || formatDate(item.created_at)) +
@@ -536,7 +554,7 @@
     gridEl.innerHTML = filtered.map(function (item) {
       return '<article class="ygl-card' + (item.favorite ? ' is-fav' : '') + '" data-ygl-id="' + esc(item.id) + '">' +
         '<div class="ygl-thumb">' + thumbHtml(item) +
-        '<span class="ygl-type-badge">' + esc(item.type_label || typeLabel(item.type)) + '</span>' +
+        '<span class="ygl-type-badge">' + esc(cardTypeBadge(item)) + '</span>' +
         (item.favorite ? '<span class="ygl-fav-badge">★</span>' : '') +
         '<div class="ygl-card-hover">' +
           '<button type="button" data-ygl-hover="open">열기</button>' +

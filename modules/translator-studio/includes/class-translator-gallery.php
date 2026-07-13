@@ -64,6 +64,7 @@ final class YooY_Translator_Gallery {
             'settings'      => $settings,
             'meta'          => [
                 // Canonical Language Asset fields (active).
+                'source_type'       => (string) ($payload['source_type'] ?? 'text'),
                 'translated_text'   => $translated,
                 'source_language'   => $settings['source_language'],
                 'target_language'   => $settings['target_language'],
@@ -73,11 +74,13 @@ final class YooY_Translator_Gallery {
                 'fallback_used'     => !empty($payload['fallback_used']),
                 'fallback_from'     => (string) ($payload['fallback_from'] ?? ''),
                 'project_id'        => $project_id,
-                // Reserved Language Asset meta (NOT written yet — see docs/LANGUAGE_ASSET.md):
-                // asset_uuid, parent_asset_uuid, parent_asset_id, revision, revision_of,
-                // origin, asset_origin, asset_category, asset_version, asset_source,
-                // pipeline, pipeline_step, workflow_id.
-                // Gallery Store preserves arbitrary meta keys when producers start writing them.
+                // Reserved Language Asset meta (NOT written yet — see docs/LANGUAGE_ASSET.md,
+                // docs/TRANSLATOR_SOURCE_TYPES.md):
+                // asset_uuid, parent_asset_uuid, revision, origin, pipeline, pipeline_step,
+                // workflow_id, source_url, source_title, source_mime_type, source_filename,
+                // source_filesize, source_attachment_id, source_external_id, source_provider,
+                // source_content_hash, source_excerpt, source_metadata, output_type,
+                // output_attachment_id, output_filename, processing_status.
             ],
         ];
 
@@ -260,6 +263,7 @@ final class YooY_Translator_Gallery {
             'title'             => (string) ($item['title'] ?? ''),
             'preview'           => $preview,
             'translated_text'   => $translated,
+            'source_type'       => (string) ($meta['source_type'] ?? 'text'),
             'source_language'   => (string) ($meta['source_language'] ?? $item['source_language'] ?? ''),
             'target_language'   => (string) ($meta['target_language'] ?? $item['target_language'] ?? ''),
             'detected_language' => (string) ($meta['detected_language'] ?? ''),

@@ -144,6 +144,7 @@ final class YooY_Translator_Service {
         $save = $this->gallery->save_translation($user_id, [
             'source_text'       => $validated['text'],
             'translated_text'   => $translated,
+            'source_type'       => (string) ($validated['source_type'] ?? 'text'),
             'source_language'   => $validated['source_language'],
             'target_language'   => $validated['target_language'],
             'mode'              => $validated['mode'],
@@ -205,6 +206,7 @@ final class YooY_Translator_Service {
             'detected_language' => $provider_detected !== '' ? $provider_detected : $detected,
             'source_language'   => $validated['source_language'],
             'target_language'   => $validated['target_language'],
+            'source_type'       => (string) ($validated['source_type'] ?? 'text'),
             'mode'              => $validated['mode'],
             'provider'          => $used_provider,
             'model'             => isset($result['model']) ? (string) $result['model'] : '',

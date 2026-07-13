@@ -25,7 +25,7 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
     }
 
     public function version(): string {
-        return '1.5.0';
+        return '1.6.0';
     }
 
     public function init(YooY_Core_Engine $core): void {
@@ -143,7 +143,7 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
             'studio' => [
                 'name'    => 'YooY Translator Studio',
                 'version' => $this->version(),
-                'phase'   => 'release-2d-rc',
+                'phase'   => 'source-types-foundation',
             ],
             'max_chars' => YooY_Translator_Validator::MAX_CHARS,
             'default_provider' => 'auto',
@@ -151,6 +151,8 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
             'providers' => $this->router->providers(),
             'modes'     => $this->service->modes(),
             'languages' => $this->service->languages(),
+            'source_types' => array_values(YooY_Translator_Validator::source_types()),
+            'default_source_type' => YooY_Translator_Validator::SOURCE_TYPE_TEXT,
             'features'  => [
                 'history'   => true,
                 'gallery'   => true,
@@ -158,6 +160,7 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
                 'credits'   => true,
                 'tts'       => false,
                 'upload'    => false,
+                'source_types' => true,
             ],
             'credits' => [
                 'chars_per_credit' => YooY_Translator_Credits::CHARS_PER_CREDIT,

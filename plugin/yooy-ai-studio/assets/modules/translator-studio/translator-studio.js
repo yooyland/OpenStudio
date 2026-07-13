@@ -15,6 +15,8 @@
     languages: [],
     modes: [],
     providers: [],
+    sourceTypes: [],
+    sourceType: 'text',
     sourceLanguage: 'auto',
     targetLanguage: 'en',
     mode: 'natural',
@@ -39,6 +41,23 @@
     charCount: 0,
     abort: null
   };
+
+  var SOURCE_TYPE_DEFS = [
+    { id: 'text', label: 'Text', badge: 'TEXT', status: 'available' },
+    { id: 'file', label: 'File', badge: 'FILE', status: 'planned' },
+    { id: 'website', label: 'Website', badge: 'WEB', status: 'planned' },
+    { id: 'image', label: 'Image', badge: 'OCR', status: 'planned' },
+    { id: 'audio', label: 'Audio', badge: 'AUDIO', status: 'planned' },
+    { id: 'video', label: 'Video', badge: 'VIDEO', status: 'planned' },
+    { id: 'youtube', label: 'YouTube', badge: 'YOUTUBE', status: 'planned' }
+  ];
+
+  var SOURCE_TYPE_BADGE = {
+    text: 'TEXT', file: 'FILE', website: 'WEB', image: 'OCR',
+    audio: 'AUDIO', video: 'VIDEO', youtube: 'YOUTUBE'
+  };
+
+  var COMING_SOON_MSG = '해당 입력 방식은 다음 단계에서 제공될 예정입니다.';
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -71,6 +90,83 @@
     }).join('');
   }
 
+  function sourceTypeTabsHtml() {
+    var list = state.sourceTypes.length ? state.sourceTypes : SOURCE_TYPE_DEFS;
+    return '<div class="yts-source-types" role="tablist" aria-label="입력 방식">' +
+      list.map(function (t) {
+        var id = t.id || t;
+        var label = t.label || id;
+        var status = t.status || (id === 'text' ? 'available' : 'planned');
+        var active = state.sourceType === id ? ' is-active' : '';
+        var planned = status !== 'available' ? ' is-planned' : '';
+        return '<button type="button" class="yts-source-type' + active + planned + '" role="tab"' +
+          ' data-source-type="' + esc(id) + '"' +
+          ' aria-selected="' + (state.sourceType === id ? 'true' : 'false') + '"' +
+          ' title="' + esc(status === 'available' ? label : (label + ' · Coming Soon')) + '">' +
+          esc(label) +
+          (status !== 'available' ? '<span class="yts-source-type-soon">Soon</span>' : '') +
+          '</button>';
+      }).join('') +
+      '</div>';
+  }
+
+  function comingSoonPanel(typeId, title, bodyHtml) {
+    return '<section class="yts-source-panel yts-source-panel--soon" data-source-panel="' + esc(typeId) + '" hidden aria-label="' + esc(title) + '">' +
+      '<div class="yts-soon-banner" role="status">' +
+        '<strong>' + esc(title) + '</strong>' +
+        '<p>' + esc(COMING_SOON_MSG) + '</p>' +
+      '</div>' +
+      '<div class="yts-soon-scaffold" aria-hidden="true">' + bodyHtml + '</div>' +
+      '</section>';
+  }
+
+  function plannedPanelsHtml() {
+    return '' +
+      comingSoonPanel('file', 'File',
+        '<div class="yts-dropzone">' +
+          '<p class="yts-dropzone-title">Drag & Drop</p>' +
+          '<p class="yts-dropzone-hint">DOCX · PDF · PPTX · XLSX · TXT · MD · CSV · HTML · SRT · VTT</p>' +
+          '<button type="button" class="yts-btn yts-btn--ghost" disabled>파일 선택</button>' +
+        '</div>' +
+        '<div class="yts-file-meta"><span>파일명 —</span><span>크기 —</span><button type="button" class="yts-btn yts-btn--ghost yts-btn--sm" disabled>제거</button></div>'
+      ) +
+      comingSoonPanel('website', 'Website',
+        '<div class="yts-url-row">' +
+          '<input type="url" class="yts-input" placeholder="https://example.com" disabled>' +
+          '<button type="button" class="yts-btn yts-btn--ghost" disabled>가져오기</button>' +
+        '</div>' +
+        '<div class="yts-preview-card"><p class="yts-muted">제목 / 본문 미리보기</p></div>'
+      ) +
+      comingSoonPanel('image', 'Image · OCR',
+        '<div class="yts-dropzone yts-dropzone--image">' +
+          '<p class="yts-dropzone-title">이미지 업로드</p>' +
+          '<p class="yts-dropzone-hint">OCR → 텍스트 추출 → 번역</p>' +
+          '<button type="button" class="yts-btn yts-btn--ghost" disabled>이미지 선택</button>' +
+        '</div>'
+      ) +
+      comingSoonPanel('audio', 'Audio',
+        '<div class="yts-dropzone">' +
+          '<p class="yts-dropzone-title">오디오 업로드</p>' +
+          '<p class="yts-dropzone-hint">음성 인식 → 번역 → 번역 음성 생성</p>' +
+          '<button type="button" class="yts-btn yts-btn--ghost" disabled>오디오 선택</button>' +
+        '</div>'
+      ) +
+      comingSoonPanel('video', 'Video',
+        '<div class="yts-dropzone">' +
+          '<p class="yts-dropzone-title">영상 업로드</p>' +
+          '<p class="yts-dropzone-hint">음성 추출 → 자막 생성 → 번역 → SRT/VTT</p>' +
+          '<button type="button" class="yts-btn yts-btn--ghost" disabled>영상 선택</button>' +
+        '</div>'
+      ) +
+      comingSoonPanel('youtube', 'YouTube',
+        '<div class="yts-url-row">' +
+          '<input type="url" class="yts-input" placeholder="https://www.youtube.com/watch?v=…" disabled>' +
+          '<button type="button" class="yts-btn yts-btn--ghost" disabled>자막 확인</button>' +
+        '</div>' +
+        '<div class="yts-preview-card"><p class="yts-muted">자막 미리보기 · SRT 출력</p></div>'
+      );
+  }
+
   function shellHtml() {
     return '' +
       '<div class="yts-studio" id="yts-root">' +
@@ -85,7 +181,9 @@
           '</div>' +
         '</header>' +
 
-        '<div class="yts-toolbar">' +
+        '<div id="yts-source-type-tabs">' + sourceTypeTabsHtml() + '</div>' +
+
+        '<div class="yts-toolbar" id="yts-toolbar">' +
           '<label class="yts-field">' +
             '<span>원문 언어</span>' +
             '<select id="yts-source-lang" aria-label="원문 언어"></select>' +
@@ -103,32 +201,37 @@
           '</label>' +
         '</div>' +
 
-        '<div class="yts-panels">' +
-          '<section class="yts-panel yts-panel--source" aria-label="원문">' +
-            '<div class="yts-panel-bar">' +
-              '<strong>원문</strong>' +
-              '<span class="yts-chars" id="yts-chars">0 / ' + MAX_CHARS + '</span>' +
+        '<div class="yts-source-stage" id="yts-source-stage">' +
+          '<section class="yts-source-panel" data-source-panel="text" aria-label="텍스트 원문">' +
+            '<div class="yts-panels">' +
+              '<section class="yts-panel yts-panel--source" aria-label="원문">' +
+                '<div class="yts-panel-bar">' +
+                  '<strong>원문</strong>' +
+                  '<span class="yts-chars" id="yts-chars">0 / ' + MAX_CHARS + '</span>' +
+                '</div>' +
+                '<textarea id="yts-source" class="yts-textarea" maxlength="' + MAX_CHARS + '" placeholder="번역할 원문을 입력하세요…" rows="14"></textarea>' +
+              '</section>' +
+              '<section class="yts-panel yts-panel--result" aria-label="번역 결과">' +
+                '<div class="yts-panel-bar">' +
+                  '<strong>번역 결과</strong>' +
+                  '<span class="yts-result-meta">' +
+                    '<span class="yts-badge yts-badge--mock" id="yts-result-badge" hidden>Mock Translation</span>' +
+                    '<span class="yts-detected" id="yts-detected"></span>' +
+                  '</span>' +
+                '</div>' +
+                '<div id="yts-result" class="yts-result" tabindex="0" aria-live="polite"></div>' +
+                '<div class="yts-result-actions">' +
+                  '<button type="button" class="yts-btn yts-btn--ghost" id="yts-copy" disabled>복사</button>' +
+                  '<button type="button" class="yts-btn yts-btn--ghost" id="yts-project" disabled hidden>Project 저장</button>' +
+                  '<button type="button" class="yts-btn yts-btn--ghost" id="yts-clear" disabled>초기화</button>' +
+                '</div>' +
+              '</section>' +
             '</div>' +
-            '<textarea id="yts-source" class="yts-textarea" maxlength="' + MAX_CHARS + '" placeholder="번역할 원문을 입력하세요…" rows="14"></textarea>' +
           '</section>' +
-          '<section class="yts-panel yts-panel--result" aria-label="번역 결과">' +
-            '<div class="yts-panel-bar">' +
-              '<strong>번역 결과</strong>' +
-              '<span class="yts-result-meta">' +
-                '<span class="yts-badge yts-badge--mock" id="yts-result-badge" hidden>Mock Translation</span>' +
-                '<span class="yts-detected" id="yts-detected"></span>' +
-              '</span>' +
-            '</div>' +
-            '<div id="yts-result" class="yts-result" tabindex="0" aria-live="polite"></div>' +
-            '<div class="yts-result-actions">' +
-              '<button type="button" class="yts-btn yts-btn--ghost" id="yts-copy" disabled>복사</button>' +
-              '<button type="button" class="yts-btn yts-btn--ghost" id="yts-project" disabled hidden>Project 저장</button>' +
-              '<button type="button" class="yts-btn yts-btn--ghost" id="yts-clear" disabled>초기화</button>' +
-            '</div>' +
-          '</section>' +
+          plannedPanelsHtml() +
         '</div>' +
 
-        '<div class="yts-footer">' +
+        '<div class="yts-footer" id="yts-footer">' +
           '<p class="yts-hint" id="yts-hint">Auto Provider: OpenAI가 사용 가능하면 실제 번역을 수행하고, 실패 시 Mock으로 전환합니다.</p>' +
           '<button type="button" class="yts-btn yts-btn--primary" id="yts-translate">번역하기</button>' +
         '</div>' +
@@ -194,6 +297,12 @@
     older: 'Older'
   };
 
+  function sourceTypeBadgeHtml(sourceType) {
+    var key = String(sourceType || 'text').toLowerCase();
+    var label = SOURCE_TYPE_BADGE[key] || 'TEXT';
+    return '<span class="yts-source-badge" title="Source · ' + esc(label) + '">' + esc(label) + '</span>';
+  }
+
   function historyItemHtml(item) {
     var favClass = item.favorite ? ' is-favorite' : '';
     var srcLang = item.source_language === 'auto' && item.detected_language
@@ -202,6 +311,7 @@
     return '<div class="yts-history-item' + favClass + '" data-history-id="' + esc(item.id) + '">' +
       '<button type="button" class="yts-history-main" data-history-reopen="' + esc(item.id) + '">' +
         '<span class="yts-history-item-top">' +
+          sourceTypeBadgeHtml(item.source_type) +
           langBadgeHtml(srcLang, item.target_language) +
           '<span class="yts-history-item-title">' + esc(item.title || item.preview || 'Translation') + '</span>' +
         '</span>' +
@@ -217,6 +327,50 @@
         '<button type="button" class="yts-history-action yts-history-action--danger" data-history-delete="' + esc(item.id) + '" title="삭제" aria-label="삭제">삭제</button>' +
       '</div>' +
     '</div>';
+  }
+
+  function isTextSource() {
+    return state.sourceType === 'text';
+  }
+
+  function applySourceTypeUi(root) {
+    var tabsHost = $('#yts-source-type-tabs', root);
+    if (tabsHost) tabsHost.innerHTML = sourceTypeTabsHtml();
+
+    var panels = root.querySelectorAll('[data-source-panel]');
+    for (var i = 0; i < panels.length; i++) {
+      var p = panels[i];
+      var match = p.getAttribute('data-source-panel') === state.sourceType;
+      p.hidden = !match;
+    }
+
+    var toolbar = $('#yts-toolbar', root);
+    var footer = $('#yts-footer', root);
+    var textMode = isTextSource();
+    if (toolbar) toolbar.hidden = !textMode;
+    if (footer) footer.hidden = !textMode;
+
+    if (!textMode) {
+      showStatus(root, 'info', COMING_SOON_MSG);
+    } else {
+      showStatus(root, '', '');
+    }
+    updateMeta(root);
+  }
+
+  function setSourceType(root, typeId) {
+    var id = String(typeId || 'text');
+    var known = false;
+    var list = state.sourceTypes.length ? state.sourceTypes : SOURCE_TYPE_DEFS;
+    for (var i = 0; i < list.length; i++) {
+      if ((list[i].id || list[i]) === id) { known = true; break; }
+    }
+    if (!known) id = 'text';
+    state.sourceType = id;
+    applySourceTypeUi(root);
+    if (id !== 'text') {
+      showToast(root, COMING_SOON_MSG);
+    }
   }
 
   function renderHistory(root) {
@@ -501,7 +655,8 @@
     }
     var btn = $('#yts-translate', root);
     if (btn) {
-      btn.disabled = !!state.translating;
+      var canRun = isTextSource() && !state.translating;
+      btn.disabled = !canRun;
       btn.textContent = state.translating ? '번역 중…' : '번역하기';
     }
   }
@@ -563,6 +718,11 @@
 
   function doTranslate(root) {
     if (state.translating) return;
+    if (!isTextSource()) {
+      showStatus(root, 'info', COMING_SOON_MSG);
+      showToast(root, COMING_SOON_MSG);
+      return;
+    }
     syncFromDom(root);
     var err = clientValidate();
     if (err) {
@@ -583,6 +743,7 @@
     state.abort = (typeof AbortController !== 'undefined') ? new AbortController() : null;
 
     var body = {
+      source_type: 'text',
       text: state.sourceText,
       source_language: state.sourceLanguage,
       target_language: state.targetLanguage,
@@ -641,6 +802,9 @@
       }
       if (code === 'gallery_save_failed') {
         msg = (e && e.message) || '저장에 실패하여 크레딧을 차감하지 않았습니다.';
+      }
+      if (code === 'source_type_not_implemented') {
+        msg = COMING_SOON_MSG;
       }
       state.error = msg;
       // Do not invent a new result; restore previous display if any.
@@ -756,6 +920,11 @@
     root.dataset.ytsBound = '1';
 
     root.addEventListener('click', function (e) {
+      var typeBtn = e.target.closest('[data-source-type]');
+      if (typeBtn) {
+        setSourceType(root, typeBtn.getAttribute('data-source-type'));
+        return;
+      }
       if (e.target.closest('#yts-translate')) { doTranslate(root); return; }
       if (e.target.closest('#yts-swap')) { doSwap(root); return; }
       if (e.target.closest('#yts-copy')) { doCopy(root); return; }
@@ -912,6 +1081,10 @@
       state.openaiReady = !!cfg.openai_ready;
       state.projectsEnabled = !(cfg.features && cfg.features.projects === false);
       state.creditsEnabled = !(cfg.features && cfg.features.credits === false);
+      state.sourceTypes = Array.isArray(cfg.source_types) && cfg.source_types.length
+        ? cfg.source_types
+        : SOURCE_TYPE_DEFS.slice();
+      state.sourceType = cfg.default_source_type || 'text';
       state.providerId = 'auto';
       state.providerName = 'Auto';
       state.fallbackUsed = false;
@@ -931,6 +1104,7 @@
         ];
       }
       fillSelects(root);
+      applySourceTypeUi(root);
       updateMeta(root);
       refreshEstimate(root);
       consumeRegeneratePayload(root);

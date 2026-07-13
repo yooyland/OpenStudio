@@ -382,9 +382,10 @@ final class YooY_Gallery_Store {
             'marketplace_status' => (string) ($meta['marketplace_status'] ?? (!empty($item['marketplace']) ? 'listed' : 'none')),
             'filename'           => (string) ($meta['filename'] ?? ''),
             'translated_text'    => (string) ($meta['translated_text'] ?? ''),
+            'source_type'        => (string) ($meta['source_type'] ?? ((($item['type'] ?? '') === 'translation') ? 'text' : '')),
+            'translation_mode'   => (string) ($meta['mode'] ?? ''),
             'source_language'    => (string) ($meta['source_language'] ?? ''),
             'target_language'    => (string) ($meta['target_language'] ?? ''),
-            'translation_mode'   => (string) ($meta['mode'] ?? ''),
         ]);
     }
 
