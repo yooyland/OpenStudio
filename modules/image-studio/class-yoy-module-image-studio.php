@@ -177,6 +177,8 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
                 'negative_prompt'   => $composed['negative_prompt'] ?? '',
                 'settings'          => $composed['settings'] ?? [],
                 'meta'              => $composed['meta'] ?? [],
+                'creative_brief'    => $composed['creative_brief'] ?? ($composed['meta']['creative_brief'] ?? []),
+                'user_prompt'       => $composed['user_prompt'] ?? '',
                 'resolved_provider' => $composed['resolved_provider'] ?? null,
             ]);
         } catch (Exception $e) {

@@ -1,20 +1,20 @@
 /* YooY AI Studio — Global Form Design System v11.8.1 */
 
 :root {
-  --yoy-form-bg: #101010;
-  --yoy-form-bg-soft: #141414;
-  --yoy-form-color: #ffffff;
-  --yoy-form-muted: rgba(255, 255, 255, 0.72);
-  --yoy-form-border: rgba(255, 215, 106, 0.28);
-  --yoy-form-border-focus: #ffd76a;
-  --yoy-form-focus-ring: rgba(255, 215, 106, 0.12);
+  --yoy-form-bg: var(--bg-surface, #151515);
+  --yoy-form-bg-soft: var(--bg-elevated, #1b1b1b);
+  --yoy-form-color: var(--text-primary, #f5f5f5);
+  --yoy-form-muted: var(--text-secondary, #b8b8b8);
+  --yoy-form-border: var(--border-default, #353535);
+  --yoy-form-border-focus: var(--accent-gold, #f2c94c);
+  --yoy-form-focus-ring: rgba(242, 201, 76, 0.15);
   --yoy-form-radius: 14px;
   --yoy-form-height: 48px;
   --yoy-form-font: 15px;
   --yoy-form-gap: 20px;
   --yoy-form-label: 14px;
   --yoy-form-section-gap: 32px;
-  --yoy-form-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23FFD76A' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+  --yoy-form-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23F2C94C' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
 }
 
 /* ── Scoped form reset ── */
@@ -117,7 +117,7 @@
 .yis-studio textarea::placeholder,
 .ygl-market-panel textarea::placeholder,
 #yai-admin-console textarea::placeholder {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted, #777777);
 }
 
 .yai-app input:focus,
@@ -142,17 +142,29 @@
   outline: none;
 }
 
-.yai-app input:disabled,
-.yai-app select:disabled,
 .yai-app textarea:disabled,
-.yai-ops-console input:disabled,
-.yai-ops-console select:disabled,
-.yai-ops-console textarea:disabled,
-.yis-studio input:disabled,
-.yis-studio select:disabled,
-.yis-studio textarea:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
+.yai-app textarea[disabled],
+.yai-app input:disabled,
+.yai-app input[disabled],
+.yai-app select:disabled,
+.yai-app select[disabled] {
+  background-color: var(--disabled-bg, #242424) !important;
+  border-color: var(--border-default, #353535) !important;
+  color: var(--disabled-text, #737373) !important;
+  -webkit-text-fill-color: var(--disabled-text, #737373) !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+.yai-app textarea[readonly]:not(:disabled):not([disabled]),
+.yai-ops-console textarea[readonly]:not(:disabled):not([disabled]),
+.yis-studio textarea[readonly]:not(:disabled):not([disabled]),
+.yts-studio textarea[readonly]:not(:disabled):not([disabled]) {
+  background-color: var(--bg-surface, #151515) !important;
+  color: var(--text-primary, #f2f2f2) !important;
+  -webkit-text-fill-color: var(--text-primary, #f2f2f2) !important;
+  opacity: 1 !important;
+  cursor: text;
 }
 
 .yai-app select option,
@@ -160,8 +172,17 @@
 .yis-studio select option,
 .ygl-market-panel select option,
 #yai-admin-console select option {
-  background: #0d0d0d;
-  color: #ffffff;
+  background: var(--bg-elevated, #1b1b1b);
+  color: var(--text-primary, #f5f5f5);
+}
+
+.yai-app select option:disabled,
+.yai-ops-console select option:disabled,
+.yis-studio select option:disabled,
+.ygl-market-panel select option:disabled,
+#yai-admin-console select option:disabled {
+  background: var(--disabled-bg, #242424) !important;
+  color: var(--disabled-text, #737373) !important;
 }
 
 /* ── Labels & field wrappers ── */

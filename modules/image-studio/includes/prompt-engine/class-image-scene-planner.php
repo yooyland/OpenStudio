@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) exit;
 
 /**
  * Designs visual scenes from meaning — never literal text or word illustration.
+ * Politics / public campaign must never collapse into product packshot scenes.
  */
 final class YooY_Image_Scene_Planner {
 
@@ -14,7 +15,11 @@ final class YooY_Image_Scene_Planner {
         $abstract = !empty($emotion['abstract']) || !empty($intent['emotional']);
         $visuals = is_array($emotion['visuals'] ?? null) ? $emotion['visuals'] : [];
 
-        if ($abstract && $emotion['primary'] !== 'neutral') {
+        if (!empty($intent['politics']) || !empty($intent['political_ad'])) {
+            return $this->politics_scene($user_prompt, $emotion, $intent);
+        }
+
+        if ($abstract && ($emotion['primary'] ?? 'neutral') !== 'neutral' && empty($intent['product'])) {
             return $this->emotional_scene($emotion);
         }
 
@@ -27,7 +32,8 @@ final class YooY_Image_Scene_Planner {
         if (!empty($intent['landscape'])) {
             return $this->landscape_scene($user_prompt, $emotion);
         }
-        if (!empty($intent['commercial'])) {
+        // Commercial campaign that is NOT product (brand/public) — avoid packshot
+        if (!empty($intent['commercial']) && empty($intent['product'])) {
             return $this->commercial_scene($user_prompt, $intent);
         }
 
@@ -43,6 +49,25 @@ final class YooY_Image_Scene_Planner {
         }
 
         return $this->general_scene($user_prompt, $intent);
+    }
+
+    /**
+     * @param array<string, mixed> $emotion
+     * @param array<string, mixed> $intent
+     */
+    private function politics_scene(string $prompt, array $emotion, array $intent): array {
+        $subject = $this->extract_subject_hint($prompt);
+        if ($subject === 'a visually compelling scene expressing the concept through imagery alone') {
+            $subject = 'Korean political leadership figure with clear civic message';
+        }
+        return [
+            'subject'     => $subject,
+            'environment' => 'premium Korean public-campaign / editorial poster setting',
+            'action'      => 'confident leadership posture delivering a civic message',
+            'framing'     => 'magazine-cover hierarchy with headline and message zones',
+            'elements'    => ['navy suit', 'civic blue-white palette', 'soft city/citizen background', 'copy-safe space'],
+            'narrative'   => 'Korean political editorial campaign poster, not product photography',
+        ];
     }
 
     /**
@@ -69,7 +94,7 @@ final class YooY_Image_Scene_Planner {
      */
     private function portrait_scene(string $prompt, array $emotion, array $intent): array {
         return [
-            'subject'     => 'compelling human portrait with authentic expression',
+            'subject'     => $this->extract_subject_hint($prompt) ?: 'compelling human portrait with authentic expression',
             'environment' => !empty($intent['studio']) ? 'professional studio setting' : 'contextual environment',
             'action'      => 'natural pose with emotional depth',
             'framing'     => 'close-up to medium shot, eyes as focal point',
@@ -93,7 +118,7 @@ final class YooY_Image_Scene_Planner {
     /** @param array<string, mixed> $emotion */
     private function landscape_scene(string $prompt, array $emotion): array {
         return [
-            'subject'     => 'expansive environment as the hero',
+            'subject'     => $this->extract_subject_hint($prompt) ?: 'expansive environment as the hero',
             'environment' => 'breathtaking natural or urban landscape',
             'action'      => 'atmospheric depth and scale',
             'framing'     => 'wide cinematic composition',
@@ -104,10 +129,11 @@ final class YooY_Image_Scene_Planner {
 
     /** @param array<string, mixed> $intent */
     private function commercial_scene(string $prompt, array $intent): array {
+        // Brand/public commercial — not automatically a product bottle
         return [
-            'subject'     => 'brand-focused visual with clear commercial intent',
+            'subject'     => $this->extract_subject_hint($prompt),
             'environment' => 'polished advertising environment',
-            'action'      => 'aspirational lifestyle moment',
+            'action'      => 'aspirational campaign moment',
             'framing'     => 'magazine-quality composition with copy-safe negative space',
             'elements'    => ['luxury lighting', 'refined color grading', 'premium finish'],
             'narrative'   => 'award-winning commercial campaign imagery',
@@ -128,27 +154,35 @@ final class YooY_Image_Scene_Planner {
     }
 
     private function extract_subject_hint(string $prompt): string {
-        $clean = trim(preg_replace('/[\x{AC00}-\x{D7A3}]+/u', '', $prompt) ?? $prompt);
-        if ($clean !== '' && mb_strlen($clean) > 8) {
-            return 'scene featuring ' . mb_substr($clean, 0, 120);
+        $prompt = trim(preg_replace('/\s+/u', ' ', $prompt) ?? $prompt);
+        if ($prompt === '') {
+            return 'a visually compelling scene expressing the concept through imagery alone';
         }
-        return 'a visually compelling scene expressing the concept through imagery alone';
+        // Keep Hangul subjects — do not strip Korean characters
+        return 'scene featuring ' . mb_substr($prompt, 0, 160);
     }
 
     /**
-     * @return array{emotional: bool, portrait: bool, product: bool, landscape: bool, commercial: bool, studio: bool, flat_lay: bool}
+     * @return array{emotional: bool, portrait: bool, product: bool, landscape: bool, commercial: bool, studio: bool, flat_lay: bool, politics: bool, political_ad: bool}
      */
     public function detect_intent(string $prompt): array {
         $t = mb_strtolower($prompt);
+        $politics = (bool) preg_match('/정치|이재명|대통령|선거|정책|국회|정당|대선|여야|political|president|election|policy|캠페인 포스터/u', $t);
+        $product  = (bool) preg_match('/제품|product|스마트스토어|쇼핑|ecommerce|상품|패키지|package|향수|화장품|스킨케어|perfume|cosmetic|skincare|bottle/u', $t);
+        // 「광고」 alone is commercial campaign, NOT product photography
+        $commercial = (bool) preg_match('/광고|advert|commercial|브랜드|brand|럭셔리|luxury|캠페인|campaign/u', $t);
+
         return [
-            'emotional'  => (bool) preg_match('/답답|외로|희망|자유|행복|슬픔|사랑|마음|감정|느낌/u', $t)
+            'emotional'    => (bool) preg_match('/답답|외로|희망|자유|행복|슬픔|사랑|마음|감정|느낌/u', $t)
                 || preg_match('/\b(feel|feeling|emotion|mood|heart|soul)\b/u', $t),
-            'portrait'   => (bool) preg_match('/인물|초상|portrait|face|얼굴|여자|남자|person|woman|man/u', $t),
-            'product'    => (bool) preg_match('/제품|product|스마트스토어|쇼핑|ecommerce|상품|패키지|package/u', $t),
-            'landscape'  => (bool) preg_match('/풍경|landscape|산|바다|sea|mountain|여행|travel/u', $t),
-            'commercial' => (bool) preg_match('/광고|advert|commercial|브랜드|brand|럭셔리|luxury|캠페인|campaign/u', $t),
-            'studio'     => (bool) preg_match('/스튜디오|studio|제품|product/u', $t),
-            'flat_lay'   => (bool) preg_match('/플랫|flat.?lay|탑뷰|top.?view/u', $t),
+            'portrait'     => $politics || (bool) preg_match('/인물|초상|portrait|face|얼굴|여자|남자|person|woman|man/u', $t),
+            'product'      => $product && !$politics,
+            'landscape'    => !$politics && (bool) preg_match('/풍경|landscape|산|바다|sea|mountain|여행|travel|관광|tour/u', $t),
+            'commercial'   => $commercial,
+            'studio'       => (bool) preg_match('/스튜디오|studio/u', $t) && $product,
+            'flat_lay'     => (bool) preg_match('/플랫|flat.?lay|탑뷰|top.?view/u', $t),
+            'politics'     => $politics,
+            'political_ad' => $politics && $commercial,
         ];
     }
 }

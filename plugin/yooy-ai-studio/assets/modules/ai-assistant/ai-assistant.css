@@ -1,0 +1,638 @@
+/* YooY AI Assistant — Conversational Creative Partner UI (scoped) */
+
+#yai-assistant-studio,
+#yai-assistant-studio * {
+  box-sizing: border-box;
+}
+
+#yai-assistant.yai-assistant {
+  --yai-as-bg: #0f1115;
+  --yai-as-surface: #12151c;
+  --yai-as-elevated: #181b22;
+  --yai-as-border: rgba(255, 255, 255, 0.08);
+  --yai-as-gold: #ffd84a;
+  --yai-as-gold-text: #111111;
+  --yai-as-ai-bg: #ffffff;
+  --yai-as-ai-text: #111111;
+  --yai-as-muted: #9aa3b2;
+  --yai-as-text: #f3f4f6;
+  --yai-as-composer-ring: linear-gradient(135deg, #7c3aed, #38bdf8);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 72px);
+  min-height: 560px;
+  max-height: calc(100vh - 56px);
+  background: var(--yai-as-bg);
+  color: var(--yai-as-text);
+  font-family: "Noto Sans KR", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+#yai-assistant .yai-assistant__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.35rem 0.85rem;
+  border-bottom: 1px solid var(--yai-as-border);
+  background: rgba(15, 17, 21, 0.92);
+}
+
+#yai-assistant .yai-assistant__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+#yai-assistant .yai-assistant__spark {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #ffd84a, #f59e0b);
+  color: #111;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+#yai-assistant .yai-assistant__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1.2;
+}
+
+#yai-assistant .yai-assistant__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--yai-as-muted);
+}
+
+#yai-assistant .yai-assistant__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+#yai-assistant .yai-assistant__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--yai-as-border);
+  background: var(--yai-as-elevated);
+  font-size: 12px;
+  color: var(--yai-as-muted);
+}
+
+#yai-assistant .yai-assistant__badge--ready {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.35);
+}
+
+#yai-assistant .yai-assistant__badge--ready::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+#yai-assistant .yai-assistant__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.35rem 1.1rem;
+  scroll-behavior: smooth;
+}
+
+#yai-assistant .yai-assistant__recs {
+  margin-bottom: 1.25rem;
+}
+
+#yai-assistant .yai-assistant__recs-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+#yai-assistant .yai-assistant__recs-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+#yai-assistant .yai-assistant__recs-desc {
+  margin: 0.25rem 0 0;
+  font-size: 14px;
+  color: var(--yai-as-muted);
+}
+
+#yai-assistant .yai-assistant__recs-more {
+  border: 0;
+  background: transparent;
+  color: var(--yai-as-gold);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#yai-assistant .yai-assistant__recs-more:focus-visible {
+  outline: 2px solid var(--yai-as-gold);
+  outline-offset: 2px;
+}
+
+#yai-assistant .yai-assistant__card-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(168px, 1fr);
+  gap: 0.85rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 1100px) {
+  #yai-assistant .yai-assistant__card-track {
+    grid-auto-flow: unset;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    overflow: visible;
+  }
+}
+
+@media (min-width: 720px) and (max-width: 1099px) {
+  #yai-assistant .yai-assistant__card-track {
+    grid-auto-flow: unset;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+  }
+}
+
+#yai-assistant .yai-assistant-recommendation-card {
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 168px;
+  padding: 1.05rem 1rem 1rem;
+  border: 0;
+  border-radius: 18px;
+  text-align: left;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+#yai-assistant .yai-assistant-recommendation-card:hover,
+#yai-assistant .yai-assistant-recommendation-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
+  filter: brightness(1.05);
+  outline: none;
+}
+
+#yai-assistant .yai-assistant-recommendation-card[data-tone="coral"] {
+  background: linear-gradient(160deg, #ff6b6b 0%, #ff8e8e 100%);
+}
+#yai-assistant .yai-assistant-recommendation-card[data-tone="purple"] {
+  background: linear-gradient(160deg, #8b5cf6 0%, #7c3aed 100%);
+}
+#yai-assistant .yai-assistant-recommendation-card[data-tone="sky"] {
+  background: linear-gradient(160deg, #38bdf8 0%, #0ea5e9 100%);
+}
+#yai-assistant .yai-assistant-recommendation-card[data-tone="green"] {
+  background: linear-gradient(160deg, #34d399 0%, #10b981 100%);
+}
+#yai-assistant .yai-assistant-recommendation-card[data-tone="orange"] {
+  background: linear-gradient(160deg, #f59e0b 0%, #f97316 100%);
+}
+#yai-assistant .yai-assistant-recommendation-card[data-tone="indigo"] {
+  background: linear-gradient(160deg, #60a5fa 0%, #3b82f6 100%);
+}
+#yai-assistant .yai-assistant-recommendation-card[data-tone="gold"] {
+  background: linear-gradient(160deg, #f2c94c 0%, #d4a017 100%);
+  color: #111;
+}
+
+#yai-assistant .yai-assistant-recommendation-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.75rem;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 22px;
+  line-height: 1;
+}
+
+#yai-assistant .yai-assistant-recommendation-card__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+#yai-assistant .yai-assistant-recommendation-card__desc {
+  margin: 0.35rem 0 0.85rem;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  opacity: 0.95;
+  flex: 1;
+}
+
+#yai-assistant .yai-assistant-recommendation-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#yai-assistant .yai-assistant-recommendation-card[data-tone="gold"] .yai-assistant-recommendation-card__cta {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+#yai-assistant .yai-assistant-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+#yai-assistant .yai-assistant-message {
+  display: flex;
+  gap: 0.65rem;
+  max-width: 70%;
+  align-items: flex-end;
+}
+
+#yai-assistant .yai-assistant-message--user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+  max-width: 62%;
+}
+
+#yai-assistant .yai-assistant-message--assistant {
+  align-self: flex-start;
+}
+
+#yai-assistant .yai-assistant-message__avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #60a5fa, #7c3aed);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+#yai-assistant .yai-assistant-message__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+#yai-assistant .yai-assistant-message__bubble {
+  padding: 0.85rem 1rem;
+  border-radius: 18px;
+  font-size: 15.5px;
+  font-weight: 400;
+  line-height: 1.65;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  word-break: break-word;
+}
+
+#yai-assistant .yai-assistant-message--assistant .yai-assistant-message__bubble {
+  background: var(--yai-as-ai-bg);
+  color: var(--yai-as-ai-text);
+  border-bottom-left-radius: 6px;
+}
+
+#yai-assistant .yai-assistant-message--user .yai-assistant-message__bubble {
+  background: var(--yai-as-gold);
+  color: var(--yai-as-gold-text);
+  border-bottom-right-radius: 6px;
+}
+
+#yai-assistant .yai-assistant-message__bubble p {
+  margin: 0 0 0.55rem;
+}
+
+#yai-assistant .yai-assistant-message__bubble p:last-child {
+  margin-bottom: 0;
+}
+
+#yai-assistant .yai-assistant-message__bubble ul {
+  margin: 0.35rem 0 0.55rem;
+  padding-left: 1.15rem;
+}
+
+#yai-assistant .yai-assistant-message__bubble li {
+  margin: 0.2rem 0;
+}
+
+#yai-assistant .yai-assistant-message__meta {
+  font-size: 12px;
+  color: var(--yai-as-muted);
+  padding: 0 0.25rem;
+}
+
+#yai-assistant .yai-assistant-message--user .yai-assistant-message__meta {
+  text-align: right;
+}
+
+#yai-assistant .yai-assistant-message__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+#yai-assistant .yai-assistant-action-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--yai-as-elevated);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#yai-assistant .yai-assistant-action-btn:hover,
+#yai-assistant .yai-assistant-action-btn:focus-visible {
+  border-color: var(--yai-as-gold);
+  color: var(--yai-as-gold);
+  outline: none;
+}
+
+#yai-assistant .yai-assistant-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+#yai-assistant .yai-assistant-chip {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5e7eb;
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#yai-assistant .yai-assistant-chip:hover,
+#yai-assistant .yai-assistant-chip:focus-visible {
+  border-color: var(--yai-as-gold);
+  outline: none;
+}
+
+#yai-assistant .yai-assistant-typing {
+  display: inline-flex;
+  gap: 0.28rem;
+  align-items: center;
+  min-height: 1.2em;
+}
+
+#yai-assistant .yai-assistant-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6b7280;
+  animation: yaiAsTyping 1.1s infinite ease-in-out;
+}
+
+#yai-assistant .yai-assistant-typing span:nth-child(2) { animation-delay: 0.15s; }
+#yai-assistant .yai-assistant-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes yaiAsTyping {
+  0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+#yai-assistant .yai-assistant-draft {
+  margin-top: 0.5rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 216, 74, 0.45);
+  background: rgba(255, 216, 74, 0.08);
+  color: #f5f5f5;
+}
+
+#yai-assistant .yai-assistant-draft__text {
+  margin: 0.4rem 0 0.7rem;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: #e5e7eb;
+}
+
+#yai-assistant .yai-assistant-composer-wrap {
+  flex: 0 0 auto;
+  padding: 0.75rem 1.15rem 1rem;
+  background: linear-gradient(180deg, transparent, rgba(15, 17, 21, 0.95) 18%);
+  border-top: 1px solid var(--yai-as-border);
+}
+
+#yai-assistant .yai-assistant-composer {
+  position: relative;
+  border-radius: 22px;
+  padding: 1px;
+  background: var(--yai-as-composer-ring);
+  box-shadow: 0 10px 30px rgba(88, 80, 236, 0.18);
+}
+
+#yai-assistant .yai-assistant-composer__inner {
+  border-radius: 21px;
+  background: var(--yai-as-surface);
+  padding: 0.85rem 0.95rem 0.7rem;
+}
+
+#yai-assistant .yai-assistant-composer__input {
+  width: 100%;
+  min-height: 56px;
+  max-height: 160px;
+  resize: vertical;
+  border: 0;
+  background: transparent;
+  color: #f9fafb;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  outline: none;
+}
+
+#yai-assistant .yai-assistant-composer__input::placeholder {
+  color: #8b93a7;
+}
+
+#yai-assistant .yai-assistant-composer:focus-within {
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.45), 0 12px 32px rgba(56, 189, 248, 0.18);
+}
+
+#yai-assistant .yai-assistant-composer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+#yai-assistant .yai-assistant-composer__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+#yai-assistant .yai-assistant-tool {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #c7cedc;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+#yai-assistant .yai-assistant-tool:hover,
+#yai-assistant .yai-assistant-tool:focus-visible {
+  border-color: rgba(124, 58, 237, 0.55);
+  color: #fff;
+  outline: none;
+}
+
+#yai-assistant .yai-assistant-tool--plus {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#yai-assistant .yai-assistant-composer__send-group {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+#yai-assistant .yai-assistant-send {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  background: #7c3aed;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+#yai-assistant .yai-assistant-send:hover,
+#yai-assistant .yai-assistant-send:focus-visible {
+  background: #6d28d9;
+  outline: none;
+}
+
+#yai-assistant .yai-assistant-send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#yai-assistant .yai-assistant-mic {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: #d1d5db;
+  cursor: pointer;
+}
+
+#yai-assistant .yai-assistant-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#yai-assistant .yai-assistant-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 108px;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 719px) {
+  #yai-assistant.yai-assistant {
+    height: calc(100vh - 56px);
+    border-radius: 0;
+  }
+
+  #yai-assistant .yai-assistant-message,
+  #yai-assistant .yai-assistant-message--user {
+    max-width: 88%;
+  }
+
+  #yai-assistant .yai-assistant-tool--label {
+    display: none;
+  }
+
+  #yai-assistant .yai-assistant__header {
+    padding: 0.9rem 1rem 0.7rem;
+  }
+
+  #yai-assistant .yai-assistant__scroll {
+    padding: 0.85rem 1rem;
+  }
+}

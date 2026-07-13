@@ -5,6 +5,7 @@
     premium_photo: { id: 'premium_photo', label: 'Premium Photo', style: 'photorealistic', brand_tone: 'premium', quality: 'hd' },
     movie_poster: { id: 'movie_poster', label: 'Movie Poster', style: 'cinematic', brand_tone: 'luxury', quality: 'hd', composition: 'hero' },
     luxury_ad: { id: 'luxury_ad', label: 'Luxury Advertising', style: 'commercial', brand_tone: 'luxury', quality: 'hd', lighting: 'studio' },
+    political_poster: { id: 'political_poster', label: 'Political Campaign', style: 'editorial', brand_tone: 'premium', quality: 'hd', composition: 'hero', lighting: 'soft', product_type: 'none', background: 'contextual' },
     travel_campaign: { id: 'travel_campaign', label: 'Travel Campaign', style: 'cinematic', brand_tone: 'premium', composition: 'wide', lighting: 'golden_hour' },
     minimal_design: { id: 'minimal_design', label: 'Minimal Design', style: 'minimal', brand_tone: 'premium', quality: 'standard', background: 'studio_white' },
     fantasy: { id: 'fantasy', label: 'Fantasy', style: 'cinematic', brand_tone: 'premium', lighting: 'dramatic', composition: 'wide' },
@@ -24,18 +25,24 @@
 
   function pickPreset(prompt) {
     var t = lower(prompt);
+    // Politics before luxury_ad / k_culture — 「광고」 must not become cosmetics
+    if (hasAny(t, ['정치', '이재명', '대통령', '선거', '정책', '국회', '정당', '대선', 'political', 'election', 'president'])) {
+      return STYLE_PRESETS.political_poster;
+    }
+    if (hasAny(t, ['향수', '화장품', '스킨케어', 'perfume', 'cosmetic', 'skincare'])) return STYLE_PRESETS.luxury_ad;
     if (hasAny(t, ['스마트스토어', 'smartstore', '쿠팡', 'coupang', '쇼핑몰', '이커머스', 'ecommerce', '상세페이지'])) return STYLE_PRESETS.premium_photo;
     if (hasAny(t, ['유튜브', 'youtube', '썸네일', 'thumbnail', '쇼츠', 'shorts'])) return STYLE_PRESETS.movie_poster;
     if (hasAny(t, ['카드뉴스', 'card news', '인스타', 'instagram', 'sns', '틱톡', 'tiktok'])) return STYLE_PRESETS.minimal_design;
-    if (hasAny(t, ['k-pop', 'kpop', '케이팝', '아이돌', 'k-'])) return STYLE_PRESETS.k_culture;
-    if (hasAny(t, ['한국', '대한민국', 'korea'])) { /* korean context applied in optimizePrompt */ }
+    if (hasAny(t, ['k-pop', 'kpop', '케이팝', '아이돌'])) return STYLE_PRESETS.k_culture;
     if (hasAny(t, ['fantasy', 'dragon', 'whale', '고래', '판타지', '마법', 'moon', '달'])) return STYLE_PRESETS.fantasy;
+    if (hasAny(t, ['travel', '여행', 'tour', '관광', '제주'])) return STYLE_PRESETS.travel_campaign;
     if (hasAny(t, ['poster', 'movie', 'film', '영화', '포스터', '시네마'])) return STYLE_PRESETS.movie_poster;
-    if (hasAny(t, ['luxury', 'brand', '광고', 'advert', 'commercial', '브랜드', '럭셔리'])) return STYLE_PRESETS.luxury_ad;
-    if (hasAny(t, ['travel', '여행', 'tour', 'campaign', '세계'])) return STYLE_PRESETS.travel_campaign;
-    if (hasAny(t, ['k-beauty', 'kbeauty', 'k-pop', 'kpop', '케이', '한국', 'k-'])) return STYLE_PRESETS.k_culture;
+    if (hasAny(t, ['perfume', '향수', 'cosmetic', '화장품', 'product', '제품', 'luxury', '브랜드', '럭셔리'])) return STYLE_PRESETS.luxury_ad;
+    // Generic 「광고」 without product → editorial campaign, not k-beauty cosmetics
+    if (hasAny(t, ['광고', 'advert', 'commercial', '캠페인', 'campaign'])) return STYLE_PRESETS.movie_poster;
+    if (hasAny(t, ['k-beauty', 'kbeauty'])) return STYLE_PRESETS.k_culture;
     if (hasAny(t, ['minimal', '미니멀', 'clean', 'simple'])) return STYLE_PRESETS.minimal_design;
-    if (hasAny(t, ['product', '제품', '썸네일', '스마트스토어', '이커머스', 'ecommerce', '쇼핑'])) return STYLE_PRESETS.premium_photo;
+    if (hasAny(t, ['쇼핑', 'ecommerce'])) return STYLE_PRESETS.premium_photo;
     return STYLE_PRESETS.premium_photo;
   }
 
@@ -56,8 +63,9 @@
       color_palette: 'neutral',
       mood: 'neutral',
       brand_tone: preset.brand_tone || 'premium',
-      product_type: preset.product_type || 'general',
-      commercial: true,
+      product_type: preset.product_type || (preset.id === 'political_poster' ? 'none' : 'general'),
+      commercial: preset.id !== 'political_poster',
+      intent_domain: preset.id === 'political_poster' ? 'politics' : (preset.id === 'travel_campaign' ? 'travel' : ''),
       camera: 'cinema_50mm',
       lens: 'standard',
       camera_angle: 'eye_level',
@@ -86,7 +94,15 @@
       profile.camera = 'tele_85mm';
       profile.depth_of_field = 'shallow';
     }
-    if (hasAny(t, ['flat', '플랫', 'lay', '제품'])) {
+    if (hasAny(t, ['정치', '이재명', '대통령', '선거', '정책'])) {
+      profile.style = 'editorial';
+      profile.product_type = 'none';
+      profile.background = 'contextual';
+      profile.commercial = true;
+      profile.intent_domain = 'politics';
+      profile.negative_extra = 'cosmetic bottle, perfume, skincare, product pedestal, generic merchandise';
+    }
+    if (hasAny(t, ['flat', '플랫', 'lay']) && hasAny(t, ['제품', 'product', '화장품'])) {
       profile.composition = 'flat_lay';
       profile.background = 'studio_white';
     }
@@ -200,11 +216,13 @@
     settings.background = profile.background || 'studio_white';
     settings.color_palette = profile.color_palette || 'neutral';
     settings.brand_tone = profile.brand_tone || 'premium';
-    settings.product_type = profile.product_type || 'general';
+    settings.product_type = profile.product_type || (profile.intent_domain === 'politics' ? 'none' : 'general');
     settings.image_count = profile.image_count || 1;
     settings.korean_context = true;
+    if (profile.intent_domain) settings.intent_domain = profile.intent_domain;
     if (profile.commercial !== false) {
       var neg = PREMIUM_NEGATIVE;
+      if (profile.negative_extra) neg = neg + ', ' + profile.negative_extra;
       if (!settings.negative_prompt || settings.negative_prompt.indexOf('cartoon') === -1) {
         settings.negative_prompt = neg;
       }

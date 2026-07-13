@@ -50,6 +50,11 @@
     lastOptimizedPrompt: '',
     lastUserPrompt: '',
     lastComposerMeta: null,
+    creativeBrief: null,
+    rawUserRequest: '',
+    intentDomain: '',
+    promptVersion: '',
+    showFinalPrompt: false,
     recommendedStyleId: '',
     refAnalysisLabels: [],
     gallerySelectedId: null,
@@ -130,6 +135,29 @@
         state.settings.last_prompt = saved;
         state.settings.prompt = saved;
         sessionStorage.removeItem('yoy_home_prompt');
+      }
+      var raw = sessionStorage.getItem('yoy_assistant_raw_request');
+      if (raw) {
+        state.rawUserRequest = raw;
+        sessionStorage.removeItem('yoy_assistant_raw_request');
+      }
+      var briefRaw = sessionStorage.getItem('yoy_assistant_creative_brief');
+      if (briefRaw) {
+        try {
+          state.creativeBrief = JSON.parse(briefRaw);
+        } catch (e2) { state.creativeBrief = null; }
+        sessionStorage.removeItem('yoy_assistant_creative_brief');
+      }
+      var domain = sessionStorage.getItem('yoy_assistant_intent_domain');
+      if (domain) {
+        state.intentDomain = domain;
+        state.settings.intent_domain = domain;
+        sessionStorage.removeItem('yoy_assistant_intent_domain');
+      }
+      var pver = sessionStorage.getItem('yoy_assistant_prompt_version');
+      if (pver) {
+        state.promptVersion = pver;
+        sessionStorage.removeItem('yoy_assistant_prompt_version');
       }
     } catch (e) { /* ignore */ }
   }
@@ -565,7 +593,10 @@
       smart_auto: state.smartAuto !== false,
       generation_mode: state.generationMode || 'fast',
       provider: state.settings.default_provider || 'auto',
-      quality: state.generationMode === 'premium' ? 'hd' : (state.settings.quality || 'standard')
+      quality: state.generationMode === 'premium' ? 'hd' : (state.settings.quality || 'standard'),
+      creative_brief: state.creativeBrief || undefined,
+      intent_domain: state.intentDomain || state.settings.intent_domain || undefined,
+      raw_user_request: state.rawUserRequest || prompt
     }).then(function (res) {
       var data = (res && res.data) ? res.data : res;
       if (callback) callback(data || null);
@@ -579,6 +610,10 @@
     var Smart = getSmartAuto();
     state.lastOptimizedPrompt = composed.canonical_prompt || composed.prompt || state.lastOptimizedPrompt;
     state.lastComposerMeta = composed.meta || null;
+    if (composed.creative_brief) {
+      state.creativeBrief = composed.creative_brief;
+      state.intentDomain = composed.creative_brief.content_domain || state.intentDomain;
+    }
     if (Smart && Smart.applyComposerResult && composed.settings) {
       Smart.applyComposerResult(state.settings, composed);
       applyProfileToAutoFields(composed.settings);
@@ -664,18 +699,58 @@
       }).join('') + '</div></div>';
   }
 
+  function promptIntelligencePanelHtml() {
+    var brief = state.creativeBrief || {};
+    var userReq = state.rawUserRequest || state.lastUserPrompt || state.settings.last_prompt || '';
+    var understood = [
+      ['중심 주제', brief.primary_subject || '—'],
+      ['목적', brief.ad_subtype || brief.what || brief.content_domain || '—'],
+      ['형식', brief.medium || brief.output_format || '—'],
+      ['타깃', brief.audience || '—'],
+      ['톤', brief.tone || '—'],
+      ['색감', brief.color_palette || '—'],
+      ['구도', brief.composition || '—'],
+      ['반드시 포함', (brief.required_elements || []).join(', ') || '—'],
+      ['제외 요소', (brief.forbidden_elements || []).slice(0, 6).join(', ') || '—']
+    ];
+    var finalPrompt = state.showFinalPrompt
+      ? ('<div class="yis-spi__final"><span>C. 이미지 생성용 최종 Prompt</span><p>' + esc(state.lastOptimizedPrompt || 'Compose 후 표시됩니다.') + '</p></div>')
+      : '';
+    return '<div class="yis-spi" id="yis-spi">' +
+      '<div class="yis-spi__block"><span class="yis-spi__label">A. 사용자 요청</span><p>' + esc(userReq || '프롬프트를 입력하세요') + '</p></div>' +
+      '<div class="yis-spi__block"><span class="yis-spi__label">B. AI가 이해한 내용</span>' +
+        '<dl class="yis-spi__grid">' + understood.map(function (row) {
+          return '<div><dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd></div>';
+        }).join('') + '</dl></div>' +
+      finalPrompt +
+      '<div class="yis-spi__actions">' +
+        '<button type="button" class="yis-btn-secondary" id="yis-spi-edit">AI 이해 내용 수정</button>' +
+        '<button type="button" class="yis-btn-secondary" id="yis-spi-recompose">Prompt 다시 구성</button>' +
+        '<button type="button" class="yis-btn-secondary" id="yis-spi-show-final">최종 Prompt 보기</button>' +
+      '</div></div>';
+  }
+
   function autoSelectedCardHtml() {
-    if (!state.lastAutoProfile && !state.lastComposerMeta) return '';
+    if (!state.lastAutoProfile && !state.lastComposerMeta && !state.creativeBrief) return '';
     var Smart = getSmartAuto();
-    if (!Smart) return '';
-    var rows = state.lastComposerMeta
-      ? Smart.composerProfileLabels(state.lastComposerMeta)
-      : Smart.profileLabels(state.lastAutoProfile);
+    var rows = [];
+    if (state.lastComposerMeta && Smart) {
+      rows = Smart.composerProfileLabels(state.lastComposerMeta);
+    } else if (state.lastAutoProfile && Smart) {
+      rows = Smart.profileLabels(state.lastAutoProfile);
+    }
+    var analysis = (state.lastComposerMeta && state.lastComposerMeta.analysis) || {};
+    if (analysis.domain || analysis.primary_subject) {
+      rows = [
+        { key: 'domain', label: 'Domain', value: analysis.domain || '—' },
+        { key: 'subject', label: '중심 주제', value: analysis.primary_subject || '—' }
+      ].concat(rows);
+    }
     var promptPreview = state.lastOptimizedPrompt
       ? '<div class="yis-auto-result__prompt"><span>최종 Prompt</span><p>' + esc(state.lastOptimizedPrompt) + '</p></div>'
       : '';
     return '<div class="yis-auto-result" id="yis-auto-result">' +
-      '<h4 class="yis-auto-result__title">Prompt Composer 분석</h4>' +
+      '<h4 class="yis-auto-result__title">Prompt Intelligence</h4>' +
       '<dl class="yis-auto-result__grid">' + rows.map(function (r) {
         return '<div><dt>' + esc(r.label) + '</dt><dd>' + esc(r.value) + '</dd></div>';
       }).join('') + '</dl>' + promptPreview + '</div>';
@@ -1569,13 +1644,19 @@
   function renderGenerate(ws, ctrl, root) {
     var promptVal = state.settings.last_prompt || '';
     ws.innerHTML =
-      '<div class="yis-header"><h2>Image Studio</h2></div>' +
+      '<div class="yis-header"><h2>Image Studio</h2><p class="yis-muted">Create · 추천 → Prompt → Generate → Gallery → Project</p></div>' +
       modeToggleHtml() +
       generationModeHtml() +
       resultBoardHtml() +
       '<div class="yis-prompt-area yis-generate-flow">' +
+        '<div class="yai-create-ux__recs" id="yis-create-recs"></div>' +
         '<label class="yis-prompt-label" for="yis-prompt">Prompt</label>' +
-        '<textarea id="yis-prompt" placeholder="예: 고래 타고 세계여행, K-Beauty 광고 비주얼, 영화 포스터...">' + esc(promptVal) + '</textarea>' +
+        '<textarea id="yis-prompt" placeholder="예: 이재명 정치 광고, 제주 관광 포스터, 프리미엄 향수 광고...">' + esc(promptVal) + '</textarea>' +
+        '<div class="yis-create-ux-actions" style="display:flex;gap:0.5rem;justify-content:flex-end;margin:0.4rem 0 0.6rem">' +
+          '<button type="button" class="yis-btn-secondary" id="yis-prompt-coach">Prompt 보완</button>' +
+        '</div>' +
+        promptIntelligencePanelHtml() +
+        '<div class="yai-create-ux__coach" id="yis-coach-panel" hidden></div>' +
         '<div class="yis-ref-block">' +
           '<label class="yis-prompt-label">Reference (Optional)</label>' +
           '<div id="yis-ref-panel-host"></div>' +
@@ -1597,6 +1678,97 @@
     bindAdvancedPanel(root);
     updateProviderUX(root);
     loadProviderHealth(root);
+    bindCreateUx(root);
+    bindPromptIntelligence(root);
+  }
+
+  function bindPromptIntelligence(root) {
+    var editBtn = root && root.querySelector('#yis-spi-edit');
+    var recomposeBtn = root && root.querySelector('#yis-spi-recompose');
+    var showFinalBtn = root && root.querySelector('#yis-spi-show-final');
+    var promptEl = root && root.querySelector('#yis-prompt');
+    if (editBtn) {
+      editBtn.addEventListener('click', function () {
+        var subject = window.prompt('중심 주제를 수정하세요', (state.creativeBrief && state.creativeBrief.primary_subject) || '');
+        if (subject == null) return;
+        state.creativeBrief = Object.assign({}, state.creativeBrief || {}, {
+          primary_subject: subject,
+          raw_user_request: state.rawUserRequest || (promptEl && promptEl.value) || ''
+        });
+        renderTab(root);
+        bindGenerateButton(root);
+        bindPromptIntelligence(root);
+      });
+    }
+    if (recomposeBtn) {
+      recomposeBtn.addEventListener('click', function () {
+        var prompt = promptEl ? promptEl.value : '';
+        state.rawUserRequest = state.rawUserRequest || prompt;
+        previewSmartAuto(root);
+        fetchServerCompose(prompt, function (composed) {
+          applyServerCompose(prompt, composed);
+          renderTab(root);
+          bindGenerateButton(root);
+          bindPromptIntelligence(root);
+        });
+      });
+    }
+    if (showFinalBtn) {
+      showFinalBtn.addEventListener('click', function () {
+        state.showFinalPrompt = !state.showFinalPrompt;
+        if (!state.lastOptimizedPrompt && promptEl) {
+          fetchServerCompose(promptEl.value, function (composed) {
+            applyServerCompose(promptEl.value, composed);
+            renderTab(root);
+            bindGenerateButton(root);
+            bindPromptIntelligence(root);
+          });
+          return;
+        }
+        renderTab(root);
+        bindGenerateButton(root);
+        bindPromptIntelligence(root);
+      });
+    }
+  }
+
+  function bindCreateUx(root) {
+    var recEl = root && root.querySelector('#yis-create-recs');
+    var promptEl = root && root.querySelector('#yis-prompt');
+    var coachBtn = root && root.querySelector('#yis-prompt-coach');
+    var coachPanel = root && root.querySelector('#yis-coach-panel');
+    if (window.YooYCreateUX && recEl) {
+      var showRecs = !promptEl || !String(promptEl.value || '').trim();
+      if (showRecs) {
+        window.YooYCreateUX.loadRecommendations(recEl, function (card) {
+          if (promptEl) promptEl.value = (card && (card.seed || card.seed_prompt || card.title)) || '';
+          state.settings.last_prompt = promptEl ? promptEl.value : '';
+        });
+      } else {
+        recEl.innerHTML = '';
+      }
+    }
+    if (coachBtn && window.YooYCreateUX) {
+      coachBtn.addEventListener('click', function () {
+        var seed = promptEl ? promptEl.value : '';
+        window.YooYCreateUX.composePrompt(seed, coachPanel, function (composed) {
+          if (promptEl) promptEl.value = composed;
+          state.settings.last_prompt = composed;
+        });
+      });
+    }
+    if (promptEl && recEl) {
+      promptEl.addEventListener('input', function () {
+        if (String(promptEl.value || '').trim()) {
+          recEl.innerHTML = '';
+        } else if (window.YooYCreateUX) {
+          window.YooYCreateUX.loadRecommendations(recEl, function (card) {
+            promptEl.value = (card && (card.seed || card.seed_prompt || card.title)) || '';
+            state.settings.last_prompt = promptEl.value;
+          });
+        }
+      });
+    }
   }
 
   function sidePanelHtml() {
@@ -2308,6 +2480,7 @@
     var payload = applyRefPayload(Object.assign({}, state.settings, {
       prompt: sendPrompt,
       user_prompt: prompt,
+      raw_user_request: state.rawUserRequest || prompt,
       optimized_prompt: state.lastOptimizedPrompt || sendPrompt,
       negative_prompt: negative,
       provider: providerId,
@@ -2320,7 +2493,12 @@
       camera: state.settings.camera,
       lens: state.settings.lens,
       camera_angle: state.settings.camera_angle,
-      depth_of_field: state.settings.depth_of_field
+      depth_of_field: state.settings.depth_of_field,
+      commercial: state.settings.commercial_mode !== false && state.settings.commercial !== false,
+      commercial_mode: state.settings.commercial_mode,
+      creative_brief: state.creativeBrief || undefined,
+      intent_domain: state.intentDomain || state.settings.intent_domain || undefined,
+      prompt_version: state.promptVersion || 'spi-image-1'
     }));
 
     if (state.generationMode === 'fast') {

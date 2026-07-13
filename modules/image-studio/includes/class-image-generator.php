@@ -121,6 +121,10 @@ final class YooY_Image_Generator {
             'quality'        => $payload['quality'],
             'image_count'    => $payload['image_count'],
             'estimate'       => $estimate,
+            'creative_brief' => is_array($payload['creative_brief'] ?? null) ? $payload['creative_brief'] : [],
+            'intent_domain'  => sanitize_key((string) ($payload['intent_domain'] ?? ($payload['composer_meta']['prompt_intelligence']['intent_domain'] ?? ''))),
+            'prompt_version' => sanitize_text_field((string) ($payload['prompt_version'] ?? ($payload['composer_meta']['prompt_intelligence']['prompt_version'] ?? ''))),
+            'composer_meta'  => is_array($payload['composer_meta'] ?? null) ? $payload['composer_meta'] : [],
         ]));
 
         if (($entry['status'] ?? '') === YooY_Job_Status::COMPLETED) {
@@ -480,8 +484,25 @@ final class YooY_Image_Generator {
             'lens'           => sanitize_text_field($params['lens'] ?? 'auto'),
             'camera_angle'   => sanitize_text_field($params['camera_angle'] ?? 'auto'),
             'depth_of_field' => sanitize_text_field($params['depth_of_field'] ?? 'auto'),
-            'commercial'     => !isset($params['commercial']) || !empty($params['commercial']),
+            'commercial'     => $this->normalize_commercial_flag($params),
+            'commercial_mode'=> array_key_exists('commercial_mode', $params) ? !empty($params['commercial_mode']) : null,
+            'creative_brief' => is_array($params['creative_brief'] ?? null) ? $params['creative_brief'] : [],
+            'intent_domain'  => sanitize_key((string) ($params['intent_domain'] ?? '')),
+            'raw_user_request' => sanitize_textarea_field($params['raw_user_request'] ?? $params['user_prompt'] ?? $params['prompt'] ?? ''),
+            'prompt_version' => sanitize_text_field((string) ($params['prompt_version'] ?? '')),
         ];
+    }
+
+    /** @param array<string, mixed> $params */
+    private function normalize_commercial_flag(array $params): bool {
+        if (array_key_exists('commercial_mode', $params) && !array_key_exists('commercial', $params)) {
+            return !empty($params['commercial_mode']);
+        }
+        if (array_key_exists('commercial', $params)) {
+            return !empty($params['commercial']);
+        }
+        // Default on for Smart Auto commercial polish — domain composer still blocks product injection
+        return true;
     }
 
     /**
@@ -503,6 +524,10 @@ final class YooY_Image_Generator {
         $payload['negative_prompt'] = $composed['negative_prompt'];
         $payload['optimized_prompt'] = $composed['canonical_prompt'];
         $payload['composer_meta'] = $composed['meta'];
+        if (!empty($composed['creative_brief']) && is_array($composed['creative_brief'])) {
+            $payload['creative_brief'] = $composed['creative_brief'];
+            $payload['intent_domain'] = sanitize_key((string) ($composed['creative_brief']['content_domain'] ?? $payload['intent_domain'] ?? ''));
+        }
         return $payload;
     }
 

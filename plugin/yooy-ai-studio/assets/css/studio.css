@@ -2,9 +2,10 @@
 
 body.yoy-creator-os-active {
   overflow: hidden !important;
-  background: #050505 !important;
+  background: var(--bg-page, #070707) !important;
   margin: 0 !important;
   padding: 0 !important;
+  color: var(--text-primary, #f5f5f5);
 }
 
 body.yoy-creator-os-active #wpadminbar,
@@ -37,14 +38,32 @@ body.yoy-creator-os-active #content {
 }
 
 :root {
-  --yai-black: #050505;
-  --yai-black-2: #070707;
-  --yai-gold: #d8a63a;
-  --yai-gold-light: #ffd76a;
-  --yai-gold-dim: rgba(216, 166, 58, 0.18);
-  --yai-text: #ffffff;
-  --yai-muted: #a8a8a8;
-  --yai-border: rgba(216, 166, 58, 0.22);
+  /* ── Contrast design tokens (WCAG AA) ── */
+  --bg-page: #070707;
+  --bg-card: #101010;
+  --bg-surface: #151515;
+  --bg-elevated: #1b1b1b;
+  --text-primary: #f5f5f5;
+  --text-secondary: #b8b8b8;
+  --text-muted: #777777;
+  --border-default: #353535;
+  --border-gold: #564819;
+  --accent-gold: #f2c94c;
+  --accent-gold-text: #111111;
+  --danger-bg: #2a1111;
+  --danger-text: #ffb3b3;
+  --disabled-bg: #242424;
+  --disabled-text: #737373;
+
+  /* Legacy aliases → tokens */
+  --yai-black: var(--bg-page);
+  --yai-black-2: var(--bg-page);
+  --yai-gold: var(--accent-gold);
+  --yai-gold-light: var(--accent-gold);
+  --yai-gold-dim: rgba(242, 201, 76, 0.16);
+  --yai-text: var(--text-primary);
+  --yai-muted: var(--text-secondary);
+  --yai-border: var(--border-gold);
   --yai-radius: 12px;
   --yai-radius-lg: 16px;
   --yai-sidebar: 240px;
@@ -67,21 +86,39 @@ body.yoy-creator-os-active #content {
   z-index: 999990;
   display: grid;
   grid-template-columns: var(--yai-sidebar) 1fr;
-  background: #050505;
-  background-color: #050505;
-  color: var(--yai-text);
+  background: var(--bg-page);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  color-scheme: dark;
   font-family: var(--yai-font);
   -webkit-font-smoothing: antialiased;
 }
 
+.yai-app input,
+.yai-app textarea,
+.yai-app select,
+.yai-app pre,
+.yai-app code {
+  color-scheme: dark;
+}
+
+/* Theme pre/code must never inherit WP light chrome */
+.yai-app pre,
+.yai-app code,
+.yai-app .yoy-source-preview,
+.yai-app .yoy-source-preview__content {
+  background-color: var(--bg-surface, #151515);
+  color: var(--text-primary, #f2f2f2);
+}
+
 .yai-app, .yai-app *, .yai-app *::before, .yai-app *::after { box-sizing: border-box; }
-.yai-app button, .yai-app input, .yai-app textarea, .yai-app select { font-family: inherit; }
+.yai-app button, .yai-app input, .yai-app textarea, .yai-app select { font-family: inherit; color: inherit; }
 .yai-icon { display: block; flex-shrink: 0; }
 
 /* ── Sidebar — pure black, merges with app (no gray panel) ── */
 .yai-sidebar {
-  background: #050505;
-  background-color: #050505;
+  background: var(--bg-page);
+  background-color: var(--bg-page);
   border-right: 1px solid rgba(216, 166, 58, 0.08);
   box-shadow: none;
   display: flex;
@@ -147,6 +184,144 @@ body.yoy-creator-os-active #content {
   scrollbar-color: rgba(216, 166, 58, 0.28) #050505;
   scrollbar-width: thin;
 }
+
+.yai-nav-section {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.yai-nav-section:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+
+.yai-nav-section__label {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(242, 201, 76, 0.65);
+}
+
+.yai-view--assistant.is-active,
+.yai-view[data-page="assistant"].is-active {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+#yai-assistant-studio {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.yai-eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-gold, #f2c94c);
+}
+
+.yai-dash-block {
+  margin-bottom: 1.25rem;
+}
+
+.yai-dash-block--assistant {
+  margin-bottom: 1.5rem;
+}
+
+.yai-dash-assistant {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(242, 201, 76, 0.28);
+  background:
+    radial-gradient(ellipse at top left, rgba(242, 201, 76, 0.12), transparent 50%),
+    var(--bg-elevated, #1b1b1b);
+}
+
+.yai-dash-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--accent-gold, #f2c94c);
+}
+
+.yai-dash-assistant__copy h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.35rem;
+  color: var(--text-primary, #f5f5f5);
+}
+
+.yai-dash-assistant__copy p {
+  margin: 0 0 0.85rem;
+  color: var(--text-secondary, #bdbdbd);
+  line-height: 1.45;
+  font-size: 0.92rem;
+}
+
+.yai-dash-assistant__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.yai-dash-assistant__prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.yai-dash-assistant__prompt textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-surface, #141414);
+  color: var(--text-primary, #f5f5f5);
+  font: inherit;
+}
+
+.yai-dash-assistant__prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.yai-home-projects-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.yai-stats-row--home .yai-stat[data-route] {
+  cursor: pointer;
+}
+
+.yai-workspace-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.65rem;
+}
+
+.yai-workspace-assistant {
+  min-height: 480px;
+}
+
+@media (max-width: 900px) {
+  .yai-dash-assistant {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 .yai-nav::-webkit-scrollbar { width: 4px; }
 .yai-nav::-webkit-scrollbar-track { background: #050505; }
@@ -432,6 +607,21 @@ body.yoy-creator-os-active #content {
 
 .yai-view { display: none; animation: yaiIn 0.22s ease; }
 .yai-view.is-active { display: block; }
+
+.yai-view.yai-view--assistant.is-active,
+.yai-view[data-page="assistant"].is-active {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: calc(100vh - 72px);
+}
+
+#yai-assistant-studio {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .yai-view--home.is-active { display: block; }
 
 @keyframes yaiIn {
@@ -547,20 +737,178 @@ body.yoy-creator-os-active #content {
 
 .yai-btn {
   align-items: center;
-  border: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: 999px;
+  color: var(--text-primary);
   cursor: pointer;
   display: inline-flex;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   gap: 6px;
+  justify-content: center;
+  line-height: 1.2;
   padding: 12px 20px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
-.yai-btn--gold {
-  background: linear-gradient(135deg, #f2c14e, #ffd76a);
-  color: #111;
+.yai-btn:hover:not(:disabled):not([disabled]) {
+  background: var(--bg-surface);
+  border-color: var(--border-gold);
+  color: var(--text-primary);
+}
+
+.yai-btn:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.yai-btn:active:not(:disabled):not([disabled]) {
+  background: var(--bg-card);
+}
+
+.yai-btn--gold,
+.yai-btn.yai-btn--gold {
+  background: var(--accent-gold);
+  background-image: none;
+  border-color: var(--accent-gold);
+  color: var(--accent-gold-text);
   flex-shrink: 0;
+  font-weight: 800;
+}
+
+.yai-btn--gold:hover:not(:disabled):not([disabled]),
+.yai-btn.yai-btn--gold:hover:not(:disabled):not([disabled]) {
+  background: #ffd76a;
+  border-color: #ffd76a;
+  color: var(--accent-gold-text);
+  filter: none;
+}
+
+.yai-btn--gold:active:not(:disabled):not([disabled]) {
+  background: #e0b83a;
+  color: var(--accent-gold-text);
+}
+
+.yai-btn--outline,
+button.yai-btn--outline,
+.yai-app .yai-btn--outline,
+.yai-app button.yai-btn--outline {
+  background: var(--bg-elevated) !important;
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: 999px;
+  color: var(--text-primary) !important;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  justify-content: center;
+  padding: 10px 16px;
+}
+
+.yai-btn--outline:hover:not(:disabled):not([disabled]),
+button.yai-btn--outline:hover:not(:disabled):not([disabled]) {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-gold) !important;
+  color: var(--accent-gold) !important;
+}
+
+.yai-btn--outline:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.yai-btn--danger,
+.yai-btn--outline.yai-btn--danger,
+button.yai-btn--danger {
+  background: var(--danger-bg) !important;
+  border-color: #5c2020 !important;
+  color: var(--danger-text) !important;
+}
+
+.yai-btn--danger:hover:not(:disabled):not([disabled]),
+.yai-btn--outline.yai-btn--danger:hover:not(:disabled):not([disabled]) {
+  background: #3a1515 !important;
+  border-color: #7a2a2a !important;
+  color: #ffc9c9 !important;
+}
+
+.yai-btn:disabled,
+.yai-btn[disabled],
+.yai-btn--outline:disabled,
+.yai-btn--outline[disabled],
+.yai-btn--gold:disabled,
+.yai-btn--gold[disabled],
+.yai-app button:disabled,
+.yai-app button[disabled] {
+  background: var(--disabled-bg) !important;
+  background-image: none !important;
+  border-color: var(--border-default) !important;
+  color: var(--disabled-text) !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+
+.yai-btn--sm {
+  font-size: 12px;
+  min-height: var(--yai-btn-height-sm);
+  padding: 6px 12px;
+}
+
+/* Projects card actions — Rename / Delete must never use light-on-light */
+.yai-project-actions .yai-btn--outline:not(.yai-project-delete),
+.yai-project-actions button.yai-btn--outline:not(.yai-project-delete),
+.yai-project-rename {
+  align-items: center;
+  background: var(--bg-elevated) !important;
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
+  color: var(--text-primary) !important;
+  display: inline-flex !important;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 36px;
+}
+
+.yai-project-actions .yai-project-delete,
+.yai-project-actions button.yai-project-delete,
+.yai-btn--outline.yai-project-delete,
+button.yai-btn--outline.yai-project-delete,
+button.yai-project-delete {
+  align-items: center;
+  background: var(--danger-bg) !important;
+  background-color: var(--danger-bg) !important;
+  border: 1px solid #5c2020 !important;
+  color: var(--danger-text) !important;
+  display: inline-flex !important;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 36px;
+}
+
+.yai-project-rename:hover,
+.yai-project-actions .yai-btn--outline:not(.yai-project-delete):hover {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-gold) !important;
+  color: var(--accent-gold) !important;
+}
+
+.yai-project-actions .yai-project-delete:hover,
+button.yai-project-delete:hover {
+  background: #3a1515 !important;
+  border-color: #7a2a2a !important;
+  color: #ffc9c9 !important;
+}
+
+.yai-app .yai-btn--outline.yai-btn--danger,
+.yai-app button.yai-btn--outline.yai-btn--danger,
+.yai-btn.yai-btn--outline.yai-btn--danger {
+  background: var(--danger-bg) !important;
+  background-color: var(--danger-bg) !important;
+  border-color: #5c2020 !important;
+  color: var(--danger-text) !important;
 }
 
 .yai-quick-row {
@@ -1667,9 +2015,10 @@ body.yai-failure-open { overflow: hidden; }
 }
 
 .yai-project-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 14px;
+  color: var(--text-primary);
   cursor: pointer;
   display: grid;
   gap: 10px;
@@ -1677,7 +2026,16 @@ body.yai-failure-open { overflow: hidden; }
   transition: border-color 0.2s;
 }
 
-.yai-project-card:hover { border-color: rgba(216, 166, 58, 0.35); }
+.yai-project-card:hover { border-color: var(--border-gold); }
+
+.yai-project-card strong {
+  color: var(--text-primary);
+}
+
+.yai-project-card p,
+.yai-project-card span {
+  color: var(--text-secondary);
+}
 
 .yai-project-card-cover {
   aspect-ratio: 16 / 9;
@@ -1742,7 +2100,7 @@ body.yai-failure-open { overflow: hidden; }
   color: var(--yai-gold);
 }
 
-.yai-btn--danger { border-color: rgba(239, 68, 68, 0.45); color: #f87171; }
+.yai-btn--danger { border-color: rgba(239, 68, 68, 0.45); color: var(--danger-text); }
 
 .yai-back-btn { margin-bottom: 8px; }
 
@@ -1934,15 +2292,20 @@ body.yai-failure-open { overflow: hidden; }
 .yai-empty p { color: var(--yai-muted); font-size: 12px; line-height: 1.5; margin: 0; max-width: 260px; }
 
 .yai-empty .yai-btn--outline {
-  background: transparent;
-  border: 1px solid rgba(216, 166, 58, 0.4);
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: 999px;
-  color: var(--yai-gold-light);
+  color: var(--text-primary) !important;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
   margin-top: 4px;
   padding: 8px 16px;
+}
+
+.yai-empty .yai-btn--outline:hover {
+  border-color: var(--border-gold) !important;
+  color: var(--accent-gold) !important;
 }
 
 /* ── Showcase ── */
@@ -2004,14 +2367,206 @@ body.yai-failure-open { overflow: hidden; }
 
 .yai-modal-open { overflow: hidden; }
 
+body.yoy-project-dialog-open {
+  overflow: hidden !important;
+}
+
+/* Project Create Dialog — body portal above .yai-app (z-index 999990) */
+#yoy-project-create-dialog.yoy-project-dialog {
+  align-items: center;
+  display: none;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 1000000;
+}
+
+#yoy-project-create-dialog.yoy-project-dialog[hidden] {
+  display: none !important;
+}
+
+#yoy-project-create-dialog.yoy-project-dialog.is-open {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__backdrop {
+  background: rgba(0, 0, 0, 0.78);
+  inset: 0;
+  position: absolute;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--yai-font);
+  max-height: calc(100vh - 48px);
+  max-width: 480px;
+  opacity: 1;
+  overflow-y: auto;
+  position: relative;
+  transform: none;
+  visibility: visible;
+  width: calc(100% - 32px);
+  z-index: 1;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__head,
+#yoy-project-create-dialog .yoy-project-dialog__foot {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 16px 20px;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__head {
+  border-bottom: 1px solid var(--border-default);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__head h2 {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__close {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  padding: 0;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__close:hover {
+  color: var(--text-primary);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 8px;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__field {
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__field input,
+#yoy-project-create-dialog .yoy-project-dialog__field textarea,
+#yoy-project-create-dialog .yoy-project-dialog__field select {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font: inherit;
+  padding: 10px 12px;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__field input:focus,
+#yoy-project-create-dialog .yoy-project-dialog__field textarea:focus,
+#yoy-project-create-dialog .yoy-project-dialog__field select:focus {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px rgba(242, 201, 76, 0.15);
+  outline: none;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__field input::placeholder,
+#yoy-project-create-dialog .yoy-project-dialog__field textarea::placeholder {
+  color: var(--text-muted);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__field select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__foot {
+  border-top: 1px solid var(--border-default);
+  margin-top: 4px;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__btn {
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 8px 16px;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__btn--ghost {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__btn--ghost:hover {
+  border-color: var(--border-gold);
+  color: var(--accent-gold);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__btn--gold {
+  background: var(--accent-gold);
+  border: 0;
+  color: var(--accent-gold-text);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__btn--gold:hover {
+  background: #ffd76a;
+  color: var(--accent-gold-text);
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__btn:disabled,
+#yoy-project-create-dialog .yoy-project-dialog__btn[disabled] {
+  background: var(--disabled-bg) !important;
+  border-color: var(--border-default) !important;
+  color: var(--disabled-text) !important;
+  cursor: not-allowed;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__error {
+  color: var(--danger-text);
+  font-size: 13px;
+  margin: 0;
+}
+
+#yoy-project-create-dialog .yoy-project-dialog__hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
 .yai-modal-shell {
+  display: block;
   inset: 0;
   position: fixed;
-  z-index: 10050;
+  z-index: 1000000;
 }
 
 .yai-modal-shell[hidden] {
   display: none !important;
+}
+
+.yai-modal-shell:not([hidden]) {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 .yai-modal-backdrop {
@@ -2021,10 +2576,11 @@ body.yai-failure-open { overflow: hidden; }
 }
 
 .yai-modal-panel {
-  background: #0d0d0d;
-  border: 1px solid rgba(216, 166, 58, 0.28);
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
   border-radius: var(--yai-radius);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  color: var(--text-primary);
   left: 50%;
   max-height: calc(100vh - 48px);
   max-width: 480px;
@@ -2126,14 +2682,15 @@ body.yai-failure-open { overflow: hidden; }
 .yai-view--studio { padding: 0; }
 
 .yai-card {
-  background: #0a0a0a;
-  border: 1px solid var(--yai-border);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: var(--yai-radius);
+  color: var(--text-primary);
   padding: 16px;
 }
 
-.yai-card strong { display: block; font-size: 15px; margin-bottom: 6px; }
-.yai-card span, .yai-card p { color: var(--yai-muted); font-size: 13px; }
+.yai-card strong { color: var(--text-primary); display: block; font-size: 15px; margin-bottom: 6px; }
+.yai-card span, .yai-card p { color: var(--text-secondary); font-size: 13px; }
 
 .yai-settings-grid {
   display: grid;
@@ -3192,4 +3749,149 @@ body.yai-failure-open { overflow: hidden; }
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+}
+
+/* ???????????????????????????????????????????????????????????
+   Contrast Safety Net ? dark surfaces, light text, gold=dark text
+   ??????????????????????????????????????????????????????????? */
+
+.yai-app h1, .yai-app h2, .yai-app h3, .yai-app h4,
+.yai-app label, .yai-app .yai-page-head h1,
+.yai-app .yai-page-head p {
+  color: var(--text-primary);
+}
+
+.yai-app .yai-page-head p,
+.yai-app .yai-muted,
+.yai-app .yai-eyebrow {
+  color: var(--text-secondary);
+}
+
+.yai-main {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+.yai-card-block,
+.yai-setting-card,
+.yai-stat,
+.yai-empty,
+.yai-empty-card {
+  background: var(--bg-card);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.yai-empty h3,
+.yai-empty-card h3 {
+  color: var(--text-primary);
+}
+
+.yai-empty p,
+.yai-empty-card p {
+  color: var(--text-secondary);
+}
+
+.yai-filter-chip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.yai-filter-chip.is-active {
+  background: rgba(242, 201, 76, 0.12);
+  border-color: var(--border-gold);
+  color: var(--accent-gold);
+}
+
+.yai-project-chip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.yai-project-chip strong { color: var(--text-primary); }
+.yai-project-chip span { color: var(--text-secondary); }
+
+.yai-field span,
+.yai-form-field span,
+.yai-modal-body label span {
+  color: var(--text-secondary);
+}
+
+.yai-modal-error,
+.yai-error {
+  color: var(--danger-text);
+}
+
+.yai-toast {
+  background: var(--bg-elevated);
+  border-color: var(--border-gold);
+  color: var(--accent-gold);
+}
+
+/* Kill browser-default light button chrome inside Studio */
+.yai-app button:not([class*="yai-btn--gold"]):not(.yoy-project-dialog__btn--gold):not(.is-selected):not([aria-selected="true"]):not(:disabled):not([disabled]) {
+  color: var(--text-primary);
+}
+
+.yai-app button.is-selected,
+.yai-app button[aria-selected="true"],
+.yai-app .yai-page-btn.is-selected,
+.yai-app .yai-tab.is-selected {
+  color: var(--accent-gold-text);
+}
+
+.yai-app button.is-selected:not(.yai-tab),
+.yai-app .yai-page-btn.is-selected {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold-text) !important;
+}
+
+.yai-app .yai-tab.is-selected,
+.yai-app .yai-tab[aria-selected="true"] {
+  background: rgba(242, 201, 76, 0.14);
+  border-color: var(--border-gold);
+  color: var(--accent-gold) !important;
+}
+
+.yai-app .yai-toggle:checked {
+  color: var(--accent-gold-text);
+}
+
+.yai-app button:disabled,
+.yai-app button[disabled],
+#yoy-project-create-dialog button:disabled,
+#yoy-project-create-dialog button[disabled] {
+  background: var(--disabled-bg) !important;
+  background-color: var(--disabled-bg) !important;
+  background-image: none !important;
+  border-color: var(--border-default) !important;
+  color: var(--disabled-text) !important;
+}
+
+/* Autofill — keep dark surface + light text */
+.yai-app input:-webkit-autofill,
+.yai-app input:-webkit-autofill:hover,
+.yai-app input:-webkit-autofill:focus,
+.yai-app textarea:-webkit-autofill,
+.yai-app select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--bg-surface) inset !important;
+  transition: background-color 99999s ease-out;
+}
+
+/* Touch / active feedback */
+.yai-app button:active:not(:disabled):not([disabled]):not(.yai-btn--gold):not(.yoy-project-dialog__btn--gold):not(.is-selected) {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+@media (hover: none) {
+  .yai-app .yai-btn--outline:active:not(:disabled) {
+    background: var(--bg-surface) !important;
+    color: var(--accent-gold) !important;
+  }
 }

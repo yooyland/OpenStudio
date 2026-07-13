@@ -1,9 +1,299 @@
 (function () {
   'use strict';
 
-  try {
-  var Core = window.YooYCore;
-  if (!Core) return;
+  // ── Project Create Dialog (body portal, isolated from .yai-app z-index) ──
+  var YOY_CREATE_DIALOG_ID = 'yoy-project-create-dialog';
+  var pendingCreateWorkIds = [];
+  var ignoreBackdropUntil = 0;
+
+  function yoyProjectsDebugEnabled() {
+    try {
+      if (window.YOOY_DEBUG) return true;
+      if (window.YooYCore && typeof window.YooYCore.debug === 'function') {
+        return !!window.YooYCore.debug();
+      }
+      if (window.YooYStudio && window.YooYStudio.debug) return true;
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function yoyProjectsLog() {
+    if (!yoyProjectsDebugEnabled()) return;
+    var args = ['[YooY Projects]'].concat(Array.prototype.slice.call(arguments));
+    if (window.console && console.log) console.log.apply(console, args);
+  }
+
+  function yoyIsLoggedIn() {
+    try {
+      var cfg = (window.YooYCore && window.YooYCore.config) || window.YooYStudio || {};
+      return !!cfg.loggedIn;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function yoyShowLoginPrompt() {
+    try {
+      var modal = document.getElementById('yai-login-modal');
+      if (modal) {
+        modal.hidden = false;
+        modal.classList.add('is-open');
+      }
+      if (window.console && console.warn) {
+        console.warn('[YooY Projects] login required to create a project');
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function yoyCreateDialogHtml() {
+    return '' +
+      '<div class="yoy-project-dialog__backdrop" data-yoy-project-dialog-close="1"></div>' +
+      '<div class="yoy-project-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="yoy-project-create-title">' +
+        '<header class="yoy-project-dialog__head">' +
+          '<h2 id="yoy-project-create-title">프로젝트 생성</h2>' +
+          '<button type="button" class="yoy-project-dialog__close" data-yoy-project-dialog-close="1" aria-label="Close">&times;</button>' +
+        '</header>' +
+        '<form id="yai-project-form" class="yoy-project-dialog__body" novalidate>' +
+          '<label class="yoy-project-dialog__field"><span>Project Name *</span>' +
+            '<input type="text" name="title" required maxlength="120" placeholder="내 AI 프로젝트" autocomplete="off"></label>' +
+          '<label class="yoy-project-dialog__field"><span>Description</span>' +
+            '<textarea name="description" rows="3" maxlength="500" placeholder="이 프로젝트는 무엇을 위한 것인가요?"></textarea></label>' +
+          '<label class="yoy-project-dialog__field"><span>Category</span>' +
+            '<select name="category">' +
+              '<option value="mixed" selected>Mixed</option><option value="image">Image</option><option value="video">Video</option>' +
+              '<option value="music">Music</option><option value="writing">Writing</option><option value="translation">Translation</option>' +
+              '<option value="avatar">Avatar</option><option value="voice">Voice</option>' +
+            '</select></label>' +
+          '<label class="yoy-project-dialog__field"><span>Visibility</span>' +
+            '<select name="visibility"><option value="private" selected>Private</option><option value="public">Public</option></select></label>' +
+          '<label class="yoy-project-dialog__field"><span>Language</span>' +
+            '<select name="language"><option value="ko" selected>한국어 (ko)</option><option value="en">English (en)</option>' +
+            '<option value="ja">日本語 (ja)</option><option value="zh">中文 (zh)</option></select></label>' +
+          '<label class="yoy-project-dialog__field"><span>Cover URL</span>' +
+            '<input type="url" name="cover" maxlength="500" placeholder="https://…"></label>' +
+          '<p class="yoy-project-dialog__hint" id="yai-project-form-works-hint" hidden></p>' +
+          '<p class="yoy-project-dialog__error" id="yai-project-form-error" hidden></p>' +
+          '<footer class="yoy-project-dialog__foot">' +
+            '<button type="button" class="yoy-project-dialog__btn yoy-project-dialog__btn--ghost" data-yoy-project-dialog-close="1">Cancel</button>' +
+            '<button type="submit" class="yoy-project-dialog__btn yoy-project-dialog__btn--gold">Create Project</button>' +
+          '</footer>' +
+        '</form>' +
+      '</div>';
+  }
+
+  function yoyEnsureCreateDialog() {
+    var existing = document.getElementById(YOY_CREATE_DIALOG_ID);
+    if (existing) {
+      if (existing.parentNode !== document.body) {
+        document.body.appendChild(existing);
+      }
+      // Remove accidental duplicates
+      var dupes = document.querySelectorAll('#' + YOY_CREATE_DIALOG_ID);
+      for (var i = 1; i < dupes.length; i++) {
+        if (dupes[i].parentNode) dupes[i].parentNode.removeChild(dupes[i]);
+      }
+      return existing;
+    }
+
+    // Migrate/remove legacy modal if present
+    var legacy = document.getElementById('yai-project-modal');
+    if (legacy && legacy.parentNode) legacy.parentNode.removeChild(legacy);
+
+    var modal = document.createElement('div');
+    modal.id = YOY_CREATE_DIALOG_ID;
+    modal.className = 'yoy-project-dialog';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.hidden = true;
+    modal.innerHTML = yoyCreateDialogHtml();
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', function (ev) {
+      var closer = ev.target.closest('[data-yoy-project-dialog-close]');
+      if (!closer) return;
+      // Same click that opened must not immediately close via backdrop.
+      if (Date.now() < ignoreBackdropUntil && closer.classList.contains('yoy-project-dialog__backdrop')) {
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      window.YooYCloseProjectCreateDialog();
+    });
+
+    var form = modal.querySelector('#yai-project-form');
+    if (form) {
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (typeof window.__yoySubmitProjectCreateInternal === 'function') {
+          window.__yoySubmitProjectCreateInternal(form);
+        } else {
+          yoyFallbackSubmitCreate(form);
+        }
+      });
+    }
+
+    return modal;
+  }
+
+  function yoyFallbackSubmitCreate(form) {
+    var Core = window.YooYCore;
+    if (!Core || !Core.projects || typeof Core.projects.create !== 'function') return;
+    var title = ((form.querySelector('[name="title"]') || {}).value || '').trim();
+    if (!title) return;
+    var cat = (form.querySelector('[name="category"]') || {}).value || 'mixed';
+    var vis = (form.querySelector('[name="visibility"]') || {}).value || 'private';
+    var lang = (form.querySelector('[name="language"]') || {}).value || 'ko';
+    var cover = ((form.querySelector('[name="cover"]') || {}).value || '').trim();
+    var desc = ((form.querySelector('[name="description"]') || {}).value || '').trim();
+    yoyProjectsLog('create request started', title);
+    Core.projects.create({
+      name: title, title: title, description: desc, category: cat, type: cat,
+      visibility: vis, language: lang, cover: cover, thumbnail_url: cover
+    }).then(function (res) {
+      var created = (res.data && res.data.project) || res.project || null;
+      yoyProjectsLog('project created', created && created.id);
+      window.YooYCloseProjectCreateDialog();
+      if (window.YooYActiveProject && created && created.id) {
+        window.YooYActiveProject.set({ id: created.id, name: created.title || title });
+      }
+      if (window.YooYStudioOpenProject && created && created.id) {
+        window.YooYStudioOpenProject(created.id);
+      } else {
+        location.reload();
+      }
+    }).catch(function (err) {
+      if (window.console && console.error) console.error('[YooY Projects] create failed', err);
+    });
+  }
+
+  window.YooYCloseProjectCreateDialog = function () {
+    var modal = document.getElementById(YOY_CREATE_DIALOG_ID);
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('yai-modal-open');
+    document.body.classList.remove('yoy-project-dialog-open');
+    pendingCreateWorkIds = [];
+    var form = modal.querySelector('#yai-project-form');
+    if (form) form.reset();
+  };
+
+  window.YooYOpenProjectCreateDialog = function (workIds) {
+    try {
+      if (!yoyIsLoggedIn()) {
+        yoyShowLoginPrompt();
+        return;
+      }
+
+      pendingCreateWorkIds = Array.isArray(workIds)
+        ? workIds.filter(function (id) { return !!id; })
+        : (workIds ? [workIds] : []);
+
+      // Prefer studio-boot internal when available (keeps pending ids in boot closure too)
+      if (typeof window.__yoyOpenProjectModalInternal === 'function') {
+        window.__yoyOpenProjectModalInternal(pendingCreateWorkIds.slice());
+        return;
+      }
+
+      var modal = yoyEnsureCreateDialog();
+      var form = modal.querySelector('#yai-project-form');
+      if (form) {
+        form.reset();
+        var lang = form.querySelector('[name="language"]');
+        if (lang) lang.value = 'ko';
+        var vis = form.querySelector('[name="visibility"]');
+        if (vis) vis.value = 'private';
+        var cat = form.querySelector('[name="category"]');
+        if (cat) cat.value = 'mixed';
+      }
+      var err = modal.querySelector('#yai-project-form-error');
+      if (err) { err.hidden = true; err.textContent = ''; }
+      var hint = modal.querySelector('#yai-project-form-works-hint');
+      if (hint) {
+        if (pendingCreateWorkIds.length) {
+          hint.textContent = '선택한 작품 ' + pendingCreateWorkIds.length + '개가 생성 후 프로젝트에 연결됩니다.';
+          hint.hidden = false;
+        } else {
+          hint.textContent = '';
+          hint.hidden = true;
+        }
+      }
+
+      ignoreBackdropUntil = Date.now() + 400;
+      modal.hidden = false;
+      modal.removeAttribute('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      modal.classList.add('is-open');
+      document.body.classList.add('yai-modal-open');
+      document.body.classList.add('yoy-project-dialog-open');
+      yoyProjectsLog('create dialog opened');
+
+      var titleInput = form && form.querySelector('[name="title"]');
+      if (titleInput) {
+        setTimeout(function () { titleInput.focus(); }, 0);
+      }
+    } catch (err) {
+      if (window.console && console.error) console.error('[YooY Projects] open failed', err);
+    }
+  };
+
+  window.__yoyGetPendingCreateWorkIds = function () {
+    return pendingCreateWorkIds.slice();
+  };
+  window.__yoyClearPendingCreateWorkIds = function () {
+    pendingCreateWorkIds = [];
+  };
+
+  // Exactly one document-level delegation (Abort previous if script hot-reloads)
+  if (window.__YOOY_PROJECT_CREATE_EVENTS_AC__) {
+    try { window.__YOOY_PROJECT_CREATE_EVENTS_AC__.abort(); } catch (e) { /* ignore */ }
+  }
+  window.__YOOY_PROJECT_CREATE_EVENTS_BOUND__ = true;
+  window.__YOOY_PROJECT_CREATE_EVENTS_AC__ = new AbortController();
+  var createEventsSignal = window.__YOOY_PROJECT_CREATE_EVENTS_AC__.signal;
+
+  document.addEventListener('click', function handleProjectCreateTrigger(event) {
+    var button = event.target.closest(
+      '[data-action="create-project"], [data-yai-create-project], #yai-projects-create-btn, #yis-create-project, .yis-create-project, .yai-create-project'
+    );
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    yoyProjectsLog('create trigger clicked', button.id || button.getAttribute('data-action') || 'create');
+    window.YooYOpenProjectCreateDialog();
+  }, { capture: true, signal: createEventsSignal });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    var modal = document.getElementById(YOY_CREATE_DIALOG_ID);
+    if (!modal || !modal.classList.contains('is-open')) return;
+    event.preventDefault();
+    window.YooYCloseProjectCreateDialog();
+  }, { signal: createEventsSignal });
+
+  function startStudioBoot(attempt) {
+    attempt = attempt || 0;
+    try {
+      if (!window.YooYCore) {
+        if (attempt < 80) {
+          setTimeout(function () { startStudioBoot(attempt + 1); }, 50);
+        } else if (window.console && console.error) {
+          console.error('[YooYStudio] YooYCore missing — Studio boot aborted (Create Dialog still available)');
+        }
+        return;
+      }
+      if (window.__YOOY_STUDIO_BOOTED__) return;
+      window.__YOOY_STUDIO_BOOTED__ = true;
+      bootYooYStudio(window.YooYCore);
+    } catch (bootErr) {
+      window.__YOOY_STUDIO_BOOTED__ = false;
+      if (window.console && console.error) console.error('[YooYStudio] init failed', bootErr);
+    }
+  }
+
+  function bootYooYStudio(Core) {
   var Y = window;
 
   var loaded = {};
@@ -20,8 +310,8 @@
     { id: 'assets', label: 'Assets', reserved: false },
     { id: 'history', label: 'History', reserved: false },
     { id: 'notes', label: 'Notes', reserved: false },
-    { id: 'members', label: 'Members', reserved: true },
-    { id: 'timeline', label: 'Timeline', reserved: true },
+    { id: 'assistant', label: 'AI Assistant', reserved: false },
+    { id: 'launcher', label: 'Studio Launcher', reserved: false },
     { id: 'settings', label: 'Settings', reserved: false }
   ];
   var PROJECT_CATEGORIES = [
@@ -40,7 +330,7 @@
     { id: 'ja', label: '日本語 (ja)' },
     { id: 'zh', label: '中文 (zh)' }
   ];
-  var PROTECTED_ROUTES = ['projects', 'project-detail', 'import', 'video', 'image', 'music', 'voice', 'avatar', 'writing', 'translator'];
+  var PROTECTED_ROUTES = ['projects', 'project-detail', 'import', 'video', 'image', 'music', 'voice', 'avatar', 'writing', 'translator', 'history', 'assistant'];
   var PLAN_CRYSTALS = {
     free: 'gray', starter: 'green', creator: 'blue', pro: 'purple', business: 'gold'
   };
@@ -373,9 +663,9 @@
   }
 
   var ROUTE_TITLES = {
-    home: 'Home', projects: 'Projects', 'project-detail': 'Project Workspace', video: 'Video Studio', image: 'Image Studio',
-    music: 'Music Studio', voice: 'Voice Studio', avatar: 'Avatar Studio', writing: 'Writing Studio',
-    import: 'Import', works: 'Gallery', community: 'Community', market: 'Marketplace',
+    home: 'Home', assistant: 'AI Assistant', projects: 'Projects', 'project-detail': 'Project Workspace', video: 'Video Studio', image: 'Image Studio',
+    music: 'Music Studio', voice: 'Voice Studio', avatar: 'Avatar Studio', writing: 'Writing Studio', translator: 'Translator',
+    import: 'Import', works: 'Gallery', history: 'History', community: 'Community', market: 'Marketplace',
     credits: 'Credits', billing: 'Billing', settings: 'Settings', 'prompt-library': 'Prompt Library', 'admin-console': 'Admin Console'
   };
 
@@ -452,7 +742,7 @@
   function emptyBlock(icon, title, desc, btnLabel, routeName, createProject) {
     var btn = '';
     if (createProject && btnLabel) {
-      btn = '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-yai-create-project>' + esc(btnLabel) + '</button>';
+      btn = '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm yai-create-project" data-action="create-project" data-yai-create-project>' + esc(btnLabel) + '</button>';
     } else if (routeName && btnLabel) {
       btn = '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-route="' + esc(routeName) + '">' + esc(btnLabel) + '</button>';
     }
@@ -477,7 +767,10 @@
 
     document.querySelectorAll('[data-route]').forEach(function (btn) {
       if (btn.dataset.route) {
-        btn.classList.toggle('is-active', btn.dataset.route === name);
+        var active = btn.dataset.route === name;
+        if (name === 'project-detail' && btn.dataset.route === 'projects') active = true;
+        if (name === 'history' && btn.dataset.route === 'history') active = true;
+        btn.classList.toggle('is-active', active);
       }
     });
 
@@ -490,7 +783,16 @@
 
   function hydrate(name) {
     if (name === 'works') { loaded[name] = false; loadWorks(); loaded[name] = true; return; }
+    if (name === 'history') { loaded[name] = false; loadHistory(); loaded[name] = true; return; }
     if (name === 'home') { loaded[name] = false; loadHome(); loaded[name] = true; return; }
+    if (name === 'assistant') {
+      mountStudio('assistant', 'YooYAIAssistant');
+      if (window.YooYAIAssistant && typeof window.YooYAIAssistant.refresh === 'function') {
+        window.YooYAIAssistant.refresh();
+      }
+      loaded[name] = true;
+      return;
+    }
     if (name === 'projects') { loadProjects(); return; }
     if (loaded[name]) return;
     loaded[name] = true;
@@ -612,6 +914,25 @@
     renderHomeMarket(filterFeedWorks(d.marketplace || []));
     renderHomeCommunity(filterFeedWorks(d.community_trending || []));
     renderHomeSections(d.home_sections || []);
+    renderProjects(Array.isArray(d.projects) ? d.projects.slice(0, 8) : []);
+    loadHomeRecommendations();
+  }
+
+  function loadHomeRecommendations() {
+    var el = document.getElementById('yai-home-recs');
+    if (!el) return;
+    if (!window.YooYCreateUX || typeof window.YooYCreateUX.loadRecommendations !== 'function') {
+      el.innerHTML = '<p class="yai-muted">추천 UX를 불러오는 중…</p>';
+      return;
+    }
+    window.YooYCreateUX.loadRecommendations(el, function (card) {
+      var input = document.getElementById('yai-home-prompt');
+      var seed = (card && (card.seed || card.seed_prompt || card.title)) || '';
+      if (input) input.value = seed;
+      if (seed) {
+        try { sessionStorage.setItem('yoy_home_prompt', seed); } catch (e) {}
+      }
+    });
   }
 
   function loadHome() {
@@ -644,6 +965,8 @@
     renderHomeMarket([]);
     renderHomeCommunity([]);
     renderHomeSections([]);
+    renderProjects([]);
+    loadHomeRecommendations();
     renderUsageWidget({ used: 0, limit: 0, percent: 0 });
   }
 
@@ -1129,52 +1452,46 @@
     }
   }
 
+  function linkGalleryAssetToProject(projectId, galleryId) {
+    if (!projectId || !galleryId) {
+      return Promise.reject(new Error('프로젝트 또는 Gallery Asset이 없습니다.'));
+    }
+    if (!Core.projects || typeof Core.projects.addAsset !== 'function') {
+      return Promise.reject(new Error('Projects API를 사용할 수 없습니다.'));
+    }
+    yoyProjectsLog('asset link started', projectId, galleryId);
+    return Core.projects.addAsset(projectId, { gallery_id: galleryId }).then(function (res) {
+      yoyProjectsLog('asset linked', galleryId);
+      return res;
+    });
+  }
+
+  function unlinkGalleryAssetFromProject(projectId, galleryId) {
+    if (!projectId || !galleryId) {
+      return Promise.reject(new Error('프로젝트 또는 Gallery Asset이 없습니다.'));
+    }
+    if (!Core.projects || typeof Core.projects.removeAsset !== 'function') {
+      return Promise.reject(new Error('Projects API를 사용할 수 없습니다.'));
+    }
+    return Core.projects.removeAsset(projectId, galleryId);
+  }
+
   function ensureProjectModal() {
-    var modal = document.getElementById('yai-project-modal');
-    if (modal) return modal;
-
-    modal = document.createElement('div');
-    modal.id = 'yai-project-modal';
-    modal.className = 'yai-modal-shell';
-    modal.hidden = true;
-    modal.innerHTML =
-      '<div class="yai-modal-backdrop" data-yai-modal-close></div>' +
-      '<div class="yai-modal-panel" role="dialog" aria-labelledby="yai-project-modal-title">' +
-        '<header class="yai-modal-head"><h2 id="yai-project-modal-title">프로젝트 생성</h2><button type="button" class="yai-modal-close" data-yai-modal-close aria-label="Close">&times;</button></header>' +
-        '<form id="yai-project-form" class="yai-modal-body">' +
-          '<label class="yai-field"><span>Project Name *</span><input type="text" name="title" required maxlength="120" placeholder="내 AI 프로젝트"></label>' +
-          '<label class="yai-field"><span>Description</span><textarea name="description" rows="3" maxlength="500" placeholder="이 프로젝트는 무엇을 위한 것인가요?"></textarea></label>' +
-          '<label class="yai-field"><span>Category</span><select name="category">' + categoryOptionsHtml('mixed') + '</select></label>' +
-          '<label class="yai-field"><span>Visibility</span><select name="visibility"><option value="private" selected>Private</option><option value="public">Public</option></select></label>' +
-          '<label class="yai-field"><span>Language</span><select name="language">' + languageOptionsHtml('ko') + '</select></label>' +
-          '<label class="yai-field"><span>Cover URL (optional)</span><input type="url" name="cover" maxlength="500" placeholder="https://…"></label>' +
-          '<p class="yai-muted" id="yai-project-form-works-hint" hidden></p>' +
-          '<p class="yai-modal-error" id="yai-project-form-error" hidden></p>' +
-          '<footer class="yai-modal-foot"><button type="button" class="yai-btn--outline" data-yai-modal-close>Cancel</button><button type="submit" class="yai-btn yai-btn--gold">Create Project</button></footer>' +
-        '</form>' +
-      '</div>';
-    document.body.appendChild(modal);
-
-    modal.addEventListener('click', function (e) {
-      if (e.target.closest('[data-yai-modal-close]')) closeProjectModal();
-    });
-
-    var form = modal.querySelector('#yai-project-form');
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      submitProjectCreate(form);
-    });
-
-    return modal;
+    return yoyEnsureCreateDialog();
   }
 
   function openProjectModal(workIds) {
-    if (!requireLogin()) return;
+    if (!requireLogin()) {
+      yoyProjectsLog('create dialog blocked — login required');
+      return;
+    }
     pendingCreateWorkIds = Array.isArray(workIds)
       ? workIds.filter(function (id) { return !!id; })
       : (workIds ? [workIds] : []);
-    var modal = ensureProjectModal();
+
+    var modal = yoyEnsureCreateDialog();
     var form = modal.querySelector('#yai-project-form');
+    if (!form) return;
     form.reset();
     var lang = form.querySelector('[name="language"]');
     if (lang) lang.value = 'ko';
@@ -1194,17 +1511,24 @@
         hint.hidden = true;
       }
     }
+
+    ignoreBackdropUntil = Date.now() + 400;
     modal.hidden = false;
+    modal.removeAttribute('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    modal.classList.add('is-open');
     document.body.classList.add('yai-modal-open');
+    document.body.classList.add('yoy-project-dialog-open');
+    yoyProjectsLog('create dialog opened');
+
     var titleInput = form.querySelector('[name="title"]');
-    if (titleInput) titleInput.focus();
+    if (titleInput) {
+      setTimeout(function () { titleInput.focus(); }, 0);
+    }
   }
 
   function closeProjectModal() {
-    var modal = document.getElementById('yai-project-modal');
-    if (!modal) return;
-    modal.hidden = true;
-    document.body.classList.remove('yai-modal-open');
+    window.YooYCloseProjectCreateDialog();
     pendingCreateWorkIds = [];
   }
 
@@ -1222,19 +1546,21 @@
     var visInput = form.querySelector('[name="visibility"]');
     var langInput = form.querySelector('[name="language"]');
     var coverInput = form.querySelector('[name="cover"]');
+    var title = ((titleInput && titleInput.value) || '').trim();
+    var cover = ((coverInput && coverInput.value) || '').trim();
+    var category = (catInput && catInput.value) || 'mixed';
+    var workIds = pendingCreateWorkIds.slice();
     var payload = {
-      title: ((titleInput && titleInput.value) || '').trim(),
+      name: title,
+      title: title,
       description: ((descInput && descInput.value) || '').trim(),
-      category: (catInput && catInput.value) || 'mixed',
-      type: (catInput && catInput.value) || 'mixed',
+      category: category,
+      type: category,
       visibility: (visInput && visInput.value) || 'private',
       language: (langInput && langInput.value) || 'ko',
-      thumbnail_url: ((coverInput && coverInput.value) || '').trim()
+      cover: cover,
+      thumbnail_url: cover
     };
-
-    if (pendingCreateWorkIds.length) {
-      payload.work_ids = pendingCreateWorkIds.slice();
-    }
 
     if (!payload.title) {
       if (errEl) { errEl.textContent = '프로젝트 이름을 입력해 주세요.'; errEl.hidden = false; }
@@ -1248,19 +1574,39 @@
     if (errEl) errEl.hidden = true;
     if (submitBtn) submitBtn.disabled = true;
 
+    yoyProjectsLog('create request started', payload.name || payload.title);
     Core.projects.create(payload).then(function (res) {
       var created = (res.data && res.data.project) || res.project || null;
       if (!created || !created.id) {
         throw new Error('프로젝트가 생성되었지만 응답에 ID가 없습니다.');
       }
-      pendingCreateWorkIds = [];
-      closeProjectModal();
-      showToast('프로젝트가 생성되었습니다.');
-      loaded.projects = false;
-      loadProjects();
-      refreshHomeProjects();
-      setActiveProjectFromRecord(created);
-      openProjectDetail(created.id, 'overview');
+      yoyProjectsLog('project created', created.id);
+
+      var linkChain = Promise.resolve();
+      if (workIds.length) {
+        linkChain = workIds.reduce(function (chain, galleryId) {
+          return chain.then(function () {
+            return linkGalleryAssetToProject(created.id, galleryId).catch(function (linkErr) {
+              if (window.console && console.warn) {
+                console.warn('[YooY Projects] asset link failed', galleryId, linkErr);
+              }
+            });
+          });
+        }, Promise.resolve());
+      }
+
+      return linkChain.then(function () {
+        pendingCreateWorkIds = [];
+        closeProjectModal();
+        showToast(workIds.length
+          ? '프로젝트가 생성되고 Asset이 연결되었습니다.'
+          : '프로젝트가 생성되었습니다.');
+        loaded.projects = false;
+        loadProjects();
+        refreshHomeProjects();
+        setActiveProjectFromRecord(created);
+        openProjectDetail(created.id, workIds.length ? 'assets' : 'overview');
+      });
     }).catch(function (err) {
       var msg = err.message || '프로젝트 생성에 실패했습니다.';
       if (errEl) { errEl.textContent = msg; errEl.hidden = false; }
@@ -1461,10 +1807,17 @@
       return;
     }
     if (action === 'project-remove') {
-      Core.gallery.project(workId, '').then(function () {
+      var removeFrom = currentProjectId ||
+        (Y.YooYActiveProject && Y.YooYActiveProject.get() && Y.YooYActiveProject.get().id) || '';
+      if (!removeFrom) {
+        showToast('연결된 프로젝트를 찾을 수 없습니다.', true);
+        return;
+      }
+      unlinkGalleryAssetFromProject(removeFrom, workId).then(function () {
         showToast('프로젝트에서 제거했습니다.');
         refreshWorkViews();
         refreshHomeProjects();
+        if (loaded['project-detail']) loadProjectDetail();
       }).catch(function (err) { showToast(err.message || '제거에 실패했습니다.', true); });
       return;
     }
@@ -1813,6 +2166,8 @@
     renderAnnouncements([]);
     renderShowcase([]);
     renderHomeSections([]);
+    renderProjects([]);
+    loadHomeRecommendations();
     renderUsageWidget({ used: 0, limit: 0, percent: 0 });
   }
 
@@ -2000,6 +2355,30 @@
       '</div>';
   }
 
+  function renderWorkspaceLauncher() {
+    var launchers = [
+      { route: 'image', label: 'Image' },
+      { route: 'video', label: 'Video' },
+      { route: 'writing', label: 'Writing' },
+      { route: 'music', label: 'Music' },
+      { route: 'voice', label: 'Voice' },
+      { route: 'avatar', label: 'Avatar' },
+      { route: 'translator', label: 'Translator' },
+      { route: 'assistant', label: 'AI Assistant' }
+    ];
+    return '<div class="yai-workspace-launcher">' +
+      '<p class="yai-muted">Create 영역 — Active Project 컨텍스트로 Studio를 엽니다. Studio는 메인이 아니라 실행기입니다.</p>' +
+      '<div class="yai-workspace-launcher-grid">' +
+        launchers.map(function (s) {
+          return '<button type="button" class="yai-btn yai-btn--outline" data-workspace-studio="' + esc(s.route) + '">' + esc(s.label) + '</button>';
+        }).join('') +
+      '</div></div>';
+  }
+
+  function renderWorkspaceAssistant() {
+    return '<div class="yai-workspace-assistant" id="yai-workspace-assistant-root"></div>';
+  }
+
   function paintWorkspacePanel() {
     var panel = document.getElementById('yai-workspace-panel');
     if (!panel) return;
@@ -2011,9 +2390,20 @@
     else if (workspaceTab === 'assets') panel.innerHTML = renderWorkspaceAssets(works);
     else if (workspaceTab === 'history') panel.innerHTML = renderWorkspaceHistory(works);
     else if (workspaceTab === 'notes') panel.innerHTML = renderWorkspaceNotes(project);
+    else if (workspaceTab === 'assistant') panel.innerHTML = renderWorkspaceAssistant();
+    else if (workspaceTab === 'launcher') panel.innerHTML = renderWorkspaceLauncher();
     else if (workspaceTab === 'settings') panel.innerHTML = renderWorkspaceSettings(project);
-    else if (workspaceTab === 'members' || workspaceTab === 'timeline') panel.innerHTML = renderWorkspaceReserved(workspaceTab);
     else panel.innerHTML = renderWorkspaceOverview(project, works);
+
+    if (workspaceTab === 'assistant') {
+      var root = document.getElementById('yai-workspace-assistant-root');
+      if (root && window.YooYAIAssistant && typeof window.YooYAIAssistant.mount === 'function') {
+        root.dataset.mounted = '';
+        window.YooYAIAssistant.mount(root);
+      } else if (root) {
+        root.innerHTML = '<p class="yai-muted">AI Assistant를 불러오는 중… <button type="button" class="yai-text-btn" data-route="assistant">열기</button></p>';
+      }
+    }
 
     var addBtn = document.getElementById('yai-project-add-works');
     if (addBtn) addBtn.addEventListener('click', function () { route('works'); });
@@ -2100,10 +2490,43 @@
 
     Promise.all([
       Core.projects.get(currentProjectId),
-      Core.gallery.works({ project_id: currentProjectId })
+      Core.gallery && typeof Core.gallery.works === 'function'
+        ? Core.gallery.works({ project_id: currentProjectId }).catch(function () {
+            return { data: { works: [] } };
+          })
+        : Promise.resolve({ data: { works: [] } })
     ]).then(function (results) {
       var project = (results[0].data && results[0].data.project) || {};
-      var works = (results[1].data && (results[1].data.works || results[1].data.items)) || [];
+      var galleryWorks = (results[1].data && (results[1].data.works || results[1].data.items)) || [];
+      var byId = {};
+      galleryWorks.forEach(function (w) {
+        if (w && w.id) byId[w.id] = w;
+      });
+
+      // Project.assets[].gallery_id is Source of Truth — Gallery body is not copied.
+      var assetRefs = Array.isArray(project.assets) ? project.assets : [];
+      var works;
+      if (assetRefs.length) {
+        works = assetRefs.map(function (a) {
+          var gid = a.gallery_id || a.id || '';
+          var g = byId[gid] || {};
+          return {
+            id: gid,
+            gallery_id: gid,
+            type: a.type || g.type || 'image',
+            title: a.title || g.title || 'Work',
+            thumbnail_url: a.thumbnail || g.thumbnail_url || g.thumbnail || '',
+            image_url: a.url || g.image_url || g.output_url || g.asset_url || '',
+            output_url: a.url || g.output_url || '',
+            created_at: a.added_at || g.created_at || '',
+            updated_at: g.updated_at || a.added_at || '',
+            project_id: project.id || currentProjectId
+          };
+        }).filter(function (w) { return !!w.id; });
+      } else {
+        works = galleryWorks;
+      }
+
       workspaceCache = { project: project, works: works };
       setActiveProjectFromRecord(project);
 
@@ -2185,21 +2608,42 @@
   }
 
   function assignWorkToProject(projectId) {
-    if (!pickerWorkId || !Core.gallery || typeof Core.gallery.project !== 'function') return;
+    if (!pickerWorkId) return;
     var workId = pickerWorkId;
-    Core.gallery.project(workId, projectId).then(function () {
+
+    if (!projectId) {
+      // "프로젝트에서 제거" — need owning project id from active/detail context
+      var removePid = currentProjectId ||
+        (Y.YooYActiveProject && Y.YooYActiveProject.get() && Y.YooYActiveProject.get().id) || '';
+      if (!removePid) {
+        showToast('제거할 프로젝트를 찾을 수 없습니다.', true);
+        return;
+      }
+      unlinkGalleryAssetFromProject(removePid, workId).then(function () {
+        closeProjectPicker();
+        showToast('프로젝트에서 제거했습니다.');
+        refreshWorkViews();
+        refreshHomeProjects();
+        if (loaded['project-detail']) loadProjectDetail();
+      }).catch(function (err) {
+        showToast(err.message || '프로젝트 연결 해제에 실패했습니다.', true);
+      });
+      return;
+    }
+
+    linkGalleryAssetToProject(projectId, workId).then(function () {
       closeProjectPicker();
-      showToast(projectId ? '프로젝트에 추가했습니다.' : '프로젝트에서 제거했습니다.');
+      showToast('프로젝트에 추가했습니다.');
       refreshWorkViews();
       refreshHomeProjects();
-      if (projectId) {
-        Core.projects.get(projectId).then(function (res) {
-          var p = (res.data && res.data.project) || { id: projectId };
-          setActiveProjectFromRecord(p);
-        }).catch(function () {
-          if (Y.YooYActiveProject) Y.YooYActiveProject.set({ id: projectId, name: 'Project' });
-        });
-      }
+      Core.projects.get(projectId).then(function (res) {
+        var p = (res.data && res.data.project) || { id: projectId };
+        setActiveProjectFromRecord(p);
+        openProjectDetail(projectId, 'assets');
+      }).catch(function () {
+        if (Y.YooYActiveProject) Y.YooYActiveProject.set({ id: projectId, name: 'Project' });
+        openProjectDetail(projectId, 'assets');
+      });
     }).catch(function (err) {
       showToast(err.message || '프로젝트 연결에 실패했습니다.', true);
     });
@@ -2210,7 +2654,7 @@
       '<div class="yai-empty">' +
         '<h3>아직 생성된 프로젝트가 없습니다.</h3>' +
         '<p>프로젝트를 만들고 Gallery 작품을 묶어 관리하세요.</p>' +
-        '<button type="button" class="yai-btn yai-btn--gold" data-yai-create-project>첫 프로젝트 만들기</button>' +
+        '<button type="button" class="yai-btn yai-btn--gold yai-create-project" data-action="create-project" data-yai-create-project>첫 프로젝트 만들기</button>' +
       '</div>' +
       '<div id="yai-projects-suggest" class="yai-projects-suggest"><p class="yai-muted">Loading recent works…</p></div>';
 
@@ -2414,6 +2858,30 @@
       var works = (res.data && res.data.works) || [];
       if (!works.length) { el.innerHTML = emptyBlock('', 'Gallery empty', 'Save generated works here.', 'Video Studio', 'video'); return; }
       el.innerHTML = works.map(function (w) { return '<div class="yai-card"><strong>' + esc(w.title || 'Work') + '</strong></div>'; }).join('');
+    });
+  }
+
+  function loadHistory() {
+    var el = document.getElementById('yai-history');
+    if (!el) return;
+    if (window.YooYGallery) {
+      window.YooYGallery.mount(el);
+      return;
+    }
+    Core.gallery.works().then(function (res) {
+      var works = ((res.data && res.data.works) || []).slice().sort(function (a, b) {
+        return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      });
+      if (!works.length) {
+        el.innerHTML = emptyBlock('', 'History empty', '생성·저장된 Gallery 작업이 여기에 시간순으로 표시됩니다.', 'Create', 'image');
+        return;
+      }
+      el.innerHTML = '<ul class="yai-workspace-history-list">' + works.map(function (w) {
+        return '<li class="yai-workspace-history-item"><strong>' + esc(w.title || 'Work') + '</strong>' +
+          '<span class="yai-muted">' + esc(typeBadgeLabel(w.type || '')) + ' · ' + esc(relTime(w.created_at)) + '</span></li>';
+      }).join('') + '</ul>';
+    }).catch(function () {
+      el.innerHTML = emptyBlock('', 'History', 'Gallery를 불러오지 못했습니다.', 'Gallery', 'works');
     });
   }
 
@@ -2746,14 +3214,8 @@
       return;
     }
 
-    var createBtn = e.target.closest('[data-yai-create-project]');
-    if (createBtn) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!requireLogin()) return;
-      openProjectModal();
-      return;
-    }
+    // Create-project clicks are handled by the capture-phase document
+    // delegation → window.YooYOpenProjectCreateDialog (see file header).
 
     var addToNewProject = e.target.closest('[data-add-to-new-project]');
     if (addToNewProject) {
@@ -2864,7 +3326,9 @@
       if (wact === 'open' || wact === 'preview') openWorkDetail(wid);
       else if (wact === 'remove') {
         if (!window.confirm('프로젝트에서만 연결을 해제합니다. Gallery 원본은 삭제되지 않습니다.')) return;
-        Core.gallery.project(wid, '').then(function () {
+        var removePid = currentProjectId ||
+          (workspaceCache.project && workspaceCache.project.id) || '';
+        unlinkGalleryAssetFromProject(removePid, wid).then(function () {
           showToast('프로젝트에서 제거했습니다.');
           loadProjectDetail();
           refreshHomeProjects();
@@ -2886,8 +3350,7 @@
       } else if (ctx === 'change' || ctx === 'pick') {
         openActiveProjectPicker();
       } else if (ctx === 'create') {
-        if (!requireLogin()) return;
-        openProjectModal();
+        window.YooYOpenProjectCreateDialog();
       } else if (ctx === 'clear') {
         if (Y.YooYActiveProject) Y.YooYActiveProject.clear();
         syncProjectContextBanner(document.querySelector('.yai-view.is-active') &&
@@ -3033,6 +3496,30 @@
     });
   }
 
+  var coachBtn = document.getElementById('yai-home-coach');
+  if (coachBtn) {
+    coachBtn.addEventListener('click', function () {
+      var input = document.getElementById('yai-home-prompt');
+      var panel = document.getElementById('yai-home-coach-panel');
+      var seed = input ? input.value : '';
+      if (!window.YooYCreateUX || typeof window.YooYCreateUX.composePrompt !== 'function') {
+        if (panel) {
+          panel.hidden = false;
+          panel.innerHTML = '<p class="yai-muted">Prompt Coach를 사용할 수 없습니다.</p>';
+        }
+        return;
+      }
+      window.YooYCreateUX.composePrompt(seed, panel, function (composed, studio) {
+        if (input) input.value = composed;
+        try {
+          sessionStorage.setItem('yoy_home_prompt', composed);
+          if (studio) sessionStorage.setItem('yoy_home_studio', studio);
+        } catch (e) {}
+        showToast('보완된 Prompt가 적용되었습니다. Studio로 이동하려면 빠른 시작을 누르세요.');
+      });
+    });
+  }
+
   document.addEventListener('click', function (e) {
     var presetBtn = e.target.closest('[data-yai-preset]');
     if (presetBtn) {
@@ -3071,27 +3558,36 @@
     });
   }
 
-  loadProfile();
-  watchBillingReturn();
-  ensureProjectModal();
-  var projectsCreateBtn = document.getElementById('yai-projects-create-btn');
-  if (projectsCreateBtn) {
-    projectsCreateBtn.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!requireLogin()) return;
-      openProjectModal();
-    });
+  try {
+    loadProfile();
+    watchBillingReturn();
+    ensureProjectModal();
+    route('home');
+  } catch (bootUiErr) {
+    if (window.console && window.console.error) {
+      window.console.error('[YooYStudio] UI boot failed', bootUiErr);
+    }
   }
-  route('home');
+
+  window.__yoyOpenProjectModalInternal = openProjectModal;
+  window.__yoySubmitProjectCreateInternal = submitProjectCreate;
+  window.YooYOpenProjectCreateDialog = function (workIds) {
+    try {
+      openProjectModal(workIds);
+    } catch (dlgErr) {
+      if (window.console && console.error) console.error('[YooY Projects] open failed', dlgErr);
+    }
+  };
   window.YooYStudioRoute = route;
   window.YooYStudioOpenProject = openProjectDetail;
   window.YooYStudioPickProject = openProjectPicker;
   window.YooYStudioSaveToProject = saveGalleryItemToProject;
-  window.YooYStudioOpenProjectModal = openProjectModal;
-  } catch (studioErr) {
-    if (window.console && window.console.error) {
-      window.console.error('[YooYStudio] init failed', studioErr);
-    }
+  window.YooYStudioOpenProjectModal = window.YooYOpenProjectCreateDialog;
+  } // end bootYooYStudio
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { startStudioBoot(0); });
+  } else {
+    startStudioBoot(0);
   }
 })();

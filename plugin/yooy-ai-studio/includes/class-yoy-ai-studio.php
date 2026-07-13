@@ -161,7 +161,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -201,10 +201,24 @@ final class YooY_AI_Studio {
             true
         );
 
+        wp_enqueue_style(
+            'yoy-create-ux',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/create-ux.css',
+            ['yoy-ai-studio'],
+            YOY_AI_STUDIO_VERSION
+        );
+        wp_enqueue_script(
+            'yoy-create-ux',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/create-ux.js',
+            ['yoy-ai-studio-core'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
         wp_enqueue_script(
             'yoy-image-studio',
             YOY_AI_STUDIO_URL . 'assets/modules/image-studio/image-studio.js',
-            ['yoy-image-api', 'yoy-reference-assets-panel'],
+            ['yoy-image-api', 'yoy-reference-assets-panel', 'yoy-create-ux'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -358,6 +372,7 @@ final class YooY_AI_Studio {
     private function nav_routes(): array {
         $routes = [
             ['id' => 'home', 'label' => 'Home', 'module' => null],
+            ['id' => 'assistant', 'label' => 'AI Assistant', 'module' => 'ai-assistant'],
             ['id' => 'projects', 'label' => 'Projects', 'module' => 'projects'],
             ['id' => 'video', 'label' => 'Video', 'module' => 'video-studio'],
             ['id' => 'image', 'label' => 'Image', 'module' => 'image-studio'],
@@ -365,9 +380,9 @@ final class YooY_AI_Studio {
             ['id' => 'voice', 'label' => 'Voice', 'module' => 'voice-studio'],
             ['id' => 'avatar', 'label' => 'Avatar', 'module' => 'avatar-studio'],
             ['id' => 'writing', 'label' => 'Writing', 'module' => 'ai-router'],
-            ['id' => 'prompt-library', 'label' => 'Prompt Library', 'module' => 'prompt-library'],
-            ['id' => 'import', 'label' => 'Import', 'module' => 'import-engine'],
+            ['id' => 'translator', 'label' => 'Translator', 'module' => 'translator-studio'],
             ['id' => 'works', 'label' => 'Gallery', 'module' => 'gallery'],
+            ['id' => 'history', 'label' => 'History', 'module' => 'gallery'],
             ['id' => 'community', 'label' => 'Community', 'module' => 'community'],
             ['id' => 'market', 'label' => 'Marketplace', 'module' => 'marketplace'],
             ['id' => 'credits', 'label' => 'Credits', 'module' => 'credits'],
