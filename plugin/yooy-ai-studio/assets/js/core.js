@@ -314,12 +314,14 @@
 
       projects: {
         list: function () { return Core.get('projects', ''); },
-        create: function (data) { return Core.post('projects', '', data); },
+        create: function (data) { return Core.post('projects', '', data || {}); },
         get: function (id) { return Core.get('projects', '/' + encodeURIComponent(id)); },
-        update: function (id, data) { return Core.put('projects', '/' + encodeURIComponent(id), data); },
+        update: function (id, data) { return Core.put('projects', '/' + encodeURIComponent(id), data || {}); },
         delete: function (id) { return Core.del('projects', '/' + encodeURIComponent(id)); },
-        addAsset: function (id, data) { return Core.post('projects', '/' + encodeURIComponent(id) + '/assets', data); },
-        removeAsset: function (id, assetId) { return Core.del('projects', '/' + encodeURIComponent(id) + '/assets/' + encodeURIComponent(assetId)); }
+        addAsset: function (id, data) { return Core.post('projects', '/' + encodeURIComponent(id) + '/assets', data || {}); },
+        removeAsset: function (id, assetId) {
+          return Core.del('projects', '/' + encodeURIComponent(id) + '/assets/' + encodeURIComponent(assetId));
+        }
       },
 
       prompts: {

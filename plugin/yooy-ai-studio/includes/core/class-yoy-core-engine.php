@@ -76,9 +76,18 @@ final class YooY_Core_Engine {
                 continue;
             }
 
-            $module = include $file;
-            if ($module instanceof YooY_Module_Interface) {
-                $this->registry->register($module);
+            try {
+                $module = include $file;
+                if ($module instanceof YooY_Module_Interface) {
+                    $this->registry->register($module);
+                }
+            } catch (Throwable $e) {
+                if (class_exists('YooY_System_Log')) {
+                    YooY_System_Log::write('error', 'Module load failed', [
+                        'file'    => $file,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
             }
         }
     }

@@ -1002,6 +1002,7 @@
 
   function projectCardHtml(p) {
     var vis = p.visibility === 'public' ? 'Public' : 'Private';
+    var status = (p.status || 'active');
     return '<article class="yai-card yai-project-card" data-project-open="' + esc(p.id) + '">' +
       '<div class="yai-project-card-cover">' + (p.thumbnail_url
         ? '<img src="' + esc(p.thumbnail_url) + '" alt="">'
@@ -1009,8 +1010,10 @@
       '</div>' +
       '<strong>' + esc(p.title) + '</strong>' +
       '<p>' + esc(p.description || 'No description') + '</p>' +
-      '<span>' + esc(p.type) + ' · ' + esc(vis) + ' · ' + fmt(p.asset_count || p.items || 0) + ' items · ' + relTime(p.updated_at || p.created_at) + '</span>' +
+      '<span>' + esc(p.type || 'mixed') + ' · ' + esc(vis) + ' · ' + esc(status) +
+        ' · ' + fmt(p.asset_count || p.items || 0) + ' assets · ' + relTime(p.updated_at || p.created_at) + '</span>' +
       '<div class="yai-project-actions">' +
+      '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-project-open="' + esc(p.id) + '">Open</button>' +
       '<button type="button" class="yai-btn--outline yai-project-rename" data-id="' + esc(p.id) + '" data-title="' + esc(p.title) + '">Rename</button>' +
       '<button type="button" class="yai-btn--outline yai-project-delete" data-id="' + esc(p.id) + '">Delete</button>' +
       '</div></article>';
@@ -1053,7 +1056,7 @@
           '<label class="yai-field"><span>공개 범위</span><select name="visibility"><option value="private">Private</option><option value="public">Public</option></select></label>' +
           '<p class="yai-muted" id="yai-project-form-works-hint" hidden></p>' +
           '<p class="yai-modal-error" id="yai-project-form-error" hidden></p>' +
-          '<footer class="yai-modal-foot"><button type="button" class="yai-btn--outline" data-yai-modal-close>취소</button><button type="submit" class="yai-btn yai-btn--gold">생성</button></footer>' +
+          '<footer class="yai-modal-foot"><button type="button" class="yai-btn--outline" data-yai-modal-close>Cancel</button><button type="submit" class="yai-btn yai-btn--gold">Create Project</button></footer>' +
         '</form>' +
       '</div>';
     document.body.appendChild(modal);
@@ -1842,9 +1845,9 @@
   function renderProjectsEmpty(el) {
   el.innerHTML =
       '<div class="yai-empty">' +
-        '<h3>프로젝트가 없습니다</h3>' +
-        '<p>프로젝트를 만들고 작품을 묶어 관리하세요.</p>' +
-        '<button type="button" class="yai-btn yai-btn--gold" data-yai-create-project>프로젝트 생성</button>' +
+        '<h3>아직 생성된 프로젝트가 없습니다.</h3>' +
+        '<p>프로젝트를 만들고 Gallery 작품을 묶어 관리하세요.</p>' +
+        '<button type="button" class="yai-btn yai-btn--gold" data-yai-create-project>첫 프로젝트 만들기</button>' +
       '</div>' +
       '<div id="yai-projects-suggest" class="yai-projects-suggest"><p class="yai-muted">Loading recent works…</p></div>';
 
@@ -1883,6 +1886,11 @@
       return;
     }
     el.innerHTML = '<div class="yai-empty"><p>Loading projects…</p></div>';
+    if (!Core.projects || typeof Core.projects.list !== 'function') {
+      renderProjectsEmpty(el);
+      showToast('Projects API를 사용할 수 없습니다.', true);
+      return;
+    }
     Core.projects.list().then(function (res) {
       var items = (res.data && res.data.projects) || [];
       if (!items.length) {
@@ -1891,8 +1899,18 @@
       }
       el.innerHTML = '<div class="yai-project-grid">' + items.map(projectCardHtml).join('') + '</div>';
     }).catch(function (err) {
-      el.innerHTML = emptyBlock('', 'Could not load projects', err.message || 'Request failed.', 'Retry', 'projects');
-      showToast(err.message || 'Failed to load projects.', true);
+      var msg = (err && err.message) || 'Request failed.';
+      var isNoRoute = !!(err && (err.restNoRoute || err.code === 'rest_no_route'));
+      // Never leave the page stuck on a raw REST error as the only state.
+      renderProjectsEmpty(el);
+      var note = document.createElement('div');
+      note.className = 'yai-empty yai-empty--warn';
+      note.innerHTML = '<p class="yai-error">' + esc(isNoRoute
+        ? 'Projects API 연결에 실패했습니다. 페이지를 새로고침하거나 관리자에게 문의하세요.'
+        : msg) + '</p>' +
+        '<button type="button" class="yai-btn yai-btn--outline" data-route="projects">다시 시도</button>';
+      el.insertBefore(note, el.firstChild);
+      showToast(msg, true);
     });
   }
 

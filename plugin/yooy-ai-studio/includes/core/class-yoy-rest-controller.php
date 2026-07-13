@@ -73,6 +73,32 @@ final class YooY_REST_Controller {
         foreach ($this->core->registry()->all() as $module) {
             $module->register_rest_routes();
         }
+
+        // Guarantee Projects routes even if the module instance failed to register them.
+        $this->ensure_projects_rest_routes();
+    }
+
+    /**
+     * Idempotent Projects REST bootstrap (Canonical Store = Gallery refs via Project_Store).
+     */
+    private function ensure_projects_rest_routes(): void {
+        if (!class_exists('YooY_Projects_REST')) {
+            $file = defined('YOY_AI_STUDIO_MODULES_DIR')
+                ? YOY_AI_STUDIO_MODULES_DIR . 'projects/includes/class-projects-rest.php'
+                : '';
+            $store = defined('YOY_AI_STUDIO_MODULES_DIR')
+                ? YOY_AI_STUDIO_MODULES_DIR . 'projects/includes/class-project-store.php'
+                : '';
+            if ($store !== '' && is_readable($store) && !class_exists('YooY_Project_Store', false)) {
+                require_once $store;
+            }
+            if ($file !== '' && is_readable($file)) {
+                require_once $file;
+            }
+        }
+        if (class_exists('YooY_Projects_REST') && class_exists('YooY_Project_Store')) {
+            YooY_Projects_REST::register_routes();
+        }
     }
 
     public function status(): WP_REST_Response {
@@ -219,6 +245,7 @@ final class YooY_REST_Controller {
             ['GET',  '/yoy-ai-studio/v1/image-studio/history'],
             ['GET',  '/yoy-ai-studio/v1/projects'],
             ['POST', '/yoy-ai-studio/v1/projects'],
+            ['GET',  '/yoy-ai-studio/v1/projects/(?P<id>[a-zA-Z0-9_-]+)'],
             ['GET',  '/yoy-ai-studio/v1/core/dashboard'],
         ];
     }
