@@ -12,38 +12,43 @@
 
   var navGroups = [
     {
-      label: '개요',
+      label: 'Overview',
       items: [
-        { id: 'overview', label: '대시보드' },
+        { id: 'overview', label: 'Dashboard' },
         { id: 'analytics', label: 'Analytics' },
-        { id: 'monitoring', label: '모니터링' }
+        { id: 'monitoring', label: 'Monitoring' }
       ]
     },
     {
-      label: 'AI 서비스',
+      label: 'AI Services',
       items: [
-        { id: 'providers', label: 'AI 제공업체' },
+        { id: 'providers', label: 'AI Providers' },
         { id: 'models', label: 'Models' },
-        { id: 'jobs', label: '작업' },
+        { id: 'jobs', label: 'Jobs' },
         { id: 'imports', label: 'Imports' }
       ]
     },
     {
-      label: '플랫폼',
+      label: 'Platform',
       items: [
-        { id: 'users', label: '사용자' },
-        { id: 'credits', label: '크레딧' },
+        { id: 'users', label: 'User Management' },
+        { id: 'credits', label: 'Credits Management' },
         { id: 'home-sections', label: 'Home Sections' },
+        { id: 'official-showcase', label: 'Official Showcase' },
         { id: 'marketplace', label: 'Marketplace' },
-        { id: 'community', label: 'Community' }
+        { id: 'community', label: 'Community' },
+        { id: 'gallery', label: 'Gallery' },
+        { id: 'projects', label: 'Projects' },
+        { id: 'prompts', label: 'Prompt Library' }
       ]
     },
     {
-      label: '시스템',
+      label: 'System',
       items: [
-        { id: 'settings', label: '설정' },
-        { id: 'logs', label: '로그' },
-        { id: 'backup', label: '백업' },
+        { id: 'system-health', label: 'System Health' },
+        { id: 'settings', label: 'System Settings' },
+        { id: 'logs', label: 'System Logs' },
+        { id: 'backup', label: 'Backups' },
         { id: 'health', label: 'System Info' }
       ]
     }
@@ -102,8 +107,8 @@
 
   function renderShell() {
     var head = context === 'wp-admin'
-      ? '<div class="yai-admin-topbar"><div><strong>YooY AI Studio</strong><span class="yai-admin-topbar-meta">Operations Center</span></div><span class="yai-ops-badge">Enterprise</span></div>'
-      : '<div class="yai-ops-head"><h1>Operations Center</h1><p>제공업체, 작업, 크레딧, 사용자 및 시스템 상태를 한곳에서 관리합니다.</p></div>';
+      ? '<div class="yai-admin-topbar"><div><strong>YooY AI Studio</strong><span class="yai-admin-topbar-meta">Admin Console</span></div><span class="yai-ops-badge">Operations</span></div>'
+      : '<div class="yai-ops-head"><h1>Admin Console</h1><p>System status, AI providers, credits, users, gallery, and platform operations in one place.</p></div>';
 
     root.innerHTML = head +
       '<div class="yai-ops-summary" id="yai-ops-summary"><p class="yai-ops-toast">Loading summary…</p></div>' +
@@ -246,6 +251,9 @@
   }
 
   function providerStatus(p) {
+    if (p.routing_status === 'billing_error' || p.billing_status === 'blocked' || p.auto_routing_disabled) {
+      return { label: 'Billing Error', cls: 'error' };
+    }
     if (p.warning) return { label: 'Warning', cls: 'error' };
     if (p.mode === 'mock' || p.status === 'mock') return { label: 'Mock', cls: 'mock' };
     if (p.last_test_status === 'failed') return { label: 'Failed', cls: 'error' };
@@ -303,8 +311,13 @@
       case 'users': loadUsers(); break;
       case 'credits': loadCredits(); break;
       case 'home-sections': loadHomeSections(); break;
-      case 'marketplace': loadPlaceholder('Marketplace', 'Community marketplace listings and revenue metrics will appear here.'); break;
-      case 'community': loadPlaceholder('Community', 'Community activity, posts, and engagement metrics will appear here.'); break;
+      case 'official-showcase': loadOfficialShowcase(); break;
+      case 'marketplace': loadAdminMarketplace(); break;
+      case 'community': loadAdminCommunity(); break;
+      case 'gallery': loadAdminGallery(); break;
+      case 'projects': loadAdminProjects(); break;
+      case 'prompts': loadAdminPrompts(); break;
+      case 'system-health': loadSystemHealth(); break;
       case 'settings': loadSettings(); break;
       case 'logs': loadLogs(); break;
       case 'backup': loadBackup(); break;
@@ -315,6 +328,76 @@
 
   function loadPlaceholder(title, desc) {
     body(sectionOpen(title, desc, '') + empty('Coming soon', 'This module is on the platform roadmap.') + sectionClose());
+  }
+
+  function loadAdminGallery() {
+    Core.admin.gallery().then(function (r) {
+      var items = (r.data && (r.data.items || r.data.gallery)) || [];
+      body(sectionOpen('Gallery', 'Platform gallery items across users.', '') +
+        (items.length
+          ? '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Title</th><th>Type</th><th>User</th></tr></thead><tbody>' +
+            items.slice(0, 50).map(function (it) {
+              return '<tr><td>' + esc(it.title || it.id) + '</td><td>' + esc(it.type || '') + '</td><td>' + esc(it.user_id || '') + '</td></tr>';
+            }).join('') + '</tbody></table></div>'
+          : empty('No gallery items', 'Gallery store is empty.')) +
+        sectionClose());
+    }).catch(function (e) { body('<p class="yai-ops-toast is-error">' + esc(e.message) + '</p>'); });
+  }
+
+  function loadAdminProjects() {
+    Core.admin.projects().then(function (r) {
+      var items = (r.data && (r.data.projects || r.data.items)) || [];
+      body(sectionOpen('Projects', 'User project workspaces.', '') +
+        (items.length
+          ? '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Title</th><th>Owner</th><th>Items</th></tr></thead><tbody>' +
+            items.slice(0, 50).map(function (p) {
+              return '<tr><td>' + esc(p.title || p.id) + '</td><td>' + esc(p.user_id || '') + '</td><td>' + esc(p.asset_count || p.items || 0) + '</td></tr>';
+            }).join('') + '</tbody></table></div>'
+          : empty('No projects', 'No projects have been created yet.')) +
+        sectionClose());
+    }).catch(function (e) { body('<p class="yai-ops-toast is-error">' + esc(e.message) + '</p>'); });
+  }
+
+  function loadAdminPrompts() {
+    Core.admin.prompts().then(function (r) {
+      var items = (r.data && (r.data.prompts || r.data.items)) || [];
+      body(sectionOpen('Prompt Library', 'Official and user prompt templates.', '') +
+        (items.length
+          ? '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Title</th><th>Category</th></tr></thead><tbody>' +
+            items.slice(0, 50).map(function (p) {
+              return '<tr><td>' + esc(p.title || p.id) + '</td><td>' + esc(p.category || p.type || '') + '</td></tr>';
+            }).join('') + '</tbody></table></div>'
+          : empty('No prompts', 'Prompt library is empty.')) +
+        sectionClose());
+    }).catch(function (e) { body('<p class="yai-ops-toast is-error">' + esc(e.message) + '</p>'); });
+  }
+
+  function loadAdminMarketplace() {
+    Core.admin.marketplace().then(function (r) {
+      var items = (r.data && (r.data.items || r.data.listings)) || [];
+      body(sectionOpen('Marketplace', 'Listings and marketplace activity.', '') +
+        (items.length
+          ? '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Title</th><th>Price</th></tr></thead><tbody>' +
+            items.slice(0, 50).map(function (it) {
+              return '<tr><td>' + esc(it.title || it.id) + '</td><td>' + esc(it.price != null ? it.price : '') + '</td></tr>';
+            }).join('') + '</tbody></table></div>'
+          : empty('No listings', 'Marketplace has no listings yet.')) +
+        sectionClose());
+    }).catch(function () { loadPlaceholder('Marketplace', 'Marketplace admin data unavailable.'); });
+  }
+
+  function loadAdminCommunity() {
+    Core.admin.community().then(function (r) {
+      var items = (r.data && (r.data.items || r.data.posts)) || [];
+      body(sectionOpen('Community', 'Community posts and engagement.', '') +
+        (items.length
+          ? '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Title</th><th>Likes</th></tr></thead><tbody>' +
+            items.slice(0, 50).map(function (it) {
+              return '<tr><td>' + esc(it.title || it.id) + '</td><td>' + esc(it.likes || 0) + '</td></tr>';
+            }).join('') + '</tbody></table></div>'
+          : empty('No community posts', 'Community feed is empty.')) +
+        sectionClose());
+    }).catch(function () { loadPlaceholder('Community', 'Community admin data unavailable.'); });
   }
 
   function loadOverview() {
@@ -436,6 +519,94 @@
     }).catch(function (e) { body('<p class="yai-ops-toast is-error">' + esc(e.message) + '</p>'); });
   }
 
+  function syshStatusWord(s) {
+    return s === 'ok' ? '정상 (OK)' : (s === 'warn' ? '경고 (WARN)' : '오류 (ERROR)');
+  }
+
+  function loadSystemHealth() {
+    Core.admin.systemHealth().then(function (res) {
+      var d = (res && (res.data || res)) || {};
+      try { window.YooYSystemHealth = d; } catch (e) {}
+      var checks = d.checks || [];
+      var si = d.system_info || {};
+      var overallPill = d.overall === 'ok' ? 'connected' : (d.overall === 'warn' ? 'pending' : 'failed');
+      var overallText = d.overall === 'ok' ? 'All Systems Operational'
+        : (d.overall === 'warn' ? 'Degraded — warnings present' : 'Critical — action required');
+
+      var cards = checks.map(function (c) {
+        var lv = c.status === 'ok' ? 'green' : (c.status === 'warn' ? 'yellow' : 'red');
+        var fix = c.fixable
+          ? '<button type="button" class="yai-btn yai-btn--secondary yai-sysh-fix" data-yoy-fix="' + esc(c.fix_action) + '">Fix →</button>'
+          : '';
+        return '<article class="yai-ops-health yai-ops-health--' + lv + '">' +
+          '<h3>' + esc(c.label) + '</h3>' +
+          '<div class="yai-ops-health-val"><span class="yai-ops-health-dot"></span>' + esc(syshStatusWord(c.status)) + '</div>' +
+          '<p class="yai-sysh-msg">' + esc(c.message) + '</p>' + fix + '</article>';
+      }).join('');
+
+      var cronDisabled = si.cron && si.cron.disabled;
+      var infoHtml = '<div class="yai-ops-grid yai-ops-grid--4">' +
+        healthCard('WordPress', si.wordpress || '—', 'green') +
+        healthCard('PHP', si.php || '—', 'green') +
+        healthCard('Memory', si.memory_limit || '—', 'green') +
+        healthCard('Cron', cronDisabled ? 'Disabled' : 'Active', cronDisabled ? 'yellow' : 'green') +
+        healthCard('HTTPS', si.https ? 'On' : 'Off', si.https ? 'green' : 'yellow') +
+        healthCard('Permalink', (d.permalink || '—'), d.permalink === 'plain' ? 'yellow' : 'green') +
+        healthCard('Plugin', d.plugin_version || '—', 'green') +
+        healthCard('Debug', si.debug ? 'On' : 'Off', 'green') +
+        '</div>';
+
+      body(
+        sectionOpen('System Health', 'Real-time self-diagnosis across REST, providers, storage, credits and PHP.',
+          '<span class="yai-ops-pill yai-ops-pill--' + overallPill + '">' + esc(overallText) + '</span>' +
+          btnSecondary('JSON', 'data-yoy-report="json"') +
+          btnSecondary('TXT', 'data-yoy-report="txt"') +
+          btnSecondary('Markdown', 'data-yoy-report="md"') +
+          btnSecondary('재검사', 'data-yoy-recheck="1"')) +
+        '<div class="yai-ops-grid yai-ops-grid--3">' + cards + '</div>' +
+        sectionClose() +
+        sectionOpen('Infrastructure', 'WordPress / PHP / Cron runtime snapshot.', '') +
+        infoHtml +
+        sectionClose()
+      );
+
+      bindSystemHealthActions();
+    }).catch(function (e) { body('<p class="yai-ops-toast is-error">' + esc(e.message) + '</p>'); });
+  }
+
+  function bindSystemHealthActions() {
+    var el = document.getElementById('yai-ops-body');
+    if (!el || el._syshBound) return;
+    el._syshBound = true;
+    el.addEventListener('click', function (e) {
+      var D = window.YooYDiagnostics;
+      var fixEl = e.target.closest('[data-yoy-fix]');
+      if (fixEl && D && D.fix) {
+        fixEl.disabled = true;
+        fixEl.textContent = '수정 중…';
+        D.fix(fixEl.getAttribute('data-yoy-fix')).then(function () { loadSystemHealth(); })
+          .catch(function () { fixEl.disabled = false; fixEl.textContent = 'Fix →'; });
+        return;
+      }
+      var repEl = e.target.closest('[data-yoy-report]');
+      if (repEl && D && D.report) { D.report(repEl.getAttribute('data-yoy-report'), { context: { source: 'admin-system-health' } }); return; }
+      if (e.target.closest('[data-yoy-recheck]')) { loadSystemHealth(); }
+    });
+  }
+
+  function providerBillingStatusHtml(p) {
+    var billing = p.provider_billing_status || p.billing_label || 'Unknown';
+    var api = p.provider_api_status || (p.has_key ? 'Valid' : 'Missing');
+    var test = p.provider_test_status || (p.last_test_label || 'Not Tested');
+    return '<div class="yai-ops-provider-billing-block">' +
+      '<div class="yai-ops-provider-billing-hdr">Provider Billing Status <em>not user credits</em></div>' +
+      '<div class="yai-ops-provider-billing-rows">' +
+      '<div class="yai-ops-provider-billing-row"><b>Billing</b><span>' + esc(billing) + '</span></div>' +
+      '<div class="yai-ops-provider-billing-row"><b>API</b><span>' + esc(api) + '</span></div>' +
+      '<div class="yai-ops-provider-billing-row"><b>Test</b><span>' + esc(test) + '</span></div>' +
+      '</div></div>';
+  }
+
   function providerCardHtml(p) {
     var st = providerStatus(p);
     var latency = p.last_test_ms ? p.last_test_ms + 'ms' : (p.last_test_status === 'ok' ? '~120ms' : '—');
@@ -446,13 +617,12 @@
       '<span class="yai-ops-pill yai-ops-pill--' + st.cls + '">' + esc(st.label) + '</span></div>' +
       '<div class="yai-ops-provider-metrics">' +
       '<div class="yai-ops-provider-metric"><b>Current Model</b><span>' + esc(p.mode_label || p.mode || 'auto') + '</span></div>' +
-      '<div class="yai-ops-provider-metric"><b>Credits</b><span>' + esc(p.billing_label || 'Per use') + '</span></div>' +
-      '<div class="yai-ops-provider-metric"><b>Last Request</b><span>' + esc(p.last_test_at || 'Never') + '</span></div>' +
-      '<div class="yai-ops-provider-metric"><b>Latency</b><span>' + esc(latency) + '</span></div>' +
-      '<div class="yai-ops-provider-metric"><b>Success Rate</b><span>' + esc(successRate) + '</span></div>' +
       '<div class="yai-ops-provider-metric"><b>Priority</b><span>' + esc(String(p.priority != null ? p.priority : 50)) + '</span></div>' +
       '</div>' +
+      providerBillingStatusHtml(p) +
       '<div class="yai-ops-provider-key">' + (p.has_key ? esc(p.key_masked || '••••••••') : 'API key not configured') + '</div>' +
+      (p.auto_routing_disabled ? '<p style="color:var(--ops-red);font-size:12px;margin:0">Provider API billing issue — auto routing disabled (separate from user credits)</p>' : '') +
+      (p.last_test_error ? '<p style="color:var(--ops-muted);font-size:12px;margin:4px 0 0">last_test_error: ' + esc(p.last_test_error) + '</p>' : '') +
       (p.warning ? '<p style="color:var(--ops-red);font-size:12px;margin:0">' + esc(p.warning) + '</p>' : '') +
       '<div class="yai-ops-provider-foot">' +
       '<div class="yai-btn-group">' + btnSecondary('Configure', 'class="yai-ops-config-p" data-id="' + esc(p.id) + '"') +
@@ -1074,9 +1244,43 @@
   }
 
   var SECTION_TYPES = [
-    'latest', 'featured', 'best', 'hot', 'marketplace', 'community',
+    'latest', 'featured', 'best', 'hot', 'marketplace', 'community', 'official', 'mixed',
     'manual', 'project', 'category', 'tag'
   ];
+  var SECTION_SOURCES = [
+    { id: 'user', label: 'User' },
+    { id: 'community', label: 'Community' },
+    { id: 'marketplace', label: 'Marketplace' },
+    { id: 'official', label: 'Official' },
+    { id: 'demo', label: 'Demo' },
+    { id: 'mixed', label: 'Mixed (auto-fill)' }
+  ];
+  var SECTION_COLUMNS = [
+    { id: '2', label: '2 columns' },
+    { id: '3', label: '3 columns' },
+    { id: '4', label: '4 columns' },
+    { id: '5', label: '5 columns' },
+    { id: '6', label: '6 columns' },
+    { id: 'carousel', label: 'Carousel' }
+  ];
+  var SECTION_CARD_RATIOS = [
+    { id: 'auto', label: 'Auto (4:5)' },
+    { id: 'square', label: 'Square (1:1)' },
+    { id: 'portrait', label: 'Portrait (4:5)' },
+    { id: 'landscape', label: 'Landscape (16:10)' },
+    { id: 'wide', label: 'Wide (16:9)' },
+    { id: 'masonry', label: 'Masonry (natural)' }
+  ];
+  var SECTION_TEXT_MODES = [
+    { id: 'below', label: 'Below image' },
+    { id: 'overlay', label: 'Overlay on image' },
+    { id: 'hidden', label: 'Hidden until hover' }
+  ];
+
+  function formatColumnLabel(value) {
+    if (value === 'carousel') return 'Carousel';
+    return String(value || 4) + ' columns';
+  }
 
   function loadHomeSections() {
     Core.admin.homeSections.list().then(function (res) {
@@ -1087,17 +1291,20 @@
           '<button type="button" class="yai-ops-btn-ghost" data-section-down="' + esc(s.id) + '"' + (idx === sections.length - 1 ? ' disabled' : '') + '>↓</button></td>' +
           '<td><strong>' + esc(s.title) + '</strong><br><span class="yai-ops-muted">' + esc(s.description || '') + '</span></td>' +
           '<td>' + esc(s.type) + '</td>' +
+          '<td>' + esc(s.source || 'user') + '</td>' +
+          '<td>' + esc(formatColumnLabel(s.column_count)) + '</td>' +
+          '<td>' + esc(s.card_ratio || 'auto') + ' · ' + esc(s.text_mode || 'below') + '</td>' +
           '<td>' + esc(String(s.limit || 8)) + '</td>' +
           '<td>' + (s.visible ? 'Visible' : 'Hidden') + '</td>' +
           '<td><button type="button" class="yai-ops-btn-ghost" data-section-edit="' + esc(s.id) + '">Edit</button> ' +
-          '<button type="button" class="yai-ops-btn-ghost" data-section-delete="' + esc(s.id) + '">Delete</button></td>' +
+          '<button type="button" class="yai-ops-btn-ghost yai-ops-btn-ghost--danger" data-section-delete="' + esc(s.id) + '">Delete</button></td>' +
         '</tr>';
       }).join('');
 
       body(
         sectionOpen('Home Sections', 'Home 화면에 표시할 큐레이션 섹션을 관리합니다.', btnPrimary('New Section', 'id="yai-ops-section-create"')) +
-        '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Order</th><th>Section</th><th>Type</th><th>Limit</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
-        (rows || '<tr><td colspan="6">No sections yet.</td></tr>') +
+        '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Order</th><th>Section</th><th>Type</th><th>Source</th><th>Columns</th><th>Layout</th><th>Limit</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="9">No sections yet.</td></tr>') +
         '</tbody></table></div>' +
         '<div id="yai-ops-section-editor" hidden></div>' +
         sectionClose()
@@ -1146,28 +1353,57 @@
     if (!editor) return;
     var isNew = !section;
     section = section || {
-      title: '', description: '', type: 'latest', visible: true, limit: 8,
-      manual_ids: [], project_id: '', category: '', tag: ''
+      title: '', description: '', type: 'latest', source: 'mixed', column_count: 4, card_ratio: 'auto', text_mode: 'below',
+      visible: true, limit: 8, manual_ids: [], project_id: '', category: '', tag: ''
     };
 
     var typeOptions = SECTION_TYPES.map(function (t) {
       return '<option value="' + esc(t) + '"' + (section.type === t ? ' selected' : '') + '>' + esc(t) + '</option>';
     }).join('');
+    var sourceOptions = SECTION_SOURCES.map(function (s) {
+      return '<option value="' + esc(s.id) + '"' + ((section.source || 'user') === s.id ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+    }).join('');
+    var currentColumns = section.column_count != null ? String(section.column_count) : '4';
+    var columnOptions = SECTION_COLUMNS.map(function (c) {
+      return '<option value="' + esc(c.id) + '"' + (currentColumns === c.id ? ' selected' : '') + '>' + esc(c.label) + '</option>';
+    }).join('');
+    var currentRatio = section.card_ratio || 'auto';
+    var ratioOptions = SECTION_CARD_RATIOS.map(function (r) {
+      return '<option value="' + esc(r.id) + '"' + (currentRatio === r.id ? ' selected' : '') + '>' + esc(r.label) + '</option>';
+    }).join('');
+    var currentTextMode = section.text_mode || 'below';
+    var textModeOptions = SECTION_TEXT_MODES.map(function (m) {
+      return '<option value="' + esc(m.id) + '"' + (currentTextMode === m.id ? ' selected' : '') + '>' + esc(m.label) + '</option>';
+    }).join('');
 
     editor.hidden = false;
     editor.innerHTML =
-      '<div class="yai-ops-card" style="margin-top:16px">' +
+      '<div class="yai-ops-card yai-ops-section-form">' +
       '<h3>' + (isNew ? 'Create Section' : 'Edit Section') + '</h3>' +
-      '<label>Title<br><input type="text" id="yai-sec-title" value="' + esc(section.title) + '" style="width:100%"></label><br><br>' +
-      '<label>Description<br><textarea id="yai-sec-desc" rows="2" style="width:100%">' + esc(section.description || '') + '</textarea></label><br><br>' +
-      '<label>Type<br><select id="yai-sec-type" style="width:100%">' + typeOptions + '</select></label><br><br>' +
-      '<label>Limit<br><input type="number" id="yai-sec-limit" min="1" max="24" value="' + esc(String(section.limit || 8)) + '"></label><br><br>' +
-      '<label><input type="checkbox" id="yai-sec-visible"' + (section.visible ? ' checked' : '') + '> Visible</label><br><br>' +
-      '<div id="yai-sec-extra"></div>' +
-      '<div id="yai-sec-manual" hidden><h4>Manual Works</h4><input type="text" id="yai-sec-search" placeholder="Search works…" style="width:70%"><button type="button" id="yai-sec-search-btn" class="yai-ops-btn-ghost">Search</button><div id="yai-sec-manual-list"></div><div id="yai-sec-selected"></div></div>' +
-      '<div style="margin-top:12px;display:flex;gap:8px">' +
-      '<button type="button" class="yai-ops-btn-primary" id="yai-sec-save">Save</button>' +
-      '<button type="button" class="yai-ops-btn-ghost" id="yai-sec-cancel">Cancel</button>' +
+      '<div class="yai-ops-form-grid yai-ops-form-grid--2">' +
+        '<label>Title<input type="text" id="yai-sec-title" value="' + esc(section.title) + '"></label>' +
+        '<label>Columns<select id="yai-sec-columns">' + columnOptions + '</select></label>' +
+        '<label>Card Ratio<select id="yai-sec-ratio">' + ratioOptions + '</select></label>' +
+        '<label>Text Mode<select id="yai-sec-text-mode">' + textModeOptions + '</select></label>' +
+        '<label class="yai-ops-form-span-2">Description<textarea id="yai-sec-desc" rows="2">' + esc(section.description || '') + '</textarea></label>' +
+        '<label>Type<select id="yai-sec-type">' + typeOptions + '</select></label>' +
+        '<label>Source<select id="yai-sec-source">' + sourceOptions + '</select></label>' +
+        '<label>Limit (works)<input type="number" id="yai-sec-limit" min="1" max="24" value="' + esc(String(section.limit || 8)) + '"></label>' +
+        '<label class="yai-ops-check-label yai-ops-form-span-2"><input type="checkbox" id="yai-sec-visible"' + (section.visible ? ' checked' : '') + '> Visible on Home</label>' +
+      '</div>' +
+      '<div id="yai-sec-extra" class="yai-ops-form-grid yai-ops-form-grid--2"></div>' +
+      '<div id="yai-sec-manual" class="yai-ops-section-manual" hidden>' +
+        '<h4>Manual Works</h4>' +
+        '<div class="yai-ops-section-manual-search">' +
+          '<input type="text" id="yai-sec-search" placeholder="Search works…">' +
+          '<button type="button" id="yai-sec-search-btn" class="yai-ops-btn-ghost">Search</button>' +
+        '</div>' +
+        '<div id="yai-sec-manual-list"></div>' +
+        '<div id="yai-sec-selected"></div>' +
+      '</div>' +
+      '<div class="yai-ops-section-form-actions">' +
+        '<button type="button" class="yai-ops-btn-primary" id="yai-sec-save">Save</button>' +
+        '<button type="button" class="yai-ops-btn-ghost" id="yai-sec-cancel">Cancel</button>' +
       '</div></div>';
 
     var manualIds = (section.manual_ids || []).slice();
@@ -1179,11 +1415,11 @@
       var type = typeEl.value;
       manualBox.hidden = type !== 'manual';
       if (type === 'project') {
-        extra.innerHTML = '<label>Project ID<br><input type="text" id="yai-sec-project-id" value="' + esc(section.project_id || '') + '" style="width:100%"></label>';
+        extra.innerHTML = '<label class="yai-ops-form-span-2">Project ID<input type="text" id="yai-sec-project-id" value="' + esc(section.project_id || '') + '"></label>';
       } else if (type === 'category') {
-        extra.innerHTML = '<label>Category (type)<br><input type="text" id="yai-sec-category" value="' + esc(section.category || 'image') + '" style="width:100%"></label>';
+        extra.innerHTML = '<label class="yai-ops-form-span-2">Category (type)<input type="text" id="yai-sec-category" value="' + esc(section.category || 'image') + '"></label>';
       } else if (type === 'tag') {
-        extra.innerHTML = '<label>Tag<br><input type="text" id="yai-sec-tag" value="' + esc(section.tag || '') + '" style="width:100%"></label>';
+        extra.innerHTML = '<label class="yai-ops-form-span-2">Tag<input type="text" id="yai-sec-tag" value="' + esc(section.tag || '') + '"></label>';
       } else {
         extra.innerHTML = '';
       }
@@ -1269,6 +1505,10 @@
         title: (document.getElementById('yai-sec-title').value || '').trim(),
         description: (document.getElementById('yai-sec-desc').value || '').trim(),
         type: typeEl.value,
+        source: (document.getElementById('yai-sec-source') && document.getElementById('yai-sec-source').value) || 'mixed',
+        column_count: document.getElementById('yai-sec-columns').value || '4',
+        card_ratio: document.getElementById('yai-sec-ratio').value || 'auto',
+        text_mode: document.getElementById('yai-sec-text-mode').value || 'below',
         limit: parseInt(document.getElementById('yai-sec-limit').value, 10) || 8,
         visible: !!document.getElementById('yai-sec-visible').checked,
         manual_ids: manualIds
@@ -1287,6 +1527,124 @@
       req.then(function () {
         editor.hidden = true;
         loadHomeSections();
+      }).catch(function (e) { alert(e.message); });
+    });
+  }
+
+  function loadOfficialShowcase() {
+    Core.admin.officialShowcase.list().then(function (res) {
+      var items = (res.data && res.data.items) || [];
+      var rows = items.map(function (item, idx) {
+        return '<tr data-official-id="' + esc(item.id) + '">' +
+          '<td><button type="button" class="yai-ops-btn-ghost" data-off-up="' + esc(item.id) + '"' + (idx === 0 ? ' disabled' : '') + '>↑</button>' +
+          '<button type="button" class="yai-ops-btn-ghost" data-off-down="' + esc(item.id) + '"' + (idx === items.length - 1 ? ' disabled' : '') + '>↓</button></td>' +
+          '<td><strong>' + esc(item.title) + '</strong><br><span class="yai-ops-muted">' + esc(item.genre || item.type || '') + '</span></td>' +
+          '<td>' + esc(item.type || 'image') + '</td>' +
+          '<td>' + (item.featured ? '★ Featured' : '—') + ' / ' + (item.recommended ? 'Recommended' : '—') + '</td>' +
+          '<td>' + (item.hidden ? 'Hidden' : 'Visible') + '</td>' +
+          '<td><button type="button" class="yai-ops-btn-ghost" data-off-edit="' + esc(item.id) + '">Edit</button> ' +
+          '<button type="button" class="yai-ops-btn-ghost yai-ops-btn-ghost--danger" data-off-delete="' + esc(item.id) + '">Delete</button></td>' +
+        '</tr>';
+      }).join('');
+
+      body(
+        sectionOpen('Official Showcase', 'Home Feed용 공식 큐레이션 · 데모 작품 (' + items.length + ' items)', btnPrimary('Add Item', 'id="yai-off-create"') + ' <button type="button" class="yai-ops-btn-ghost" id="yai-off-reseed">Reseed Demo</button>') +
+        '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Order</th><th>Title</th><th>Type</th><th>Flags</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="6">No items. Click Reseed Demo.</td></tr>') +
+        '</tbody></table></div>' +
+        '<div id="yai-off-editor" hidden></div>' +
+        sectionClose()
+      );
+
+      var createBtn = document.getElementById('yai-off-create');
+      if (createBtn) createBtn.addEventListener('click', function () { openOfficialEditor(null, items); });
+
+      var reseedBtn = document.getElementById('yai-off-reseed');
+      if (reseedBtn) reseedBtn.addEventListener('click', function () {
+        if (!confirm('Replace all Official Showcase items with default demo seed?')) return;
+        Core.admin.officialShowcase.seed().then(function () { loadOfficialShowcase(); }).catch(function (e) { alert(e.message); });
+      });
+
+      root.querySelectorAll('[data-off-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-off-edit');
+          var item = items.find(function (x) { return x.id === id; });
+          openOfficialEditor(item, items);
+        });
+      });
+
+      root.querySelectorAll('[data-off-delete]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-off-delete');
+          if (!confirm('Delete this showcase item?')) return;
+          Core.admin.officialShowcase.remove(id).then(function () { loadOfficialShowcase(); }).catch(function (e) { alert(e.message); });
+        });
+      });
+
+      root.querySelectorAll('[data-off-up], [data-off-down]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-off-up') || btn.getAttribute('data-off-down');
+          var ids = items.map(function (x) { return x.id; });
+          var idx = ids.indexOf(id);
+          if (idx < 0) return;
+          var swap = btn.hasAttribute('data-off-up') ? idx - 1 : idx + 1;
+          if (swap < 0 || swap >= ids.length) return;
+          var tmp = ids[idx]; ids[idx] = ids[swap]; ids[swap] = tmp;
+          Core.admin.officialShowcase.reorder(ids).then(function () { loadOfficialShowcase(); });
+        });
+      });
+    }).catch(function (e) { body('<p class="yai-ops-toast is-error">' + esc(e.message) + '</p>'); });
+  }
+
+  function openOfficialEditor(item, allItems) {
+    var editor = document.getElementById('yai-off-editor');
+    if (!editor) return;
+    var isNew = !item;
+    item = item || { title: '', description: '', type: 'image', genre: 'kpop', prompt: '', thumbnail_url: '', featured: false, recommended: false, hidden: false };
+    editor.hidden = false;
+    editor.innerHTML =
+      '<div class="yai-ops-card yai-ops-section-form">' +
+      '<h3>' + (isNew ? 'Add Official Item' : 'Edit Official Item') + '</h3>' +
+      '<div class="yai-ops-form-grid yai-ops-form-grid--2">' +
+        '<label>Title<input type="text" id="yai-off-title" value="' + esc(item.title || '') + '"></label>' +
+        '<label>Type<select id="yai-off-type"><option value="image">image</option><option value="video">video</option><option value="music">music</option><option value="writing">writing</option></select></label>' +
+        '<label>Genre<input type="text" id="yai-off-genre" value="' + esc(item.genre || '') + '"></label>' +
+        '<label>Thumbnail URL<input type="text" id="yai-off-thumb" value="' + esc(item.thumbnail_url || '') + '"></label>' +
+        '<label class="yai-ops-form-span-2">Prompt<textarea id="yai-off-prompt" rows="2">' + esc(item.prompt || '') + '</textarea></label>' +
+        '<label class="yai-ops-check-label"><input type="checkbox" id="yai-off-featured"' + (item.featured ? ' checked' : '') + '> Featured</label>' +
+        '<label class="yai-ops-check-label"><input type="checkbox" id="yai-off-recommended"' + (item.recommended ? ' checked' : '') + '> Recommended</label>' +
+        '<label class="yai-ops-check-label"><input type="checkbox" id="yai-off-hidden"' + (item.hidden ? ' checked' : '') + '> Hidden</label>' +
+      '</div>' +
+      '<div class="yai-ops-section-form-actions">' +
+        '<button type="button" class="yai-ops-btn-primary" id="yai-off-save">Save</button>' +
+        '<button type="button" class="yai-ops-btn-ghost" id="yai-off-cancel">Cancel</button>' +
+      '</div></div>';
+    var typeEl = document.getElementById('yai-off-type');
+    if (typeEl) typeEl.value = item.type || 'image';
+
+    document.getElementById('yai-off-cancel').addEventListener('click', function () {
+      editor.hidden = true; editor.innerHTML = '';
+    });
+
+    document.getElementById('yai-off-save').addEventListener('click', function () {
+      var payload = {
+        title: (document.getElementById('yai-off-title').value || '').trim(),
+        type: typeEl.value,
+        genre: (document.getElementById('yai-off-genre').value || '').trim(),
+        prompt: (document.getElementById('yai-off-prompt').value || '').trim(),
+        thumbnail_url: (document.getElementById('yai-off-thumb').value || '').trim(),
+        featured: !!document.getElementById('yai-off-featured').checked,
+        recommended: !!document.getElementById('yai-off-recommended').checked,
+        hidden: !!document.getElementById('yai-off-hidden').checked,
+        is_demo: false
+      };
+      if (!payload.title) { alert('Title is required.'); return; }
+      var req = isNew
+        ? Core.admin.officialShowcase.create(payload)
+        : Core.admin.officialShowcase.update(item.id, payload);
+      req.then(function () {
+        editor.hidden = true;
+        loadOfficialShowcase();
       }).catch(function (e) { alert(e.message); });
     });
   }

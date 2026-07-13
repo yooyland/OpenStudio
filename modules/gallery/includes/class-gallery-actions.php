@@ -60,6 +60,21 @@ final class YooY_Gallery_Actions {
                 return array_merge($payload, ['script' => $user_prompt]);
             case 'writing':
                 return $payload;
+            case 'translation':
+                $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+                return array_merge($payload, [
+                    'text'               => $user_prompt,
+                    'source_text'        => $user_prompt,
+                    'translated_text'    => (string) ($meta['translated_text'] ?? $item['translated_text'] ?? ''),
+                    'source_language'    => (string) ($meta['source_language'] ?? $settings['source_language'] ?? 'auto'),
+                    'target_language'    => (string) ($meta['target_language'] ?? $settings['target_language'] ?? 'en'),
+                    'mode'               => (string) ($meta['mode'] ?? $settings['mode'] ?? 'natural'),
+                    'settings'           => array_merge($settings, [
+                        'source_language' => (string) ($meta['source_language'] ?? $settings['source_language'] ?? 'auto'),
+                        'target_language' => (string) ($meta['target_language'] ?? $settings['target_language'] ?? 'en'),
+                        'mode'            => (string) ($meta['mode'] ?? $settings['mode'] ?? 'natural'),
+                    ]),
+                ]);
             default:
                 return $payload;
         }
@@ -314,6 +329,19 @@ final class YooY_Gallery_Actions {
             throw new Exception('Item not found.');
         }
         $url = $item['asset_url'] ?? $item['output_url'] ?? $item['image_url'] ?? '';
+        if ($url === '' && ($item['type'] ?? '') === 'translation') {
+            $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+            $text = (string) ($meta['translated_text'] ?? $item['translated_text'] ?? '');
+            if ($text === '') {
+                throw new Exception('No shareable translation text.');
+            }
+            return [
+                'url'   => '',
+                'text'  => $text,
+                'title' => $item['title'] ?? '',
+                'type'  => 'translation',
+            ];
+        }
         if ($url === '') {
             throw new Exception('No shareable asset URL.');
         }
@@ -330,6 +358,9 @@ final class YooY_Gallery_Actions {
                 return '.mp3';
             case 'image':
                 return '.png';
+            case 'translation':
+            case 'writing':
+                return '.txt';
             default:
                 return '.txt';
         }

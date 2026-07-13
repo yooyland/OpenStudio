@@ -4,11 +4,15 @@
   try {
   var Core = window.YooYCore;
   if (!Core) return;
+  var Y = window;
 
   var loaded = {};
   var currentProjectId = '';
   var projectDetailFilter = 'all';
-  var PROTECTED_ROUTES = ['projects', 'project-detail', 'import', 'video', 'image', 'music', 'voice', 'avatar', 'writing'];
+  var pendingCreateWorkIds = [];
+  var homeActivityCache = [];
+  var pendingAdminSection = '';
+  var PROTECTED_ROUTES = ['projects', 'project-detail', 'import', 'video', 'image', 'music', 'voice', 'avatar', 'writing', 'translator'];
   var PLAN_CRYSTALS = {
     free: 'gray', starter: 'green', creator: 'blue', pro: 'purple', business: 'gold'
   };
@@ -210,7 +214,7 @@
       body.querySelectorAll('[data-route="admin-console"]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           closeBillingModal();
-          if (global.YooYStudioRoute) global.YooYStudioRoute('admin-console');
+          if (Y.YooYStudioRoute) Y.YooYStudioRoute('admin-console');
         });
       });
       return;
@@ -344,11 +348,14 @@
     home: 'Home', projects: 'Projects', 'project-detail': 'Project', video: 'Video Studio', image: 'Image Studio',
     music: 'Music Studio', voice: 'Voice Studio', avatar: 'Avatar Studio', writing: 'Writing Studio',
     import: 'Import', works: 'Gallery', community: 'Community', market: 'Marketplace',
-    credits: 'Credits', billing: 'Billing', settings: 'Settings', 'prompt-library': 'Prompt Library', 'admin-console': 'Operations Center'
+    credits: 'Credits', billing: 'Billing', settings: 'Settings', 'prompt-library': 'Prompt Library', 'admin-console': 'Admin Console'
   };
 
   function isLoggedIn() { return !!Core.config.loggedIn; }
   function loginUrl() { return Core.config.loginUrl || '#'; }
+
+  function registerUrl() { return Core.config.registerUrl || loginUrl(); }
+  function logoutUrl() { return Core.config.logoutUrl || '#'; }
 
   function showLoginModal() {
     var modal = document.getElementById('yai-login-modal');
@@ -417,12 +424,14 @@
   function emptyBlock(icon, title, desc, btnLabel, routeName, createProject) {
     var btn = '';
     if (createProject && btnLabel) {
-      btn = '<button type="button" class="yai-btn--outline" data-yai-create-project>' + esc(btnLabel) + '</button>';
+      btn = '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-yai-create-project>' + esc(btnLabel) + '</button>';
     } else if (routeName && btnLabel) {
-      btn = '<button type="button" class="yai-btn--outline" data-route="' + esc(routeName) + '">' + esc(btnLabel) + '</button>';
+      btn = '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-route="' + esc(routeName) + '">' + esc(btnLabel) + '</button>';
     }
-    return '<div class="yai-empty">' +
-      '<div class="yai-empty-icon">' + (icon || '') + '</div>' +
+    var iconHtml = icon
+      ? '<div class="yai-empty-card-icon" aria-hidden="true">' + icon + '</div>'
+      : '<div class="yai-empty-card-icon" aria-hidden="true">✦</div>';
+    return '<div class="yai-empty-card">' + iconHtml +
       '<h3>' + esc(title) + '</h3><p>' + esc(desc) + '</p>' + btn +
       '</div>';
   }
@@ -453,6 +462,7 @@
   function hydrate(name) {
     if (name === 'works') { loaded[name] = false; loadWorks(); loaded[name] = true; return; }
     if (name === 'home') { loaded[name] = false; loadHome(); loaded[name] = true; return; }
+    if (name === 'projects') { loadProjects(); return; }
     if (loaded[name]) return;
     loaded[name] = true;
 
@@ -472,7 +482,10 @@
       case 'settings': loadSettings(); break;
       case 'admin-console':
         loaded[name] = false;
-        if (window.YooYAdminConsole) window.YooYAdminConsole.openOps('overview');
+        if (window.YooYAdminConsole) {
+          window.YooYAdminConsole.openOps(pendingAdminSection || 'overview');
+          pendingAdminSection = '';
+        }
         loaded[name] = true;
         break;
       case 'video': mountStudio('video', 'YooYVideoStudio'); break;
@@ -481,6 +494,7 @@
       case 'voice': mountStudio('voice', 'YooYVoiceStudio'); break;
       case 'avatar': mountStudio('avatar', 'YooYAvatarStudio'); break;
       case 'writing': loadWriting(); break;
+      case 'translator': mountStudio('translator', 'YooYTranslatorStudio'); break;
     }
   }
 
@@ -523,74 +537,208 @@
     window.YooYImportEngine.mount(el);
   }
 
-  function loadHome() {
-    if (!Core.config.loggedIn) { renderHomeEmpty(); return; }
+  function isValidFeedWork(w) {
+    if (!w) return false;
+    var url = w.thumbnail_url || w.display_url || w.large_url || w.full_url || '';
+    if (!url) return false;
+    if (url.indexOf('placeholder.svg') !== -1 && !w.is_platform && w.feed_source !== 'official' && w.feed_source !== 'demo') {
+      return false;
+    }
+    return true;
+  }
 
-    Core.dashboard().then(function (res) {
-      var d = res.data || {};
+  function filterFeedWorks(items) {
+    return (items || []).filter(isValidFeedWork);
+  }
+
+  function applyHomeFeedData(d) {
+    d = d || {};
+    if (isLoggedIn()) {
       var cr = d.credits || {};
       var mu = d.monthly_usage || {};
-
       setText('yai-stat-credits', cr.unlimited ? '∞' : fmt(cr.balance));
       setText('yai-stat-projects', fmt(d.project_count || 0));
-      setText('yai-stat-jobs', fmt(d.job_count || 0));
+      setText('yai-stat-works', fmt(d.work_count || (d.works || []).length || 0));
       setText('yai-stat-likes', fmt(d.community_likes || 0));
-      setText('yai-stat-usage', fmt(mu.used || 0) + ' / ' + fmt(mu.limit || 0));
       setText('yai-top-credits', (cr.unlimited ? '∞' : fmt(cr.balance)) + ' Credits');
-
-      var bar = document.getElementById('yai-stat-usage-bar');
-      if (bar) bar.style.width = (mu.percent || 0) + '%';
-
       renderUsageWidget(mu);
-      renderProjects(d.projects || []);
-      renderWorks(d.works || []);
-      renderJobs(d.jobs || []);
-      renderAnnouncements(d.announcements || []);
-      renderShowcase(d.showcase || []);
-      renderHomePresets();
-      renderHomeMarket(d.marketplace || []);
-      renderHomeCommunity(d.community_trending || []);
-      renderHomeSections(d.home_sections || []);
-    }).catch(function () { renderHomeEmpty(); });
+    } else {
+      setText('yai-stat-credits', '—');
+      setText('yai-stat-projects', '—');
+      setText('yai-stat-works', fmt((d.works || []).length || 0));
+      setText('yai-stat-likes', '—');
+      setText('yai-top-credits', '무료로 시작하기');
+      renderUsageWidget({ used: 0, limit: 0, percent: 0 });
+      var head = document.querySelector('.yai-home-head h1');
+      if (head) head.textContent = 'AI Creator Platform에 오신 것을 환영합니다 ✨';
+      var sub = document.querySelector('.yai-hero-sub');
+      if (sub) sub.textContent = '다른 크리에이터의 작품을 둘러보고, 가입 후 나만의 작품을 만들어 보세요.';
+    }
+
+    var works = filterFeedWorks(d.works || []);
+    renderWorks(works.length ? works : filterFeedWorks(d.showcase || []));
+    renderJobs(d.jobs || []);
+    renderAnnouncements(d.announcements || []);
+    renderShowcase(filterFeedWorks(d.showcase || []));
+    renderHomeMarket(filterFeedWorks(d.marketplace || []));
+    renderHomeCommunity(filterFeedWorks(d.community_trending || []));
+    renderHomeSections(d.home_sections || []);
+  }
+
+  function loadHome() {
+    var loader = isLoggedIn() ? Core.dashboard() : Core.homePublic();
+    loader.then(function (res) {
+      applyHomeFeedData(res.data || {});
+    }).catch(function () {
+      if (isLoggedIn()) {
+        renderHomeEmpty();
+        return;
+      }
+      Core.homePublic().then(function (res) {
+        applyHomeFeedData(res.data || {});
+      }).catch(function () {
+        renderGuestFallback();
+      });
+    });
+  }
+
+  function renderGuestFallback() {
+    setText('yai-stat-credits', '—');
+    setText('yai-stat-projects', '—');
+    setText('yai-stat-works', '0');
+    setText('yai-stat-likes', '—');
+    setText('yai-top-credits', '무료로 시작하기');
+    renderWorks([]);
+    renderJobs([]);
+    renderAnnouncements([]);
+    renderShowcase([]);
+    renderHomeMarket([]);
+    renderHomeCommunity([]);
+    renderHomeSections([]);
+    renderUsageWidget({ used: 0, limit: 0, percent: 0 });
+  }
+
+  function feedSourceLabel(source) {
+    var map = {
+      user: 'My Work',
+      project: 'Project',
+      community: 'Community',
+      marketplace: 'Marketplace',
+      official: 'Official',
+      demo: 'Demo'
+    };
+    return map[source] || '';
+  }
+
+  function isPlatformFeedItem(item) {
+    if (!item) return false;
+    if (item.is_platform) return true;
+    var src = item.feed_source || '';
+    return ['community', 'marketplace', 'official', 'demo'].indexOf(src) >= 0;
+  }
+
+  function platformDiscoverCardHtml(item, routeName) {
+    var src = feedSourceLabel(item.feed_source || routeName || '');
+    var badge = src ? '<span class="yai-feed-badge">' + esc(src) + '</span> ' : '';
+    var extra = item.likes != null ? ' · ♥ ' + fmt(item.likes) : '';
+    var price = item.price === 0 || item.price === '0' ? 'Free' : (item.price != null ? fmt(item.price) + ' KRW' : '');
+    var meta = routeName === 'market' && price
+      ? esc(item.creator || 'Creator') + ' · ' + price
+      : esc(item.creator || item.provider || 'Creator') + extra;
+    return '<article class="yai-discover-card yai-discover-card--feed" data-route="' + esc(routeName || 'home') + '">' +
+      badge + '<strong>' + esc(item.title || 'Work') + '</strong><span>' + meta + '</span></article>';
+  }
+
+  function showcaseCardHtml(item) {
+    var src = feedSourceLabel(item.feed_source || 'official');
+    return '<article class="yai-showcase-card yai-showcase-card--feed">' +
+      '<span class="yai-feed-badge">' + esc(src || item.type_label || item.type || 'Work') + '</span>' +
+      '<h3>' + esc(item.title || 'Work') + '</h3>' +
+      '<p>' + esc(item.prompt || item.description || item.creator || '') + '</p></article>';
   }
 
   function typeBadgeLabel(type) {
-    var map = { image: 'Image', video: 'Video', music: 'Music', voice: 'Voice', avatar: 'Avatar', writing: 'Writing' };
+    var map = { image: 'Image', video: 'Video', music: 'Music', voice: 'Voice', avatar: 'Avatar', writing: 'Writing', translation: 'Translation' };
     return map[type] || (type ? String(type) : 'Work');
   }
 
-  function workThumbHtml(w) {
-    var thumb = w.thumbnail_url || w.thumbnail || w.image_url || w.output_url || w.asset_url || '';
-    if (w.asset_missing) {
-      return '<div class="yai-work-card-thumb yai-work-card-thumb--placeholder">!</div>';
-    }
-    if (thumb && (w.type === 'image' || w.type === 'video' || w.type === 'avatar' || !w.type)) {
-      return '<div class="yai-work-card-thumb"><img src="' + esc(thumb) + '" alt=""></div>';
-    }
-    return '<div class="yai-work-card-thumb yai-work-card-thumb--placeholder">' + esc(typeBadgeLabel(w.type).substring(0, 1)) + '</div>';
+  function workCardModeArg(arg) {
+    if (arg === true) return 'carousel';
+    if (arg === false) return 'dense';
+    return arg || 'dense';
   }
 
-  function workCardHtml(w, compact) {
+  function workHoverActions(id) {
+    return '<div class="yai-work-card-hover">' +
+      '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">열기</button>' +
+      '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">프롬프트 재사용</button>' +
+      '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트 추가</button>' +
+      '<button type="button" data-work-action="share" data-work-id="' + esc(id) + '">공유</button>' +
+      '<button type="button" data-work-action="marketplace" data-work-id="' + esc(id) + '">판매</button>' +
+      '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
+    '</div>';
+  }
+
+  function galleryImg(item, opts) {
+    opts = opts || {};
+    if (window.YooYGalleryImage && typeof window.YooYGalleryImage.imgTag === 'function') {
+      return window.YooYGalleryImage.imgTag(item, opts);
+    }
+    var src = (window.YooYGalleryImage && window.YooYGalleryImage.pickUrl)
+      ? window.YooYGalleryImage.pickUrl(item, opts.size || 'large')
+      : (item.display_url || item.large_url || item.full_url || item.image_url || item.thumbnail_url || '');
+    if (!src) return '';
+    return '<img src="' + esc(src) + '" alt="" class="yai-gallery-img" loading="' + (opts.lazy === false ? 'eager' : 'lazy') + '" decoding="async">';
+  }
+
+  function workThumbSizeForMode(mode) {
+    if (mode === 'carousel' || mode === 'dense') return 'thumb';
+    return 'large';
+  }
+
+  function workThumbHtml(w, showHover, sizeArg, priority) {
     var id = w.id || '';
-    var hover = compact ? '' :
-      '<div class="yai-work-card-hover">' +
-        '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">열기</button>' +
-        '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">재사용</button>' +
-        '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트</button>' +
-        '<button type="button" data-work-action="share" data-work-id="' + esc(id) + '">공유</button>' +
-        '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
-      '</div>';
-  return '<article class="yai-work-card yai-row--work" data-work-id="' + esc(id) + '" data-work-type="' + esc(w.type || 'image') + '" role="button" tabindex="0">' +
-      workThumbHtml(w) +
-      hover +
-      '<div class="yai-work-card-body">' +
-        '<h3 class="yai-work-card-title">' + esc(w.title || '작품') + '</h3>' +
-        '<div class="yai-work-card-meta">' +
+    var size = sizeArg || 'large';
+    var hover = showHover && id ? workHoverActions(id) : '';
+    if (w.asset_missing) {
+      return '<div class="yai-work-card-thumb yai-work-card-thumb--placeholder">!' + hover + '</div>';
+    }
+    if ((w.type === 'image' || w.type === 'video' || w.type === 'avatar' || !w.type)) {
+      var img = galleryImg(w, { size: size, priority: !!priority, className: 'yai-gallery-img' });
+      if (img) {
+        return '<div class="yai-work-card-thumb">' + img + hover + '</div>';
+      }
+    }
+    return '<div class="yai-work-card-thumb yai-work-card-thumb--placeholder">' + esc(typeBadgeLabel(w.type).substring(0, 1)) + hover + '</div>';
+  }
+
+  function workCardHtml(w, modeArg) {
+    var mode = workCardModeArg(modeArg);
+    var id = w.id || '';
+    var showHover = mode !== 'carousel';
+    var dense = mode === 'dense' || mode === 'default';
+    var showcase = mode === 'showcase';
+    var cardClass = 'yai-work-card yai-row--work';
+    if (showcase) cardClass += ' yai-work-card--showcase';
+    else if (dense) cardClass += ' yai-work-card--dense';
+    else cardClass += ' yai-work-card--carousel';
+    var metaHtml = (dense || showcase)
+      ? '<div class="yai-work-card-meta yai-work-card-meta--compact">' +
+          '<span class="yai-work-type-badge">' + esc(w.type_label || typeBadgeLabel(w.type)) + '</span>' +
+          '<span>' + esc(w.provider || '—') + '</span>' +
+          '<span>' + relTime(w.updated_at || w.created_at) + '</span>' +
+        '</div>'
+      : '<div class="yai-work-card-meta">' +
           '<span class="yai-work-type-badge">' + esc(w.type_label || typeBadgeLabel(w.type)) + '</span>' +
           '<span>' + esc(w.provider || '—') + '</span>' +
           '<span>' + relTime(w.updated_at || w.created_at) + '</span>' +
           (w.project_title ? '<span>' + esc(w.project_title) + '</span>' : '') +
-        '</div>' +
+        '</div>';
+  return '<article class="' + cardClass + '" data-work-id="' + esc(id) + '" data-work-type="' + esc(w.type || 'image') + '" role="button" tabindex="0">' +
+      workThumbHtml(w, showHover, workThumbSizeForMode(mode)) +
+      '<div class="yai-work-card-body">' +
+        '<h3 class="yai-work-card-title">' + esc(w.title || '작품') + '</h3>' +
+        metaHtml +
       '</div>' +
       '<div class="yai-work-card-menu">' +
         '<button type="button" class="yai-work-menu-btn" data-work-menu="' + esc(id) + '" aria-label="작품 메뉴">⋯</button>' +
@@ -598,32 +746,128 @@
           '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">열기</button>' +
           '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">프롬프트 재사용</button>' +
           '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트에 추가</button>' +
+          '<button type="button" data-work-action="share" data-work-id="' + esc(id) + '">공유</button>' +
           '<button type="button" data-work-action="download" data-work-id="' + esc(id) + '">다운로드</button>' +
-          '<button type="button" data-work-action="marketplace" data-work-id="' + esc(id) + '">Marketplace</button>' +
+          '<button type="button" data-work-action="marketplace" data-work-id="' + esc(id) + '">Marketplace 등록</button>' +
           '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
+          (mode === 'project-detail'
+            ? '<button type="button" data-work-action="project-remove" data-work-id="' + esc(id) + '">프로젝트에서 제거</button>' +
+              '<button type="button" data-work-action="project-cover" data-work-id="' + esc(id) + '">커버로 설정</button>'
+            : '') +
         '</div>' +
       '</div>' +
     '</article>';
   }
 
+  function sectionCardHtml(w, section) {
+    var id = w.id || '';
+    var ratio = section.card_ratio || 'auto';
+    var textMode = section.text_mode || 'below';
+    var isCarousel = section.column_count === 'carousel';
+    var platform = isPlatformFeedItem(w);
+    var sourceBadge = w.feed_source
+      ? '<span class="yai-feed-badge yai-feed-badge--card">' + esc(feedSourceLabel(w.feed_source)) + '</span>'
+      : '';
+    var metaHtml = '<div class="yai-work-card-meta yai-work-card-meta--compact">' +
+      sourceBadge +
+      '<span class="yai-work-type-badge">' + esc(w.type_label || typeBadgeLabel(w.type)) + '</span>' +
+      '<span>' + esc(w.provider || w.creator || '—') + '</span>' +
+      '<span>' + relTime(w.updated_at || w.created_at) + '</span>' +
+    '</div>';
+    var openAttrs = platform
+      ? ' data-feed-item="' + esc(id) + '" data-feed-source="' + esc(w.feed_source || 'official') + '"'
+      : ' data-work-id="' + esc(id) + '" data-work-type="' + esc(w.type || 'image') + '"';
+    return '<article class="yai-work-card yai-work-card--section yai-work-card--ratio-' + esc(ratio) +
+      ' yai-work-card--text-' + esc(textMode) + (isCarousel ? ' yai-work-card--carousel' : '') +
+      ' yai-row--work' + (platform ? ' yai-work-card--platform' : '') + '"' + openAttrs + ' role="button" tabindex="0">' +
+      workThumbHtml(w, !platform, 'large') +
+      '<div class="yai-work-card-body">' +
+        '<h3 class="yai-work-card-title">' + esc(w.title || '작품') + '</h3>' +
+        metaHtml +
+      '</div>' +
+      (platform ? '' :
+      '<div class="yai-work-card-menu">' +
+        '<button type="button" class="yai-work-menu-btn" data-work-menu="' + esc(id) + '" aria-label="작품 메뉴">⋯</button>' +
+        '<div class="yai-work-menu" hidden>' +
+          '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">열기</button>' +
+          '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">프롬프트 재사용</button>' +
+          '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트 추가</button>' +
+          '<button type="button" data-work-action="share" data-work-id="' + esc(id) + '">공유</button>' +
+          '<button type="button" data-work-action="marketplace" data-work-id="' + esc(id) + '">판매</button>' +
+          '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
+        '</div>' +
+      '</div>') +
+    '</article>';
+  }
+
+  function sectionRowAttrs(section) {
+    var columnCount = section.column_count != null ? section.column_count : 4;
+    var isCarousel = columnCount === 'carousel';
+    if (isCarousel) {
+      return {
+        className: 'yai-home-section-row yai-home-section-row--carousel',
+        style: ' style="--yai-section-ratio:' + esc(section.card_ratio || 'auto') + '"'
+      };
+    }
+    var cols = parseInt(columnCount, 10);
+    if (isNaN(cols) || cols < 2) cols = 4;
+    if (cols > 6) cols = 6;
+    return {
+      className: 'yai-home-section-row yai-home-section-row--grid',
+      style: ' style="--yai-section-cols:' + cols + ';--yai-section-ratio:' + esc(section.card_ratio || 'auto') + '"'
+    };
+  }
+
+  function homeProjectSectionCard(p) {
+    var thumb = p.thumbnail_url
+      ? '<div class="yai-home-project-card__thumb"><img src="' + esc(p.thumbnail_url) + '" alt=""></div>'
+      : '<div class="yai-home-project-card__thumb yai-home-project-card__thumb--empty">📁</div>';
+    return '<article class="yai-home-project-card" data-project-open="' + esc(p.id) + '">' + thumb +
+      '<div class="yai-home-project-card__body"><h3>' + esc(p.title || 'Project') + '</h3>' +
+      '<span>' + fmt(p.asset_count || 0) + ' works · ' + relTime(p.updated_at || p.created_at) + '</span></div>' +
+      '<button type="button" class="yai-btn--outline yai-btn--sm" data-project-open="' + esc(p.id) + '">열기</button></article>';
+  }
+
   function renderHomeSections(sections) {
     var el = document.getElementById('yai-home-sections');
     if (!el) return;
-    if (!sections.length) {
+    var visible = (sections || []).filter(function (section) {
+      if (section.type === 'project') return (section.projects || []).length > 0;
+      return (section.works || []).length > 0;
+    });
+    if (!visible.length) {
       el.innerHTML = '';
       return;
     }
-    el.innerHTML = sections.map(function (section) {
+    el.innerHTML = visible.map(function (section) {
+      var columnCount = section.column_count != null ? section.column_count : 4;
+      var isCarousel = columnCount === 'carousel';
+      var moreRoute = section.source === 'marketplace' ? 'market'
+        : (section.source === 'community' ? 'community' : (section.type === 'project' ? 'projects' : 'works'));
+
+      if (section.type === 'project') {
+        var projects = section.projects || [];
+        var projectCards = projects.map(homeProjectSectionCard).join('');
+        return '<section class="yai-home-section yai-home-section--projects" data-home-section="' + esc(section.id || '') + '">' +
+          '<div class="yai-home-section-head">' +
+            '<div><h2>' + esc(section.title || 'Projects') + '</h2><p>' + esc(section.description || '') + '</p></div>' +
+            '<button type="button" class="yai-text-btn" data-route="' + esc(moreRoute) + '">더보기</button>' +
+          '</div>' +
+          '<div class="yai-home-section-row yai-home-section-row--projects">' + projectCards + '</div>' +
+        '</section>';
+      }
+
       var works = section.works || [];
-      var cards = works.length
-        ? works.map(function (w) { return workCardHtml(w, true); }).join('')
-        : '<p class="yai-muted">표시할 작품이 없습니다.</p>';
-      return '<section class="yai-home-section" data-home-section="' + esc(section.id || '') + '">' +
+      var row = sectionRowAttrs(section);
+      var cards = works.map(function (w) { return sectionCardHtml(w, section); }).join('');
+      return '<section class="yai-home-section yai-home-section--gallery' + (isCarousel ? ' yai-home-section--carousel' : ' yai-home-section--grid') +
+        '" data-home-section="' + esc(section.id || '') + '" data-section-columns="' + esc(String(columnCount)) +
+        '" data-card-ratio="' + esc(section.card_ratio || 'auto') + '" data-text-mode="' + esc(section.text_mode || 'below') + '">' +
         '<div class="yai-home-section-head">' +
           '<div><h2>' + esc(section.title || 'Section') + '</h2><p>' + esc(section.description || '') + '</p></div>' +
-          '<button type="button" class="yai-text-btn" data-route="works">더보기</button>' +
+          '<button type="button" class="yai-text-btn" data-route="' + esc(moreRoute) + '">더보기</button>' +
         '</div>' +
-        '<div class="yai-home-section-row">' + cards + '</div>' +
+        '<div class="' + row.className + '"' + row.style + '>' + cards + '</div>' +
       '</section>';
     }).join('');
   }
@@ -664,26 +908,20 @@
     var el = document.getElementById('yai-home-market');
     if (!el) return;
     if (!items.length) {
-      el.innerHTML = '<p class="yai-muted">Marketplace에 등록된 작품이 없습니다.</p>';
+      el.innerHTML = emptyBlock('🛒', 'Marketplace is empty', 'Listed templates and creator assets will appear here.', 'Browse Marketplace', 'market');
       return;
     }
-    el.innerHTML = items.map(function (it) {
-      return '<article class="yai-discover-card" data-route="market"><strong>' + esc(it.title || 'Work') + '</strong>' +
-        '<span>' + esc(it.creator || 'Creator') + ' · ' + (it.price === 0 || it.price === '0' ? 'Free' : fmt(it.price) + ' KRW') + '</span></article>';
-    }).join('');
+    el.innerHTML = items.map(function (it) { return platformDiscoverCardHtml(it, 'market'); }).join('');
   }
 
   function renderHomeCommunity(items) {
     var el = document.getElementById('yai-home-community-trending');
     if (!el) return;
     if (!items.length) {
-      el.innerHTML = '<p class="yai-muted">Community에 공유된 작품이 없습니다.</p>';
+      el.innerHTML = emptyBlock('👥', 'No trending works', 'Community highlights will appear when creators publish.', 'Open Community', 'community');
       return;
     }
-    el.innerHTML = items.map(function (it) {
-      return '<article class="yai-discover-card" data-route="community"><strong>' + esc(it.title || 'Work') + '</strong>' +
-        '<span>' + esc(it.creator || 'Creator') + ' · ♥ ' + fmt(it.likes || 0) + '</span></article>';
-    }).join('');
+    el.innerHTML = items.map(function (it) { return platformDiscoverCardHtml(it, 'community'); }).join('');
   }
 
   function launchFromHome() {
@@ -727,22 +965,20 @@
   }
 
   function renderUsageWidget(mu) {
+    var sub = document.getElementById('yai-stat-credit-usage');
+    if (sub) {
+      var pct = mu.percent || 0;
+      sub.textContent = fmt(mu.used || 0) + ' used · ' + pct + '% monthly';
+    }
     var el = document.getElementById('yai-home-usage');
-    if (!el) return;
-    var pct = mu.percent || 0;
-    el.innerHTML =
-      '<div class="yai-usage-ring">' +
-      '<svg viewBox="0 0 36 36"><path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>' +
-      '<path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#d8a63a" stroke-width="3" stroke-dasharray="' + pct + ',100"/></svg>' +
-      '<strong>' + pct + '%</strong><span>' + fmt(mu.used || 0) + ' credits used this month</span>' +
-      '<button type="button" class="yai-btn--outline" data-route="credits">Recharge Credits</button></div>';
+    if (el) el.innerHTML = '';
   }
 
   function renderProjects(items) {
     var el = document.getElementById('yai-home-projects');
     if (!el) return;
     if (!items.length) {
-      el.innerHTML = emptyBlock('', 'No projects yet', 'Create your first project to organize AI work.', 'Start Project', 'projects');
+      el.innerHTML = emptyBlock('📁', 'No projects yet', 'Create your first project to organize AI work.', 'Start Project', 'projects', true);
       return;
     }
     el.innerHTML = items.map(projectChipHtml).join('');
@@ -801,22 +1037,23 @@
 
     modal = document.createElement('div');
     modal.id = 'yai-project-modal';
-    modal.className = 'yai-modal';
+    modal.className = 'yai-modal-shell';
     modal.hidden = true;
     modal.innerHTML =
       '<div class="yai-modal-backdrop" data-yai-modal-close></div>' +
       '<div class="yai-modal-panel" role="dialog" aria-labelledby="yai-project-modal-title">' +
-        '<header class="yai-modal-head"><h2 id="yai-project-modal-title">Create Project</h2><button type="button" class="yai-modal-close" data-yai-modal-close aria-label="Close">&times;</button></header>' +
+        '<header class="yai-modal-head"><h2 id="yai-project-modal-title">프로젝트 생성</h2><button type="button" class="yai-modal-close" data-yai-modal-close aria-label="Close">&times;</button></header>' +
         '<form id="yai-project-form" class="yai-modal-body">' +
-          '<label class="yai-field"><span>Project title</span><input type="text" name="title" required maxlength="120" placeholder="My AI project"></label>' +
-          '<label class="yai-field"><span>Description</span><textarea name="description" rows="3" maxlength="500" placeholder="What is this project for?"></textarea></label>' +
-          '<label class="yai-field"><span>Type / category</span><select name="type">' +
+          '<label class="yai-field"><span>프로젝트 이름</span><input type="text" name="title" required maxlength="120" placeholder="내 AI 프로젝트"></label>' +
+          '<label class="yai-field"><span>설명</span><textarea name="description" rows="3" maxlength="500" placeholder="이 프로젝트는 무엇을 위한 것인가요?"></textarea></label>' +
+          '<label class="yai-field"><span>유형</span><select name="project_type">' +
             '<option value="mixed">Mixed</option><option value="video">Video</option><option value="image">Image</option>' +
-            '<option value="music">Music</option><option value="writing">Writing</option><option value="avatar">Avatar</option><option value="voice">Voice</option>' +
+            '<option value="music">Music</option><option value="writing">Writing</option><option value="translation">Translation</option><option value="avatar">Avatar</option><option value="voice">Voice</option>' +
           '</select></label>' +
-          '<label class="yai-field"><span>Visibility</span><select name="visibility"><option value="private">Private</option><option value="public">Public</option></select></label>' +
+          '<label class="yai-field"><span>공개 범위</span><select name="visibility"><option value="private">Private</option><option value="public">Public</option></select></label>' +
+          '<p class="yai-muted" id="yai-project-form-works-hint" hidden></p>' +
           '<p class="yai-modal-error" id="yai-project-form-error" hidden></p>' +
-          '<footer class="yai-modal-foot"><button type="button" class="yai-btn--outline" data-yai-modal-close>Cancel</button><button type="submit" class="yai-btn yai-btn--gold">Create</button></footer>' +
+          '<footer class="yai-modal-foot"><button type="button" class="yai-btn--outline" data-yai-modal-close>취소</button><button type="submit" class="yai-btn yai-btn--gold">생성</button></footer>' +
         '</form>' +
       '</div>';
     document.body.appendChild(modal);
@@ -834,13 +1071,26 @@
     return modal;
   }
 
-  function openProjectModal() {
+  function openProjectModal(workIds) {
     if (!requireLogin()) return;
+    pendingCreateWorkIds = Array.isArray(workIds)
+      ? workIds.filter(function (id) { return !!id; })
+      : (workIds ? [workIds] : []);
     var modal = ensureProjectModal();
     var form = modal.querySelector('#yai-project-form');
     form.reset();
     var err = modal.querySelector('#yai-project-form-error');
     if (err) { err.hidden = true; err.textContent = ''; }
+    var hint = modal.querySelector('#yai-project-form-works-hint');
+    if (hint) {
+      if (pendingCreateWorkIds.length) {
+        hint.textContent = '선택한 작품 ' + pendingCreateWorkIds.length + '개가 생성 후 프로젝트에 추가됩니다.';
+        hint.hidden = false;
+      } else {
+        hint.textContent = '';
+        hint.hidden = true;
+      }
+    }
     modal.hidden = false;
     document.body.classList.add('yai-modal-open');
     var titleInput = form.querySelector('[name="title"]');
@@ -852,20 +1102,34 @@
     if (!modal) return;
     modal.hidden = true;
     document.body.classList.remove('yai-modal-open');
+    pendingCreateWorkIds = [];
   }
 
   function submitProjectCreate(form) {
+    if (!Core.projects || typeof Core.projects.create !== 'function') {
+      showToast('Projects API를 사용할 수 없습니다.', true);
+      return;
+    }
+
     var errEl = document.getElementById('yai-project-form-error');
     var submitBtn = form.querySelector('[type="submit"]');
+    var titleInput = form.querySelector('[name="title"]');
+    var descInput = form.querySelector('[name="description"]');
+    var typeInput = form.querySelector('[name="project_type"]');
+    var visInput = form.querySelector('[name="visibility"]');
     var payload = {
-      title: (form.title.value || '').trim(),
-      description: (form.description.value || '').trim(),
-      type: form.type.value || 'mixed',
-      visibility: form.visibility.value || 'private'
+      title: ((titleInput && titleInput.value) || '').trim(),
+      description: ((descInput && descInput.value) || '').trim(),
+      type: (typeInput && typeInput.value) || 'mixed',
+      visibility: (visInput && visInput.value) || 'private'
     };
 
+    if (pendingCreateWorkIds.length) {
+      payload.work_ids = pendingCreateWorkIds.slice();
+    }
+
     if (!payload.title) {
-      if (errEl) { errEl.textContent = 'Project title is required.'; errEl.hidden = false; }
+      if (errEl) { errEl.textContent = '프로젝트 이름을 입력해 주세요.'; errEl.hidden = false; }
       return;
     }
 
@@ -873,13 +1137,19 @@
     if (submitBtn) submitBtn.disabled = true;
 
     Core.projects.create(payload).then(function (res) {
+      var created = (res.data && res.data.project) || res.project || null;
+      if (!created || !created.id) {
+        throw new Error('프로젝트가 생성되었지만 응답에 ID가 없습니다.');
+      }
+      pendingCreateWorkIds = [];
       closeProjectModal();
-      showToast('Project created successfully.');
+      showToast('프로젝트가 생성되었습니다.');
       loaded.projects = false;
       loadProjects();
       refreshHomeProjects();
+      openProjectDetail(created.id);
     }).catch(function (err) {
-      var msg = err.message || 'Failed to create project.';
+      var msg = err.message || '프로젝트 생성에 실패했습니다.';
       if (errEl) { errEl.textContent = msg; errEl.hidden = false; }
       showToast(msg, true);
     }).finally(function () {
@@ -904,53 +1174,201 @@
   function renderWorks(items) {
     var el = document.getElementById('yai-home-works');
     if (!el) return;
+    el.className = 'yai-block-body yai-works-grid yai-works-grid--showcase';
+    items = filterFeedWorks(items);
     if (!items.length) {
-      el.innerHTML = emptyBlock('', 'No works saved', 'Generate in any studio and save to Gallery.', 'Open Gallery', 'works');
+      if (!isLoggedIn()) {
+        el.innerHTML = '<div class="yai-empty-card"><div class="yai-empty-card-icon" aria-hidden="true">✨</div>' +
+          '<h3>작품을 불러오는 중입니다</h3><p>Official Showcase와 Community 작품이 곧 표시됩니다.</p>' +
+          '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-yai-free-start>무료로 시작하기</button></div>';
+        return;
+      }
+      el.innerHTML = emptyBlock('🖼', 'No works yet', 'Generate or import your first asset to fill the gallery.', 'Open Image Studio', 'image');
       return;
     }
-    el.innerHTML = items.slice(0, 8).map(function (w) { return workCardHtml(w, false); }).join('');
+    el.innerHTML = items.slice(0, 12).map(function (w) {
+      return isPlatformFeedItem(w)
+        ? sectionCardHtml(w, { card_ratio: 'auto', text_mode: 'below', column_count: 4 })
+        : workCardHtml(w, 'showcase');
+    }).join('');
+  }
+
+  var STUDIO_ROUTE_MAP = {
+    'video-studio': 'video',
+    'image-studio': 'image',
+    'music-studio': 'music',
+    'voice-studio': 'voice',
+    'avatar-studio': 'avatar',
+    'writing-studio': 'writing',
+    'translator-studio': 'translator'
+  };
+
+  function routeToStudioFromWork(payload, fallbackType) {
+    var studio = (payload && payload.studio) || '';
+    var routeName = STUDIO_ROUTE_MAP[studio] || (payload && payload.type) || fallbackType || 'image';
+    if (Y.YooYStudioRoute) {
+      Y.YooYStudioRoute(routeName);
+    }
+  }
+
+  function closeAllWorkMenus() {
+    document.querySelectorAll('.yai-work-menu').forEach(function (menu) {
+      menu.hidden = true;
+    });
+    document.querySelectorAll('.yai-work-card.is-menu-open').forEach(function (card) {
+      card.classList.remove('is-menu-open');
+    });
+  }
+
+  function refreshWorkViews() {
+    loadHome();
+    if (Y.YooYGallery && typeof Y.YooYGallery.reload === 'function') {
+      Y.YooYGallery.reload();
+    }
+    if (loaded['project-detail']) loadProjectDetail();
+  }
+
+  function openWorkDetail(workId) {
+    if (!workId) return;
+    if (Y.YooYGallery && typeof Y.YooYGallery.openDetail === 'function') {
+      Y.YooYGallery.openDetail(workId);
+      return;
+    }
+    if (!Core.gallery || typeof Core.gallery.item !== 'function') {
+      showToast('갤러리를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
+      return;
+    }
+    Core.gallery.item(workId).then(function (res) {
+      var item = (res.data && res.data.item) || null;
+      if (!item) {
+        showToast('작품을 찾을 수 없습니다.', true);
+        return;
+      }
+      openWorkPreview(item);
+    }).catch(function (err) {
+      showToast(err.message || '상세 정보를 불러올 수 없습니다.', true);
+    });
   }
 
   function handleWorkAction(action, workId) {
-    if (!workId || !global.YooYGallery) return;
-    if (action === 'open' || action === 'marketplace') {
-      global.YooYGallery.openDetail(workId);
+    if (!workId) return;
+
+    if (action === 'open') {
+      openWorkDetail(workId);
       return;
     }
-    if (!Core.gallery) return;
+
+    if (action === 'marketplace') {
+      if (!requireLogin()) return;
+      if (Y.YooYGallery && typeof Y.YooYGallery.openMarketplace === 'function') {
+        Y.YooYGallery.openMarketplace(workId);
+      } else {
+        showToast('Marketplace 등록 기능을 불러오지 못했습니다.', true);
+      }
+      return;
+    }
+
+    if (['regenerate', 'download', 'share', 'delete', 'project', 'project-remove', 'project-cover'].indexOf(action) !== -1 && !requireLogin()) {
+      return;
+    }
+
+    if (!Core.gallery || typeof Core.gallery.remove !== 'function') {
+      showToast('갤러리 API를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
+      return;
+    }
+
     if (action === 'regenerate') {
       Core.gallery.regenerate(workId).then(function (res) {
-        try { sessionStorage.setItem('yoy_regenerate', JSON.stringify(res.data || {})); } catch (e) { /* ignore */ }
-        if (global.YooYStudioRoute) global.YooYStudioRoute('image');
-      });
+        var payload = res.data || {};
+        try {
+          sessionStorage.setItem('yoy_regenerate', JSON.stringify(payload));
+          if (payload.reference_assets && payload.reference_assets.length) {
+            sessionStorage.setItem('yoy_reference_asset', JSON.stringify(payload.reference_assets[0]));
+          }
+        } catch (e) { /* ignore */ }
+        routeToStudioFromWork(payload, 'image');
+        showToast('프롬프트를 불러왔습니다.');
+      }).catch(function (err) { showToast(err.message || '재사용에 실패했습니다.', true); });
       return;
     }
     if (action === 'download') {
       Core.gallery.download(workId).then(function (res) {
         var info = res.data || {};
-        if (info.url) { var a = document.createElement('a'); a.href = info.url; a.download = info.filename || 'download'; a.target = '_blank'; a.click(); }
-      });
+        if (info.url) {
+          var a = document.createElement('a');
+          a.href = info.url;
+          a.download = info.filename || 'download';
+          a.target = '_blank';
+          a.click();
+          showToast('다운로드를 시작합니다.');
+        } else {
+          showToast('다운로드 URL을 찾을 수 없습니다.', true);
+        }
+      }).catch(function (err) { showToast(err.message || '다운로드에 실패했습니다.', true); });
       return;
     }
     if (action === 'share') {
       Core.gallery.share(workId).then(function (res) {
-        var url = (res.data && res.data.url) || '';
-        if (url && navigator.clipboard) navigator.clipboard.writeText(url);
-      });
+        var data = res.data || {};
+        var copy = data.url || data.text || '';
+        if (!copy) {
+          showToast('공유할 내용을 만들 수 없습니다.', true);
+          return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(copy).then(function () {
+            showToast(data.text && !data.url ? '번역문을 복사했습니다.' : '공유 링크를 복사했습니다.');
+          }).catch(function () { showToast(copy); });
+        } else {
+          showToast(copy);
+        }
+      }).catch(function (err) { showToast(err.message || '공유에 실패했습니다.', true); });
       return;
     }
     if (action === 'project') {
       openProjectPicker(workId);
       return;
     }
+    if (action === 'project-remove') {
+      Core.gallery.project(workId, '').then(function () {
+        showToast('프로젝트에서 제거했습니다.');
+        refreshWorkViews();
+        refreshHomeProjects();
+      }).catch(function (err) { showToast(err.message || '제거에 실패했습니다.', true); });
+      return;
+    }
+    if (action === 'project-cover') {
+      if (!currentProjectId) return;
+      Core.gallery.item(workId).then(function (res) {
+        var item = (res.data && res.data.item) || {};
+        var thumb = item.thumbnail_url || item.thumbnail || item.image_url || item.output_url || item.asset_url || '';
+        return Core.projects.update(currentProjectId, {
+          cover_asset_id: workId,
+          thumbnail_url: thumb
+        });
+      }).then(function () {
+        showToast('프로젝트 커버를 변경했습니다.');
+        loadProjectDetail();
+        refreshHomeProjects();
+      }).catch(function (err) { showToast(err.message || '커버 변경에 실패했습니다.', true); });
+      return;
+    }
     if (action === 'delete') {
       if (!confirm('이 작품을 삭제하시겠습니까?')) return;
-      Core.gallery.remove(workId).then(function () { loadHome(); });
+      Core.gallery.remove(workId).then(function () {
+        showToast('작품을 삭제했습니다.');
+        if (Core.notifyGalleryUpdated) Core.notifyGalleryUpdated();
+        refreshWorkViews();
+      }).catch(function (err) { showToast(err.message || '삭제에 실패했습니다.', true); });
     }
   }
 
   function openWorkPreview(work) {
-    if (!work || !work.url) return;
+    if (!work) return;
+    var mediaUrl = window.YooYGalleryImage
+      ? window.YooYGalleryImage.pickUrl(work, 'full')
+      : (work.full_url || work.original_url || work.url || work.asset_url || work.image_url || work.output_url || '');
+    if (!mediaUrl && work.type !== 'writing' && work.type !== 'translation') return;
     var overlay = document.getElementById('yai-work-preview');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -964,28 +1382,261 @@
     }
     var body = document.getElementById('yai-work-preview-body');
     if (work.type === 'video' || work.type === 'avatar') {
-      body.innerHTML = '<video src="' + esc(work.url) + '" controls autoplay style="max-width:100%"></video>';
+      body.innerHTML = '<video src="' + esc(mediaUrl) + '" controls autoplay style="max-width:100%"></video>';
     } else if (work.type === 'music' || work.type === 'voice') {
-      body.innerHTML = '<audio src="' + esc(work.url) + '" controls autoplay style="width:100%"></audio>';
+      body.innerHTML = '<audio src="' + esc(mediaUrl) + '" controls autoplay style="width:100%"></audio>';
+    } else if (work.type === 'writing') {
+      body.innerHTML = '<div class="yai-card" style="padding:16px">' + esc(work.user_prompt || work.prompt || '') + '</div>';
+    } else if (work.type === 'translation') {
+      var tr = work.translated_text || (work.meta && work.meta.translated_text) || '';
+      var src = work.user_prompt || work.prompt || '';
+      body.innerHTML = '<div class="yai-card" style="padding:16px"><p class="yai-muted">' + esc(src) +
+        '</p><hr><p><strong>' + esc(tr) + '</strong></p></div>';
     } else {
-      body.innerHTML = '<img src="' + esc(work.url) + '" alt="" style="max-width:100%;border-radius:12px">';
+      body.innerHTML = galleryImg(work, { size: 'full', lazy: false, className: 'yai-gallery-img yai-gallery-img--preview' })
+        || ('<img src="' + esc(mediaUrl) + '" alt="" class="yai-gallery-img yai-gallery-img--preview">');
     }
     overlay.hidden = false;
+  }
+
+  function activityGuidance(code) {
+    var map = {
+      provider_not_tested: 'AI 공급업체 테스트가 완료되지 않았습니다. Operations Center에서 Test Connection을 실행하세요.',
+      provider_not_configured: 'AI 공급업체 API Key가 설정되지 않았습니다.',
+      insufficient_provider_credit: 'AI 공급업체 계정의 크레딧이 부족합니다. 사용자 크레딧과는 별도입니다.',
+      invalid_size: '선택한 이미지 크기가 해당 모델에서 지원되지 않습니다. 자동 크기로 다시 시도하세요.',
+      no_output_asset: '이미지는 생성되었지만 저장 단계에서 실패했습니다. 다시 저장을 시도하세요.',
+      poll_timeout: '생성 시간이 초과되었습니다. 백그라운드 작업 또는 Provider 상태를 확인하세요.'
+    };
+    return map[code] || '생성 중 오류가 발생했습니다. 프롬프트를 수정하거나 다른 Provider로 다시 시도하세요.';
+  }
+
+  function activityStatusBadge(status) {
+    var k = String(status || '').toLowerCase();
+    if (k === 'completed' || k === 'done' || k === 'success' || k === 'succeeded') {
+      return '<span class="yai-activity-badge yai-activity-badge--done">완료</span>';
+    }
+    if (k === 'failed' || k === 'error') {
+      return '<span class="yai-activity-badge yai-activity-badge--fail">실패</span>';
+    }
+    if (k === 'running' || k === 'processing' || k === 'queued' || k === 'pending') {
+      return '<span class="yai-activity-badge yai-activity-badge--running"><span class="yai-activity-spinner"></span>진행</span>';
+    }
+    return statusTag(status);
+  }
+
+  function normalizeActivityStatus(status) {
+    return String(status || '').toLowerCase();
+  }
+
+  function isActivityCompleted(item) {
+    var s = normalizeActivityStatus(item.status);
+    return s === 'completed' || s === 'done' || s === 'success' || s === 'succeeded';
+  }
+
+  function isActivityFailed(item) {
+    var s = normalizeActivityStatus(item.status);
+    return s === 'failed' || s === 'error';
+  }
+
+  function isActivityRunning(item) {
+    var s = normalizeActivityStatus(item.status);
+    return s === 'running' || s === 'processing' || s === 'queued' || s === 'pending';
+  }
+
+  function openRunningActivity(item) {
+    try {
+      sessionStorage.setItem('yoy_resume_job', JSON.stringify({
+        job_id: item.job_id,
+        provider: item.provider || 'auto',
+        studio: item.target_route || item.type || 'image'
+      }));
+      if (item.prompt) {
+        sessionStorage.setItem('yoy_regenerate', JSON.stringify({
+          studio: item.studio || ((item.target_route || 'image') + '-studio'),
+          type: item.type,
+          prompt: item.prompt,
+          provider: 'auto',
+          settings: { default_provider: 'auto' }
+        }));
+      }
+    } catch (e) { /* ignore */ }
+    route(item.target_route || 'image');
+  }
+
+  function handleActivityClick(item) {
+    if (!item) return;
+    if (isActivityFailed(item)) {
+      openFailureResolver(item);
+      return;
+    }
+    if (isActivityCompleted(item)) {
+      if (item.work_id) {
+        openWorkDetail(item.work_id);
+        return;
+      }
+      route(item.target_route || 'image');
+      return;
+    }
+    if (isActivityRunning(item)) {
+      openRunningActivity(item);
+      return;
+    }
+    route(item.target_route || 'image');
+  }
+
+  function ensureFailureDrawer() {
+    var drawer = document.getElementById('yai-failure-drawer');
+    if (!drawer) {
+      drawer = document.createElement('aside');
+      drawer.id = 'yai-failure-drawer';
+      drawer.className = 'yai-failure-drawer';
+      drawer.hidden = true;
+      drawer.innerHTML = '<div class="yai-failure-drawer__backdrop" data-failure-close></div>' +
+        '<div class="yai-failure-drawer__panel" role="dialog" aria-labelledby="yai-failure-title">' +
+        '<header class="yai-failure-drawer__head"><h2 id="yai-failure-title">실패 작업 해결</h2>' +
+        '<button type="button" class="yai-modal-close" data-failure-close aria-label="닫기">×</button></header>' +
+        '<div class="yai-failure-drawer__body" id="yai-failure-body"></div>' +
+        '<footer class="yai-failure-drawer__foot" id="yai-failure-foot"></footer></div>';
+      document.body.appendChild(drawer);
+      drawer.addEventListener('click', function (e) {
+        if (e.target.closest('[data-failure-close]')) closeFailureResolver();
+      });
+    }
+    return drawer;
+  }
+
+  function closeFailureResolver() {
+    var drawer = document.getElementById('yai-failure-drawer');
+    if (drawer) drawer.hidden = true;
+    document.body.classList.remove('yai-failure-open');
+  }
+
+  function copyActivityLog(item) {
+    var text = [
+      'Job: ' + (item.job_id || ''),
+      'Type: ' + (item.type || ''),
+      'Provider: ' + (item.provider || ''),
+      'Model: ' + (item.model || ''),
+      'Error: ' + (item.error_code || ''),
+      'Message: ' + (item.error_message || ''),
+      'Raw: ' + (item.raw_error || '')
+    ].join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        showToast('실패 로그를 복사했습니다.');
+      }).catch(function () { showToast(text); });
+    } else {
+      showToast(text);
+    }
+  }
+
+  function retryActivityJob(item, providerOverride) {
+    var routeName = item.target_route || 'image';
+    var payload = {
+      studio: item.studio || (routeName + '-studio'),
+      type: item.type || routeName,
+      prompt: item.prompt || '',
+      provider: providerOverride || 'auto',
+      settings: { default_provider: providerOverride || 'auto' }
+    };
+    try {
+      sessionStorage.setItem('yoy_regenerate', JSON.stringify(payload));
+      if (item.job_id) {
+        sessionStorage.setItem('yoy_resume_job', JSON.stringify({ job_id: item.job_id, studio: routeName }));
+      }
+    } catch (e) { /* ignore */ }
+    closeFailureResolver();
+    route(routeName);
+    showToast('재시도를 위해 Studio를 열었습니다.');
+  }
+
+  function deleteActivityJob(item) {
+    if (!item || !item.job_id) return;
+    if (!window.confirm('이 실패 작업을 삭제할까요?')) return;
+    if (!Core.deleteJob) {
+      showToast('삭제 API를 사용할 수 없습니다.', true);
+      return;
+    }
+    Core.deleteJob(item.job_id).then(function () {
+      homeActivityCache = homeActivityCache.filter(function (j) {
+        return (j.job_id || j.id) !== item.job_id;
+      });
+      renderJobs(homeActivityCache);
+      closeFailureResolver();
+      showToast('실패 작업을 삭제했습니다.');
+    }).catch(function (err) {
+      showToast(err.message || '삭제에 실패했습니다.', true);
+    });
+  }
+
+  function openFailureResolver(item) {
+    var drawer = ensureFailureDrawer();
+    var body = document.getElementById('yai-failure-body');
+    var foot = document.getElementById('yai-failure-foot');
+    if (!body || !foot) return;
+
+    var guidance = activityGuidance(item.error_code);
+    var jobId = esc(item.job_id || item.id || '');
+
+    body.innerHTML = '<div class="yai-failure-meta">' +
+      '<div class="yai-failure-row"><span>작업 타입</span><strong>' + esc(typeBadgeLabel(item.type)) + '</strong></div>' +
+      '<div class="yai-failure-row"><span>Provider</span><strong>' + esc(item.provider || '—') + '</strong></div>' +
+      '<div class="yai-failure-row"><span>Model</span><strong>' + esc(item.model || '—') + '</strong></div>' +
+      '<div class="yai-failure-row"><span>발생 시간</span><strong>' + relTime(item.updated_at || item.created_at) + '</strong></div>' +
+      '</div>' +
+      '<div class="yai-failure-prompt"><label>원본 Prompt</label><p>' + esc(item.prompt || '—') + '</p></div>' +
+      '<div class="yai-failure-alert yai-failure-alert--error"><strong>' + esc(item.error_code || 'generation_failed') + '</strong>' +
+      '<p>' + esc(guidance) + '</p>' +
+      (item.error_message ? '<p class="yai-failure-raw">' + esc(item.error_message) + '</p>' : '') +
+      (item.raw_error ? '<pre class="yai-failure-raw">' + esc(String(item.raw_error).slice(0, 600)) + '</pre>' : '') +
+      '</div>' +
+      '<div id="yai-failure-credits" class="yai-failure-credits"><p>크레딧 상태 확인 중…</p></div>';
+
+    foot.innerHTML =
+      '<button type="button" class="yai-btn yai-btn--gold" data-failure-action="retry" data-failure-job="' + jobId + '">Smart Auto 재시도</button>' +
+      '<button type="button" class="yai-btn--outline" data-failure-action="retry-provider" data-provider="' + esc(item.provider || 'auto') + '" data-failure-job="' + jobId + '">같은 Provider 재시도</button>' +
+      '<button type="button" class="yai-btn--outline" data-failure-action="copy" data-failure-job="' + jobId + '">로그 복사</button>' +
+      '<button type="button" class="yai-btn--outline yai-btn--danger" data-failure-action="delete" data-failure-job="' + jobId + '">삭제</button>' +
+      (Core.config.isAdmin
+        ? '<button type="button" class="yai-btn--outline" data-failure-action="admin" data-failure-job="' + jobId + '">Provider 설정</button>'
+        : '<button type="button" class="yai-btn--outline" data-failure-action="contact" data-failure-job="' + jobId + '">관리자에게 문의</button>');
+
+    drawer.hidden = false;
+    document.body.classList.add('yai-failure-open');
+
+    Core.dashboard().then(function (res) {
+      var d = res.data || {};
+      var cr = d.credits || {};
+      var creditsEl = document.getElementById('yai-failure-credits');
+      if (!creditsEl) return;
+      var userCredit = cr.unlimited ? '무제한 (∞)' : fmt(cr.balance) + ' Credits';
+      var billingNote = item.error_code === 'insufficient_provider_credit'
+        ? 'AI 공급업체 계정 크레딧 부족 (사용자 크레딧과 별도)'
+        : '공급업체 계정 상태는 Operations Center에서 확인하세요.';
+      creditsEl.innerHTML =
+        '<div class="yai-failure-row"><span>사용자 크레딧</span><strong>' + esc(userCredit) + '</strong></div>' +
+        '<div class="yai-failure-row"><span>Provider Billing</span><strong>' + esc(billingNote) + '</strong></div>';
+    }).catch(function () {});
   }
 
   function renderJobs(items) {
     var el = document.getElementById('yai-home-jobs');
     if (!el) return;
-    var compact = (items || []).slice(0, 7);
-    if (!compact.length) {
-      el.innerHTML = emptyBlock('', 'No activity yet', 'Your generation history appears here.', 'Create Now', 'video');
+    homeActivityCache = (items || []).slice(0, 7);
+    if (!homeActivityCache.length) {
+      el.innerHTML = emptyBlock('⚡', 'No activity yet', '생성 기록이 여기에 표시됩니다.', 'Create Now', 'image');
       return;
     }
-    el.innerHTML = compact.map(function (j) {
-      var status = String(j.status || 'pending').toLowerCase();
-      var label = typeBadgeLabel(j.type || j.studio || 'Generation');
-      return '<div class="yai-timeline-item">' + statusTag(status) +
-        '<div><strong>' + esc(label) + '</strong><span>' + relTime(j.updated_at || j.created_at) + '</span></div></div>';
+    el.innerHTML = homeActivityCache.map(function (j) {
+      var aid = esc(j.job_id || j.id || '');
+      var label = esc(j.title || typeBadgeLabel(j.type || 'Generation'));
+      var time = relTime(j.updated_at || j.created_at);
+      return '<button type="button" class="yai-activity-item" data-activity-id="' + aid + '">' +
+        activityStatusBadge(j.status) +
+        '<div class="yai-activity-item__body"><strong>' + label + '</strong>' +
+        '<span>' + esc(typeBadgeLabel(j.type)) + ' · ' + time + '</span></div>' +
+        '<span class="yai-activity-item__chev" aria-hidden="true">›</span></button>';
     }).join('');
   }
 
@@ -993,7 +1644,7 @@
     var el = document.getElementById('yai-home-announcements');
     if (!el) return;
     if (!items.length) {
-      el.innerHTML = emptyBlock('', 'No announcements', 'Platform updates will appear here.', 'Settings', 'settings');
+      el.innerHTML = emptyBlock('📢', 'No announcements', 'Platform updates and release notes will appear here.', 'Settings', 'settings');
       return;
     }
     el.innerHTML = items.map(function (a) {
@@ -1006,27 +1657,26 @@
     var el = document.getElementById('yai-showcase');
     if (!el) return;
     if (!items.length) {
-      el.innerHTML = emptyBlock('', 'Showcase is empty', 'Share works to Community to populate the showcase.', 'Community', 'community');
+      el.innerHTML = emptyBlock('✦', 'Official showcase empty', 'Curated platform highlights will appear when configured.', 'Explore Community', 'community');
       return;
     }
-    el.innerHTML = items.map(function (it) {
-      return '<article class="yai-showcase-card"><span>' + esc(it.type_label || it.type || 'Work') + '</span>' +
-        '<h3>' + esc(it.title || 'Work') + '</h3><p>' + esc(it.prompt || it.creator || '') + '</p></article>';
-    }).join('');
+    el.innerHTML = items.map(function (it) { return showcaseCardHtml(it); }).join('');
   }
 
   function renderHomeEmpty() {
+    if (!isLoggedIn()) {
+      loadHome();
+      return;
+    }
     setText('yai-stat-credits', '—');
     setText('yai-stat-projects', '0');
-    setText('yai-stat-jobs', '0');
+    setText('yai-stat-works', '0');
     setText('yai-stat-likes', '0');
-    setText('yai-stat-usage', '0 / 0');
     setText('yai-top-credits', 'Login to start creating');
     var head = document.querySelector('.yai-home-head h1');
     if (head && !isLoggedIn()) {
       head.textContent = 'Login to start creating ✨';
     }
-    renderProjects([]);
     renderWorks([]);
     renderJobs([]);
     renderAnnouncements([]);
@@ -1065,7 +1715,11 @@
       var works = (results[1].data && (results[1].data.works || results[1].data.items)) || [];
 
       if (titleEl) titleEl.textContent = project.title || 'Project';
-      if (descEl) descEl.textContent = project.description || '프로젝트 작품을 관리합니다.';
+      if (descEl) {
+        var visLabel = project.visibility === 'public' ? 'Public' : 'Private';
+        descEl.textContent = (project.description || '프로젝트 작품을 관리합니다.') +
+          ' · ' + fmt(project.asset_count || works.length || 0) + ' works · ' + visLabel;
+      }
       if (coverEl) {
         coverEl.innerHTML = project.thumbnail_url
           ? '<img src="' + esc(project.thumbnail_url) + '" alt="">'
@@ -1086,10 +1740,30 @@
         : works.filter(function (w) { return w.type === projectDetailFilter; });
 
       if (!filtered.length) {
-        worksEl.innerHTML = emptyBlock('', 'No works in project', 'Gallery에서 작품을 이 프로젝트에 추가하세요.', 'Gallery', 'works');
+        worksEl.innerHTML =
+          '<div class="yai-project-detail-toolbar">' +
+            '<button type="button" class="yai-btn yai-btn--gold" id="yai-project-add-works">작품 추가</button>' +
+            '<span class="yai-muted">0 works</span>' +
+          '</div>' +
+          emptyBlock('', 'No works in project', 'Gallery에서 작품을 이 프로젝트에 추가하세요.', 'Gallery', 'works');
+        var addBtnEmpty = document.getElementById('yai-project-add-works');
+        if (addBtnEmpty) addBtnEmpty.addEventListener('click', function () { route('works'); });
         return;
       }
-      worksEl.innerHTML = filtered.map(function (w) { return workCardHtml(w, false); }).join('');
+      worksEl.innerHTML =
+        '<div class="yai-project-detail-toolbar">' +
+          '<button type="button" class="yai-btn yai-btn--gold" id="yai-project-add-works">작품 추가</button>' +
+          '<span class="yai-muted">' + fmt(filtered.length) + ' works</span>' +
+        '</div>' +
+        '<div class="yai-works-grid yai-works-grid--dense">' +
+          filtered.map(function (w) { return workCardHtml(w, 'project-detail'); }).join('') +
+        '</div>';
+      var addBtn = document.getElementById('yai-project-add-works');
+      if (addBtn) {
+        addBtn.addEventListener('click', function () {
+          route('works');
+        });
+      }
     }).catch(function (err) {
       worksEl.innerHTML = emptyBlock('', 'Could not load project', err.message || 'Request failed.', 'Back', 'projects');
     });
@@ -1100,7 +1774,7 @@
     if (modal) return modal;
     modal = document.createElement('div');
     modal.id = 'yai-project-picker-modal';
-    modal.className = 'yai-modal';
+    modal.className = 'yai-modal-shell';
     modal.hidden = true;
     modal.innerHTML =
       '<div class="yai-modal-backdrop" data-yai-picker-close></div>' +
@@ -1154,25 +1828,65 @@
   }
 
   function assignWorkToProject(projectId) {
-    if (!pickerWorkId || !Core.gallery) return;
+    if (!pickerWorkId || !Core.gallery || typeof Core.gallery.project !== 'function') return;
     Core.gallery.project(pickerWorkId, projectId).then(function () {
       closeProjectPicker();
       showToast(projectId ? '프로젝트에 추가했습니다.' : '프로젝트에서 제거했습니다.');
-      loadHome();
-      if (loaded['project-detail']) loadProjectDetail();
+      refreshWorkViews();
+      refreshHomeProjects();
     }).catch(function (err) {
-      showToast(err.message || 'Failed to update project.', true);
+      showToast(err.message || '프로젝트 연결에 실패했습니다.', true);
+    });
+  }
+
+  function renderProjectsEmpty(el) {
+  el.innerHTML =
+      '<div class="yai-empty">' +
+        '<h3>프로젝트가 없습니다</h3>' +
+        '<p>프로젝트를 만들고 작품을 묶어 관리하세요.</p>' +
+        '<button type="button" class="yai-btn yai-btn--gold" data-yai-create-project>프로젝트 생성</button>' +
+      '</div>' +
+      '<div id="yai-projects-suggest" class="yai-projects-suggest"><p class="yai-muted">Loading recent works…</p></div>';
+
+    if (!Core.gallery || typeof Core.gallery.works !== 'function') return;
+
+    Core.gallery.works().then(function (res) {
+      var works = (res.data && (res.data.works || res.data.items)) || [];
+      var unassigned = works.filter(function (w) { return !(w.project_id || ''); }).slice(0, 6);
+      var suggestEl = document.getElementById('yai-projects-suggest');
+      if (!suggestEl) return;
+      if (!unassigned.length) {
+        suggestEl.innerHTML = '<p class="yai-muted">프로젝트에 추가할 최근 작품이 없습니다.</p>';
+        return;
+      }
+      suggestEl.innerHTML =
+        '<h3>최근 작품 — 새 프로젝트에 추가</h3>' +
+        '<div class="yai-works-grid yai-works-grid--dense">' +
+          unassigned.map(function (w) {
+            return '<div class="yai-project-suggest-item">' +
+              workCardHtml(w, 'dense') +
+              '<button type="button" class="yai-btn yai-btn--gold yai-project-suggest-add" data-add-to-new-project="' + esc(w.id) + '">새 프로젝트에 추가</button>' +
+            '</div>';
+          }).join('') +
+        '</div>';
+    }).catch(function () {
+      var suggestEl = document.getElementById('yai-projects-suggest');
+      if (suggestEl) suggestEl.innerHTML = '';
     });
   }
 
   function loadProjects() {
     var el = document.getElementById('yai-projects-list');
     if (!el) return;
+    if (!isLoggedIn()) {
+      el.innerHTML = emptyBlock('', 'Login required', '로그인 후 프로젝트를 관리할 수 있습니다.', 'Home', 'home');
+      return;
+    }
     el.innerHTML = '<div class="yai-empty"><p>Loading projects…</p></div>';
     Core.projects.list().then(function (res) {
       var items = (res.data && res.data.projects) || [];
       if (!items.length) {
-        el.innerHTML = emptyBlock('', 'No projects', 'Start your first project.', 'Create', null, true);
+        renderProjectsEmpty(el);
         return;
       }
       el.innerHTML = '<div class="yai-project-grid">' + items.map(projectCardHtml).join('') + '</div>';
@@ -1554,6 +2268,12 @@
       return;
     }
 
+    if (e.target.closest('[data-yai-free-start]')) {
+      e.preventDefault();
+      window.location.href = registerUrl();
+      return;
+    }
+
     if (e.target.closest('[data-yai-close-modal]')) {
       hideLoginModal();
       return;
@@ -1567,8 +2287,18 @@
     var createBtn = e.target.closest('[data-yai-create-project]');
     if (createBtn) {
       e.preventDefault();
+      e.stopPropagation();
       if (!requireLogin()) return;
       openProjectModal();
+      return;
+    }
+
+    var addToNewProject = e.target.closest('[data-add-to-new-project]');
+    if (addToNewProject) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!requireLogin()) return;
+      openProjectModal([addToNewProject.getAttribute('data-add-to-new-project')]);
       return;
     }
 
@@ -1576,6 +2306,41 @@
     if (pickerProject) {
       e.preventDefault();
       assignWorkToProject(pickerProject.getAttribute('data-picker-project') || '');
+      return;
+    }
+
+    var activityBtn = e.target.closest('[data-activity-id]');
+    if (activityBtn) {
+      e.preventDefault();
+      var aid = activityBtn.getAttribute('data-activity-id');
+      var activityItem = homeActivityCache.find(function (j) {
+        return (j.job_id || j.id) === aid;
+      });
+      if (activityItem) handleActivityClick(activityItem);
+      return;
+    }
+
+    var failureAction = e.target.closest('[data-failure-action]');
+    if (failureAction) {
+      e.preventDefault();
+      var fAction = failureAction.getAttribute('data-failure-action');
+      var fid = failureAction.getAttribute('data-failure-job');
+      var fitem = homeActivityCache.find(function (j) {
+        return (j.job_id || j.id) === fid;
+      });
+      if (!fitem) return;
+      if (fAction === 'retry') retryActivityJob(fitem, 'auto');
+      else if (fAction === 'retry-provider') {
+        retryActivityJob(fitem, failureAction.getAttribute('data-provider') || 'auto');
+      } else if (fAction === 'delete') deleteActivityJob(fitem);
+      else if (fAction === 'copy') copyActivityLog(fitem);
+      else if (fAction === 'admin') {
+        pendingAdminSection = 'providers';
+        closeFailureResolver();
+        route('admin-console');
+      } else if (fAction === 'contact') {
+        showToast('관리자에게 문의해 주세요. Job ID: ' + (fitem.job_id || ''));
+      }
       return;
     }
 
@@ -1594,6 +2359,26 @@
       return;
     }
 
+    var feedItem = e.target.closest('[data-feed-item]');
+    if (feedItem) {
+      e.preventDefault();
+      var feedSource = feedItem.getAttribute('data-feed-source') || 'official';
+      var titleEl = feedItem.querySelector('.yai-work-card-title');
+      var promptText = titleEl ? (titleEl.textContent || '').trim() : '';
+      if (feedSource === 'community') {
+        route('community');
+        return;
+      }
+      if (feedSource === 'marketplace') {
+        route('market');
+        return;
+      }
+      try { sessionStorage.setItem('yoy_home_prompt', promptText); } catch (err) {}
+      showToast((feedSourceLabel(feedSource) || 'Platform') + ' 작품 · Studio에서 만들기');
+      route('image');
+      return;
+    }
+
     var workRow = e.target.closest('.yai-work-card, .yai-row--work');
     if (workRow) {
       var quickAction = e.target.closest('[data-work-action]');
@@ -1601,31 +2386,35 @@
         e.preventDefault();
         e.stopPropagation();
         handleWorkAction(quickAction.getAttribute('data-work-action'), quickAction.getAttribute('data-work-id'));
+        closeAllWorkMenus();
         return;
       }
-      if (e.target.closest('[data-work-menu]') || e.target.closest('.yai-work-menu')) {
-        var menuBtn = e.target.closest('[data-work-menu]');
-        if (menuBtn) {
-          e.preventDefault();
-          e.stopPropagation();
-          var wrap = menuBtn.closest('.yai-work-menu-wrap, .yai-work-card-menu');
-          var menu = wrap && wrap.querySelector('.yai-work-menu');
-          if (menu) menu.hidden = !menu.hidden;
+      var menuBtn = e.target.closest('[data-work-menu]');
+      if (menuBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var wrap = menuBtn.closest('.yai-work-card-menu');
+        var menu = wrap && wrap.querySelector('.yai-work-menu');
+        var card = menuBtn.closest('.yai-work-card');
+        var willOpen = menu && menu.hidden;
+        closeAllWorkMenus();
+        if (willOpen && menu) {
+          menu.hidden = false;
+          if (card) card.classList.add('is-menu-open');
         }
-        var actionBtn = e.target.closest('[data-work-action]');
-        if (actionBtn) {
-          e.preventDefault();
-          e.stopPropagation();
-          handleWorkAction(actionBtn.getAttribute('data-work-action'), actionBtn.getAttribute('data-work-id'));
-        }
+        return;
+      }
+      if (e.target.closest('.yai-work-menu')) {
         return;
       }
       e.preventDefault();
       var workId = workRow.getAttribute('data-work-id');
-      if (workId && global.YooYGallery && global.YooYGallery.openDetail) {
-        global.YooYGallery.openDetail(workId);
-      }
+      if (workId) openWorkDetail(workId);
       return;
+    }
+
+    if (!e.target.closest('.yai-work-card-menu')) {
+      closeAllWorkMenus();
     }
 
     var renameBtn = e.target.closest('.yai-project-rename');
@@ -1678,6 +2467,8 @@
     var btn = e.target.closest('[data-route]');
     if (!btn) return;
     e.preventDefault();
+    var adminSec = btn.getAttribute('data-admin-section');
+    if (adminSec) pendingAdminSection = adminSec;
     route(btn.dataset.route);
   });
 
@@ -1738,6 +2529,16 @@
 
   loadProfile();
   watchBillingReturn();
+  ensureProjectModal();
+  var projectsCreateBtn = document.getElementById('yai-projects-create-btn');
+  if (projectsCreateBtn) {
+    projectsCreateBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!requireLogin()) return;
+      openProjectModal();
+    });
+  }
   route('home');
   window.YooYStudioRoute = route;
   window.YooYStudioOpenProject = openProjectDetail;

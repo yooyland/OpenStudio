@@ -1,0 +1,412 @@
+/* YooY AI Studio — Global Form Design System v11.8.1 */
+
+:root {
+  --yoy-form-bg: #101010;
+  --yoy-form-bg-soft: #141414;
+  --yoy-form-color: #ffffff;
+  --yoy-form-muted: rgba(255, 255, 255, 0.72);
+  --yoy-form-border: rgba(255, 215, 106, 0.28);
+  --yoy-form-border-focus: #ffd76a;
+  --yoy-form-focus-ring: rgba(255, 215, 106, 0.12);
+  --yoy-form-radius: 14px;
+  --yoy-form-height: 48px;
+  --yoy-form-font: 15px;
+  --yoy-form-gap: 20px;
+  --yoy-form-label: 14px;
+  --yoy-form-section-gap: 32px;
+  --yoy-form-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23FFD76A' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+}
+
+/* ── Scoped form reset ── */
+.yai-app,
+.yai-ops-console,
+.yis-studio,
+.yvs-studio,
+.yms-studio,
+.yas-studio,
+.ygl-root,
+.ygl-market-panel,
+#yai-admin-console,
+#yai-ops-config-modal,
+#yai-ops-section-editor {
+  --yoy-form-scope: 1;
+}
+
+.yai-app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.yai-app select,
+.yai-app textarea,
+.yai-ops-console input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.yai-ops-console select,
+.yai-ops-console textarea,
+.yis-studio input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.yis-studio select,
+.yvs-studio select,
+.yis-studio textarea,
+.yvs-studio input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.yvs-studio select,
+.yvs-studio textarea,
+.ygl-market-panel input:not([type="checkbox"]):not([type="radio"]),
+.ygl-market-panel select,
+.ygl-market-panel textarea,
+.ygl-drawer input:not([type="checkbox"]):not([type="radio"]),
+.ygl-drawer textarea,
+#yai-admin-console input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+#yai-admin-console select,
+#yai-admin-console textarea {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--yoy-form-bg);
+  border: 1px solid var(--yoy-form-border);
+  border-radius: var(--yoy-form-radius);
+  box-sizing: border-box;
+  color: var(--yoy-form-color);
+  font-family: inherit;
+  font-size: var(--yoy-form-font);
+  line-height: 1.4;
+  max-width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+
+.yai-app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+.yai-ops-console input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+.yis-studio input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+.yvs-studio input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+.ygl-market-panel input:not([type="checkbox"]):not([type="radio"]),
+#yai-admin-console input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]) {
+  height: var(--yoy-form-height);
+  padding: 0 16px;
+}
+
+.yai-app select,
+.yai-ops-console select,
+.yis-studio select,
+.yvs-studio select,
+.ygl-market-panel select,
+#yai-admin-console select {
+  background-image: var(--yoy-form-select-arrow);
+  background-position: right 14px center;
+  background-repeat: no-repeat;
+  background-size: 12px 8px;
+  cursor: pointer;
+  height: var(--yoy-form-height);
+  padding: 0 42px 0 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.yai-app textarea,
+.yai-ops-console textarea,
+.yis-studio textarea,
+.ygl-market-panel textarea,
+.ygl-drawer textarea,
+#yai-admin-console textarea {
+  min-height: 140px;
+  padding: 14px 16px;
+  resize: vertical;
+}
+
+.yai-app input::placeholder,
+.yai-ops-console input::placeholder,
+.yis-studio input::placeholder,
+.ygl-market-panel input::placeholder,
+#yai-admin-console input::placeholder,
+.yai-app textarea::placeholder,
+.yai-ops-console textarea::placeholder,
+.yis-studio textarea::placeholder,
+.ygl-market-panel textarea::placeholder,
+#yai-admin-console textarea::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.yai-app input:focus,
+.yai-app select:focus,
+.yai-app textarea:focus,
+.yai-ops-console input:focus,
+.yai-ops-console select:focus,
+.yai-ops-console textarea:focus,
+.yis-studio input:focus,
+.yis-studio select:focus,
+.yis-studio textarea:focus,
+.ygl-market-panel input:focus,
+.ygl-market-panel select:focus,
+.ygl-market-panel textarea:focus,
+.ygl-drawer input:focus,
+.ygl-drawer textarea:focus,
+#yai-admin-console input:focus,
+#yai-admin-console select:focus,
+#yai-admin-console textarea:focus {
+  border-color: var(--yoy-form-border-focus);
+  box-shadow: 0 0 0 3px var(--yoy-form-focus-ring);
+  outline: none;
+}
+
+.yai-app input:disabled,
+.yai-app select:disabled,
+.yai-app textarea:disabled,
+.yai-ops-console input:disabled,
+.yai-ops-console select:disabled,
+.yai-ops-console textarea:disabled,
+.yis-studio input:disabled,
+.yis-studio select:disabled,
+.yis-studio textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.yai-app select option,
+.yai-ops-console select option,
+.yis-studio select option,
+.ygl-market-panel select option,
+#yai-admin-console select option {
+  background: #0d0d0d;
+  color: #ffffff;
+}
+
+/* ── Labels & field wrappers ── */
+.yai-field,
+.yai-form-field,
+.yis-field,
+.yis-locked-field,
+.yai-ops-field-row,
+.yai-ops-form-grid label,
+.yai-ops-section-form label,
+#yai-ops-section-editor label,
+.ygl-market-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.yai-field > span,
+.yai-form-label,
+.yis-field > label,
+.yis-locked-field__head label,
+.yai-ops-field-label,
+.yai-ops-form-grid label,
+.yai-ops-section-form label,
+#yai-ops-section-editor label,
+.ygl-market-panel label {
+  color: var(--yoy-form-muted);
+  font-size: var(--yoy-form-label);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.yis-prompt-label {
+  color: var(--yoy-form-muted);
+  font-size: var(--yoy-form-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.yai-ops-form-grid label,
+.yai-ops-section-form label,
+#yai-ops-section-editor label {
+  color: rgba(255, 255, 255, 0.78);
+  gap: 8px;
+}
+
+/* ── Form grids ── */
+.yai-form-grid,
+.yai-ops-form-grid {
+  display: grid;
+  gap: var(--yoy-form-gap);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.yai-form-grid--2,
+.yai-ops-form-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.yai-form-span-2,
+.yai-ops-form-span-2 {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1024px) {
+  .yai-form-grid,
+  .yai-ops-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .yai-form-grid,
+  .yai-form-grid--2,
+  .yai-ops-form-grid,
+  .yai-ops-form-grid--2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Checkbox / radio ── */
+.yai-app input[type="checkbox"],
+.yai-app input[type="radio"],
+.yai-ops-console input[type="checkbox"],
+.yai-ops-console input[type="radio"],
+.yis-studio input[type="checkbox"],
+.yis-studio input[type="radio"],
+.ygl-market-panel input[type="checkbox"],
+.ygl-check,
+.yai-ops-check-label,
+.yai-ops-check-row {
+  accent-color: #ffd76a;
+}
+
+.yai-ops-check-label,
+.yai-ops-check-row,
+.yis-check-row,
+.ygl-check {
+  align-items: center;
+  color: rgba(255, 255, 255, 0.82);
+  display: flex;
+  flex-direction: row;
+  font-size: 14px;
+  gap: 10px;
+}
+
+.yai-ops-check-label input[type="checkbox"],
+.yis-check-row input[type="checkbox"],
+.ygl-check input[type="checkbox"] {
+  flex-shrink: 0;
+  height: 18px;
+  width: 18px;
+}
+
+/* ── Auto / Manual pill ── */
+.yis-lock-btn,
+.yai-form-auto-pill {
+  background: #151515;
+  border: 1px solid rgba(255, 215, 106, 0.28);
+  border-radius: 999px;
+  color: #ccc;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 5px 12px;
+  text-transform: uppercase;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.yis-lock-btn:hover,
+.yai-form-auto-pill:hover {
+  border-color: rgba(255, 215, 106, 0.5);
+  color: #ffd76a;
+}
+
+.yis-lock-btn.is-auto,
+.yai-form-auto-pill.is-auto {
+  background: rgba(110, 231, 160, 0.1);
+  border-color: rgba(110, 231, 160, 0.45);
+  color: #9ee6b8;
+}
+
+.yis-lock-btn.is-manual,
+.yai-form-auto-pill.is-manual {
+  background: rgba(255, 215, 106, 0.08);
+  border-color: rgba(255, 215, 106, 0.55);
+  color: #ffd76a;
+}
+
+.yis-locked-field__head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 22px;
+}
+
+.yis-locked-field__head label {
+  flex: 1;
+  min-width: 0;
+}
+
+.yis-locked-field__body {
+  position: relative;
+  z-index: 0;
+}
+
+.yis-locked-field:focus-within {
+  z-index: 2;
+}
+
+.yis-locked-field:focus-within .yis-locked-field__body {
+  z-index: 3;
+}
+
+/* ── API key row ── */
+.yai-form-secret-row,
+.yai-ops-secret-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.yai-form-secret-row input,
+.yai-ops-secret-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.yai-form-secret-toggle,
+.yai-ops-secret-toggle {
+  align-items: center;
+  background: #151515;
+  border: 1px solid rgba(255, 215, 106, 0.28);
+  border-radius: var(--yoy-form-radius);
+  color: #ffd76a;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  height: var(--yoy-form-height);
+  justify-content: center;
+  min-width: 72px;
+  padding: 0 12px;
+}
+
+.yai-form-secret-toggle:hover,
+.yai-ops-secret-toggle:hover {
+  border-color: #ffd76a;
+}
+
+/* ── Modal form body ── */
+.yai-modal-body .yai-field + .yai-field,
+.yai-modal-body .yai-form-field + .yai-form-field {
+  margin-top: 14px;
+}
+
+.yai-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Fieldset ── */
+.yai-app fieldset,
+.yai-ops-console fieldset,
+.yis-studio fieldset {
+  border: 1px solid rgba(255, 215, 106, 0.18);
+  border-radius: 12px;
+  margin: 0;
+  padding: 16px;
+}
+
+.yai-app legend,
+.yai-ops-console legend,
+.yis-studio legend {
+  color: #ffd76a;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 6px;
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="600" viewBox="0 0 480 600" role="img" aria-label="YooY Showcase">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1208"/>
+      <stop offset="45%" stop-color="#3d2e10"/>
+      <stop offset="100%" stop-color="#d8a63a"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="600" fill="url(#g)"/>
+  <circle cx="240" cy="250" r="72" fill="rgba(255,215,106,0.18)" stroke="rgba(255,215,106,0.55)" stroke-width="3"/>
+  <text x="240" y="390" fill="#ffd76a" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle">YooY</text>
+  <text x="240" y="430" fill="#e8d5a8" font-family="Segoe UI, Arial, sans-serif" font-size="16" text-anchor="middle">Official Showcase</text>
+</svg>

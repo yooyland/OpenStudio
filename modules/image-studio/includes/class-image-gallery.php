@@ -36,13 +36,13 @@ final class YooY_Image_Gallery {
         foreach (($result['images'] ?? []) as $i => $img) {
             $url = $img['url'] ?? '';
             $attachment_id = (int) ($img['attachment_id'] ?? 0);
+            $manifest = [];
             if ($attachment_id > 0) {
-                $resolved = YooY_Asset_Generator::resolve_attachment($attachment_id);
-                if (!empty($resolved['url'])) {
-                    $url = $resolved['url'];
-                }
-                if (empty($img['thumbnail']) && !empty($resolved['thumbnail'])) {
-                    $img['thumbnail'] = $resolved['thumbnail'];
+                $manifest = YooY_Asset_Generator::resolve_attachment($attachment_id);
+                if (!empty($manifest['full_url'])) {
+                    $url = $manifest['full_url'];
+                } elseif (!empty($manifest['url'])) {
+                    $url = $manifest['url'];
                 }
             }
             if (!YooY_Asset_Generator::is_http_asset_url($url) && $attachment_id <= 0) {
@@ -50,13 +50,7 @@ final class YooY_Image_Gallery {
                 continue;
             }
 
-            $thumb = $img['thumbnail'] ?? $url;
-            if ($attachment_id > 0) {
-                $resolved = YooY_Asset_Generator::resolve_attachment($attachment_id);
-                if (!empty($resolved['thumbnail'])) {
-                    $thumb = $resolved['thumbnail'];
-                }
-            }
+            $thumb = $img['thumbnail'] ?? ($manifest['thumbnail_url'] ?? $url);
 
             $job_id = (string) ($result['job_id'] ?? '');
             $this->log_gallery_event('before', $user_id, $result, $i, $url, $attachment_id, $thumb);
@@ -76,6 +70,11 @@ final class YooY_Image_Gallery {
                 'attachment_id' => $attachment_id,
                 'credits_used'  => (int) ($result['credits_used'] ?? 0),
                 'image_url'     => $url,
+                'original_url'  => $manifest['original_url'] ?? $url,
+                'full_url'      => $manifest['full_url'] ?? $url,
+                'large_url'     => $manifest['large_url'] ?? $url,
+                'medium_large_url' => $manifest['medium_large_url'] ?? $url,
+                'images'        => $manifest['images'] ?? [],
                 'thumbnail_url' => $thumb ?: $url,
                 'thumbnail'     => $thumb ?: $url,
                 'output_url'    => $url,

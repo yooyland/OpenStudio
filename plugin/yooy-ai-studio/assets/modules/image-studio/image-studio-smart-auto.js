@@ -11,7 +11,7 @@
     k_culture: { id: 'k_culture', label: 'K-Culture', style: 'k-beauty', brand_tone: 'youthful', quality: 'hd', product_type: 'cosmetics' }
   };
 
-  var PREMIUM_NEGATIVE = 'cartoon, anime, illustration, childish, low quality, blurry, watermark, distorted, amateur, oversaturated, clip art';
+  var PREMIUM_NEGATIVE = 'text, words, letters, typography, captions, watermarks, cartoon, anime, illustration, childish drawing, clip art, sticker style, low resolution, blurry, distorted face, bad hands, extra fingers, amateur, oversaturated, plastic skin, meaningless background, uncanny AI look';
 
   function lower(s) { return String(s || '').toLowerCase(); }
 
@@ -149,32 +149,38 @@
     var t = lower(prompt);
     var wantsCartoon = hasAny(t, ['cartoon', 'anime', '애니', '만화', 'illustration']);
 
-    var parts = [];
-    if (!wantsCartoon) {
-      parts.push('Epic premium commercial photography, cinema grade, ultra realistic, award winning');
-      parts.push('Korean commercial quality, premium brand visual, high detail, advertising ready');
+    if (wantsCartoon) {
+      return prompt;
     }
-    parts.push(prompt);
-    parts.push('Style: ' + (profile.style || 'photorealistic'));
-    parts.push('Lighting: ' + (profile.lighting || 'studio'));
-    parts.push('Composition: ' + (profile.composition || 'rule_of_thirds'));
-    parts.push('Background: ' + (profile.background || 'studio_white'));
-    parts.push('Color palette: ' + (profile.color_palette || 'neutral'));
-    parts.push('Mood: ' + (profile.mood || 'neutral'));
-    parts.push('Brand tone: ' + (profile.brand_tone || 'premium'));
-    parts.push('Camera: ' + labelFor('camera', profile.camera || 'cinema_50mm'));
-    parts.push('Lens: ' + labelFor('lens', profile.lens || 'standard'));
-    parts.push('Camera angle: ' + labelFor('angle', profile.camera_angle || 'eye_level'));
-    parts.push('Depth of field: ' + labelFor('dof', profile.depth_of_field || 'medium'));
-    if (hasAny(t, ['한국', '대한민국', 'korea', 'k-culture', 'k-'])) {
-      parts.push('Korean style, K-Culture aesthetic, premium local branding');
-    }
-    if (profile.commercial !== false) {
-      parts.push('Commercial quality, advertising ready, high detail, professional retouching');
-    }
-    if (refCtx.context) parts.push(refCtx.context);
 
-    return parts.filter(Boolean).join(', ');
+    if (hasAny(t, ['답답', '외로', '희망', '자유', '행복', '슬픔', '마음', '감정'])) {
+      return 'Cinematic fine-art scene expressing the feeling through visual storytelling — no text or lettering. (서버에서 최종 프롬프트를 생성합니다.)';
+    }
+
+    return prompt + ' — premium photorealistic quality (서버 Prompt Composer가 최종 최적화합니다.)';
+  }
+
+  function applyComposerResult(settings, composed) {
+    if (!settings || !composed) return settings;
+    var s = composed.settings || {};
+    Object.keys(s).forEach(function (key) {
+      if (s[key] != null && s[key] !== '') settings[key] = s[key];
+    });
+    return settings;
+  }
+
+  function composerProfileLabels(meta) {
+    meta = meta || {};
+    var analysis = meta.analysis || {};
+    var rows = [
+      { key: 'emotion', label: '감정 분석', value: analysis.emotion || '—' },
+      { key: 'mood', label: 'Mood', value: analysis.mood || '—' },
+      { key: 'style', label: '스타일', value: labelFor('style', analysis.style) },
+      { key: 'scene', label: 'Scene', value: (analysis.scene || []).join(', ') || '—' },
+      { key: 'korean', label: 'K-Culture', value: analysis.korean || '—' },
+      { key: 'abstract', label: '의미 표현', value: analysis.abstract ? '감정·장면 우선' : '사실 묘사' }
+    ];
+    return rows;
   }
 
   function applyToSettings(settings, profile) {
@@ -255,6 +261,8 @@
     analyzeReference: analyzeReference,
     optimizePrompt: optimizePrompt,
     applyToSettings: applyToSettings,
+    applyComposerResult: applyComposerResult,
+    composerProfileLabels: composerProfileLabels,
     profileLabels: profileLabels,
     recommendStyles: recommendStyles,
     pickPreset: pickPreset,

@@ -7,7 +7,7 @@ final class YooY_Job_Normalizer {
         $status = YooY_Job_Status::normalize((string) ($raw['status'] ?? YooY_Job_Status::COMPLETED));
         $output = self::build_output($raw, $type);
 
-        return [
+        $normalized = [
             'job_id'          => (string) ($raw['job_id'] ?? $raw['id'] ?? ('job_' . wp_generate_uuid4())),
             'status'          => $status,
             'type'            => $type,
@@ -31,6 +31,8 @@ final class YooY_Job_Normalizer {
             'meta'         => is_array($raw['meta'] ?? null) ? $raw['meta'] : [],
             'raw'          => $raw['raw'] ?? null,
         ];
+
+        return self::enforce_pollable_state($normalized, $type);
     }
 
     /** Completed jobs must include a displayable asset or become failed. */
@@ -57,7 +59,14 @@ final class YooY_Job_Normalizer {
                 }
                 break;
             case 'replicate':
-                $status = YooY_Job_Status::normalize($vendor_status);
+                $billing = class_exists('YooY_Provider_Billing_Error')
+                    ? YooY_Provider_Billing_Error::detect_from_body($body)
+                    : null;
+                if ($billing !== null) {
+                    $status = YooY_Job_Status::FAILED;
+                } else {
+                    $status = YooY_Job_Status::normalize($vendor_status);
+                }
                 break;
             default:
                 $status = YooY_Job_Status::normalize($vendor_status);
@@ -78,16 +87,62 @@ final class YooY_Job_Normalizer {
             }
         }
 
+        $provider_job_id = (string) ($body['id'] ?? $body['job_id'] ?? '');
+        $error = $body['error'] ?? $body['failure'] ?? $body['failureReason'] ?? null;
+        if ($provider === 'replicate' && class_exists('YooY_Provider_Billing_Error')) {
+            $billing = YooY_Provider_Billing_Error::detect_from_body($body);
+            if ($billing !== null) {
+                $status = YooY_Job_Status::FAILED;
+                $error = $billing;
+            } elseif ($status !== YooY_Job_Status::FAILED && $provider_job_id === '' && empty($output)) {
+                $status = YooY_Job_Status::FAILED;
+                $error = YooY_Provider_Billing_Error::replicate_insufficient_message();
+            }
+        }
+
         return [
-            'job_id'        => (string) ($body['id'] ?? $body['job_id'] ?? ''),
-            'provider_job_id' => (string) ($body['id'] ?? $body['job_id'] ?? ''),
+            'job_id'        => $provider_job_id,
+            'provider_job_id' => $provider_job_id,
             'status'        => $status,
             'vendor_status' => $vendor_status,
             'progress'      => $progress,
             'output'        => $output,
-            'error'         => $body['error'] ?? $body['failure'] ?? $body['failureReason'] ?? null,
+            'error'         => $error,
             'raw'           => $body,
         ];
+    }
+
+    /** Non-terminal jobs without a provider reference and output must fail immediately. */
+    public static function enforce_pollable_state(array $normalized, string $type = 'image'): array {
+        if (YooY_Job_Status::is_terminal($normalized['status'] ?? '')) {
+            return $normalized;
+        }
+
+        if (class_exists('YooY_Provider_Billing_Error')) {
+            $billing = YooY_Provider_Billing_Error::detect_from_job($normalized);
+            if ($billing !== null) {
+                $normalized['status'] = YooY_Job_Status::FAILED;
+                $normalized['error'] = $billing;
+                $normalized['progress'] = 0;
+                return $normalized;
+            }
+        }
+
+        $provider_job_id = (string) ($normalized['provider_job_id'] ?? '');
+        $primary = (string) ($normalized['output']['primary'] ?? '');
+        if ($provider_job_id === '' && $primary === '') {
+            $provider = strtolower((string) ($normalized['provider_used'] ?? $normalized['provider'] ?? ''));
+            $catalog = strtolower((string) ($normalized['catalog_provider'] ?? ''));
+            $normalized['status'] = YooY_Job_Status::FAILED;
+            $normalized['error'] = ($provider === 'replicate' || $catalog === 'replicate' || $catalog === 'flux')
+                ? (class_exists('YooY_Provider_Billing_Error')
+                    ? YooY_Provider_Billing_Error::replicate_insufficient_message()
+                    : 'Replicate credit is insufficient. Please check provider billing.')
+                : 'Job has no provider reference and no output.';
+            $normalized['progress'] = 0;
+        }
+
+        return $normalized;
     }
 
     public static function derive_stage(array $raw, string $status = ''): string {

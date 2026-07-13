@@ -24,15 +24,21 @@ final class YooY_WP_Admin_Console {
             return;
         }
         wp_enqueue_style(
+            'yoy-form',
+            YOY_AI_STUDIO_URL . 'assets/css/form.css',
+            [],
+            YOY_AI_STUDIO_VERSION
+        );
+        wp_enqueue_style(
             'yoy-admin-wp-console',
             YOY_AI_STUDIO_URL . 'assets/css/admin-wp-console.css',
-            [],
+            ['yoy-form'],
             YOY_AI_STUDIO_VERSION
         );
         wp_enqueue_style(
             'yoy-admin-console',
             YOY_AI_STUDIO_URL . 'assets/css/admin-console.css',
-            ['yoy-admin-wp-console'],
+            ['yoy-admin-wp-console', 'yoy-form'],
             YOY_AI_STUDIO_VERSION
         );
         wp_enqueue_script(
@@ -41,6 +47,12 @@ final class YooY_WP_Admin_Console {
             [],
             YOY_AI_STUDIO_VERSION,
             true
+        );
+        wp_enqueue_style(
+            'yoy-spacious',
+            YOY_AI_STUDIO_URL . 'assets/css/spacious.css',
+            ['yoy-admin-console'],
+            YOY_AI_STUDIO_VERSION
         );
         wp_enqueue_script(
             'yoy-admin-console',

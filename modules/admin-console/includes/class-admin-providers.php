@@ -121,6 +121,9 @@ final class YooY_Admin_Providers {
         if (($meta['impl'] ?? '') === 'mock' || strpos((string) ($row['id'] ?? ''), 'mock-') === 0) {
             return 'mock';
         }
+        if (!empty($row['auto_routing_disabled']) || ($row['billing_status'] ?? '') === 'blocked') {
+            return 'error';
+        }
         if (empty($row['enabled'])) {
             return 'disabled';
         }
@@ -160,6 +163,9 @@ final class YooY_Admin_Providers {
             return ['label' => 'NOT TESTED', 'tone' => 'pending'];
         }
         if ($group === 'error') {
+            if (!empty($row['auto_routing_disabled']) || ($row['billing_status'] ?? '') === 'blocked') {
+                return ['label' => 'BILLING ERROR', 'tone' => 'error'];
+            }
             return ['label' => 'FAILED', 'tone' => 'error'];
         }
         if ($group === 'unsupported') {
@@ -287,12 +293,25 @@ final class YooY_Admin_Providers {
             $latency_count = 1;
         }
         $success_rate = $total > 0 ? max(0, min(100, (int) round((($total - $failed) / $total) * 100))) : ($row['success_rate'] ?? null);
+        $stats = class_exists('YooY_Provider_Stats') ? YooY_Provider_Stats::summary_for($provider_id) : [];
+        $avg_latency = $latency_count > 0 ? (int) round($latency_sum / $latency_count) : $registry_ms;
+        if (empty($avg_latency) && !empty($stats['avg_latency_ms'])) {
+            $avg_latency = (int) $stats['avg_latency_ms'];
+        }
         return [
             'provider_id'   => $provider_id,
             'request_count' => $total,
             'failed_count'  => $failed,
             'success_rate'  => $success_rate,
-            'avg_latency_ms'=> $latency_count > 0 ? (int) round($latency_sum / $latency_count) : $registry_ms,
+            'avg_latency_ms'=> $avg_latency,
+            'today_requests'=> (int) ($stats['today_requests'] ?? 0),
+            'today_success' => (int) ($stats['today_success'] ?? 0),
+            'today_fail'    => (int) ($stats['today_fail'] ?? 0),
+            'last_error'    => (string) ($stats['last_error'] ?? ($row['last_test_error'] ?? '')),
+            'last_error_at' => (string) ($stats['last_error_at'] ?? ''),
+            'billing_status'=> (string) ($row['provider_billing_status'] ?? $row['billing_label'] ?? ''),
+            'billing_tone'  => (string) ($row['provider_billing_tone'] ?? ''),
+            'balance'       => self::provider_balance($provider_id, $row),
             'recent_errors' => array_values(array_filter(array_map(function ($job) {
                 if (!in_array(strtolower((string) ($job['status'] ?? '')), ['failed', 'error'], true)) {
                     return null;
@@ -305,6 +324,40 @@ final class YooY_Admin_Providers {
                 ];
             }, $jobs))),
             'usage' => self::usage_buckets($jobs),
+        ];
+    }
+
+    /**
+     * Provider API account balance if we have it stored from a prior probe.
+     * Most provider APIs do not expose a queryable credit balance, so this is
+     * best-effort and returns null when unavailable (UI shows N/A).
+     *
+     * @param array<string, mixed>|null $row
+     * @return array<string, mixed>|null
+     */
+    private static function provider_balance(string $provider_id, ?array $row) {
+        $state = class_exists('YooY_Provider_Resolver')
+            ? YooY_Provider_Resolver::get_provider_state($provider_id)
+            : [];
+        if (isset($state['last_balance']) && $state['last_balance'] !== '') {
+            return [
+                'value'     => (string) $state['last_balance'],
+                'available' => true,
+            ];
+        }
+        return ['value' => 'N/A', 'available' => false];
+    }
+
+    /**
+     * Global provider error log (last 100) with any active billing-blocked flags.
+     *
+     * @return array<string, mixed>
+     */
+    public static function provider_error_log(int $limit = 100): array {
+        $entries = class_exists('YooY_Provider_Stats') ? YooY_Provider_Stats::error_log($limit) : [];
+        return [
+            'entries' => $entries,
+            'total'   => count($entries),
         ];
     }
 

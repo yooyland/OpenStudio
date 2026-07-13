@@ -186,6 +186,32 @@ final class YooY_Gallery_Store {
                 $changed = true;
             }
 
+            $attachment_id = (int) ($updated['attachment_id'] ?? $meta['attachment_id'] ?? 0);
+            if ($attachment_id > 0 && class_exists('YooY_Asset_Generator')) {
+                $resolved = YooY_Asset_Generator::resolve_attachment($attachment_id);
+                if (($resolved['full_url'] ?? '') !== '') {
+                    $updated['image_url'] = $resolved['full_url'];
+                    $updated['output_url'] = $resolved['full_url'];
+                    $updated['original_url'] = $resolved['original_url'];
+                    $updated['large_url'] = $resolved['large_url'];
+                    $updated['medium_large_url'] = $resolved['medium_large_url'];
+                    $updated['thumbnail_url'] = $resolved['thumbnail_url'];
+                    $updated['thumbnail'] = $resolved['thumbnail_url'];
+                    $meta['images'] = $resolved['images'];
+                    $meta['original_url'] = $resolved['original_url'];
+                    $meta['attachment_id'] = $attachment_id;
+                    $updated['meta'] = $meta;
+                    $changed = true;
+                }
+            } elseif (empty($meta['original_url'])) {
+                $original = $updated['image_url'] ?? $updated['output_url'] ?? ($meta['asset_url'] ?? '');
+                if ($original !== '') {
+                    $meta['original_url'] = $original;
+                    $updated['meta'] = $meta;
+                    $changed = true;
+                }
+            }
+
             if ($updated !== $item) {
                 $items[$idx] = $updated;
             }
@@ -238,12 +264,32 @@ final class YooY_Gallery_Store {
         if (!empty($item['asset_url'])) {
             $meta['asset_url'] = $this->sanitize_asset_url($item['asset_url']);
         }
-        if (!empty($item['marketplace_status'])) {
-            $meta['marketplace_status'] = sanitize_text_field($item['marketplace_status']);
+        if (!empty($item['images']) && is_array($item['images'])) {
+            $meta['images'] = $item['images'];
+        }
+        if (!empty($item['original_url'])) {
+            $meta['original_url'] = $this->sanitize_asset_url($item['original_url']);
         }
 
-        $image_url = $this->sanitize_asset_url($item['image_url'] ?? $item['asset_url'] ?? $item['output_url'] ?? $item['url'] ?? $item['video_url'] ?? $item['audio_url'] ?? '');
+        $attachment_id = (int) ($item['attachment_id'] ?? $meta['attachment_id'] ?? 0);
+        $manifest = [];
+        if ($attachment_id > 0 && class_exists('YooY_Asset_Generator')) {
+            $manifest = YooY_Asset_Generator::resolve_attachment($attachment_id);
+        } elseif (class_exists('YooY_Asset_Generator')) {
+            $manifest = YooY_Asset_Generator::build_media_manifest($item);
+        }
+
+        $image_url = $this->sanitize_asset_url(
+            $item['image_url'] ?? $item['asset_url'] ?? $item['output_url'] ?? $item['url'] ?? $item['video_url'] ?? $item['audio_url'] ?? ''
+        );
+        if ($image_url === '' && !empty($manifest['full_url'])) {
+            $image_url = $this->sanitize_asset_url($manifest['full_url']);
+        }
+
         $thumbnail_url = $this->sanitize_asset_url($item['thumbnail_url'] ?? $item['thumbnail'] ?? $item['cover_url'] ?? '');
+        if ($thumbnail_url === '' && !empty($manifest['thumbnail_url'])) {
+            $thumbnail_url = $this->sanitize_asset_url($manifest['thumbnail_url']);
+        }
 
         $title = YooY_Gallery_Title_Service::resolve([
             'title'           => $item['title'] ?? '',
@@ -260,6 +306,17 @@ final class YooY_Gallery_Store {
             $meta['marketplace_status'] = $marketplace_status;
         }
 
+        if (!empty($item['marketplace_status'])) {
+            $meta['marketplace_status'] = sanitize_text_field($item['marketplace_status']);
+        }
+
+        if (!empty($manifest['images']) && is_array($manifest['images'])) {
+            $meta['images'] = $manifest['images'];
+        }
+        if (!empty($manifest['original_url'])) {
+            $meta['original_url'] = $this->sanitize_asset_url($manifest['original_url']);
+        }
+
         return [
             'id'               => sanitize_text_field($item['id'] ?? ('gal_' . wp_generate_uuid4())),
             'type'             => $type,
@@ -269,10 +326,14 @@ final class YooY_Gallery_Store {
             'model'            => sanitize_text_field($item['model'] ?? ''),
             'job_id'           => sanitize_text_field($item['job_id'] ?? $meta['parent_job'] ?? ''),
             'user_id'          => (int) ($item['user_id'] ?? 0),
-            'attachment_id'    => (int) ($item['attachment_id'] ?? $meta['attachment_id'] ?? 0),
+            'attachment_id'    => $attachment_id,
             'credits_used'     => (int) ($item['credits_used'] ?? 0),
             'studio'           => sanitize_text_field($item['studio'] ?? $this->studio_from_type($type)),
             'image_url'        => $image_url,
+            'original_url'     => $this->sanitize_asset_url($manifest['original_url'] ?? $image_url),
+            'full_url'         => $this->sanitize_asset_url($manifest['full_url'] ?? $image_url),
+            'large_url'        => $this->sanitize_asset_url($manifest['large_url'] ?? $image_url),
+            'medium_large_url' => $this->sanitize_asset_url($manifest['medium_large_url'] ?? $image_url),
             'thumbnail_url'    => $thumbnail_url ?: $image_url,
             'thumbnail'        => $thumbnail_url ?: $image_url,
             'output_url'       => $image_url,
@@ -317,10 +378,20 @@ final class YooY_Gallery_Store {
             'is_favorite'        => !empty($item['favorite']),
             'marketplace_status' => (string) ($meta['marketplace_status'] ?? (!empty($item['marketplace']) ? 'listed' : 'none')),
             'filename'           => (string) ($meta['filename'] ?? ''),
+            'translated_text'    => (string) ($meta['translated_text'] ?? ''),
+            'source_language'    => (string) ($meta['source_language'] ?? ''),
+            'target_language'    => (string) ($meta['target_language'] ?? ''),
+            'translation_mode'   => (string) ($meta['mode'] ?? ''),
         ]);
     }
 
     private function has_valid_asset(array $entry): bool {
+        // Translation works are text-only — no HTTP media URL required.
+        if (($entry['type'] ?? '') === 'translation') {
+            $meta = is_array($entry['meta'] ?? null) ? $entry['meta'] : [];
+            $text = trim((string) ($meta['translated_text'] ?? $entry['prompt'] ?? ''));
+            return $text !== '';
+        }
         if (!empty($entry['attachment_id'])) {
             return true;
         }
@@ -357,6 +428,8 @@ final class YooY_Gallery_Store {
                 return 'avatar-studio';
             case 'writing':
                 return 'writing-studio';
+            case 'translation':
+                return 'translator-studio';
             default:
                 return 'unknown';
         }
@@ -369,6 +442,7 @@ final class YooY_Gallery_Store {
             case 'voice': return 'Voice';
             case 'avatar': return 'Avatar';
             case 'writing': return 'Writing';
+            case 'translation': return 'Translation';
             default: return 'Image';
         }
     }

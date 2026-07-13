@@ -37,6 +37,13 @@ final class YooY_Replicate_Image_Provider implements YooY_Image_Provider_Interfa
 
         $job_id = $params['job_id'] ?? ('img_' . wp_generate_uuid4());
         $model  = $this->model_version($params['model'] ?? 'flux-schnell');
+        $input  = [
+            'prompt'      => $params['prompt'] ?? '',
+            'num_outputs' => min(4, max(1, (int) ($params['image_count'] ?? 1))),
+        ];
+        if (!empty($params['negative_prompt']) && ($params['model'] ?? '') !== 'flux-schnell') {
+            $input['negative_prompt'] = $params['negative_prompt'];
+        }
 
         $response = wp_remote_post('https://api.replicate.com/v1/predictions', [
             'timeout' => 60,
@@ -46,10 +53,7 @@ final class YooY_Replicate_Image_Provider implements YooY_Image_Provider_Interfa
             ],
             'body' => wp_json_encode([
                 'version' => $model,
-                'input'   => [
-                    'prompt' => $params['prompt'] ?? '',
-                    'num_outputs' => min(4, max(1, (int) ($params['image_count'] ?? 1))),
-                ],
+                'input'   => $input,
             ]),
         ]);
 
@@ -58,20 +62,33 @@ final class YooY_Replicate_Image_Provider implements YooY_Image_Provider_Interfa
         }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+
+        if (class_exists('YooY_Provider_Billing_Error')) {
+            $billing = YooY_Provider_Billing_Error::detect_from_body($body);
+            if ($billing !== null && class_exists('YooY_Provider_Resolver')) {
+                YooY_Provider_Resolver::mark_billing_error($this->id(), $billing);
+            }
+        }
+
         $vendor = YooY_Job_Normalizer::from_vendor('replicate', $body);
+        $provider_job_id = (string) ($body['id'] ?? '');
 
         $result = [
-            'job_id'       => $body['id'] ?? $job_id,
-            'status'       => $vendor['status'],
-            'provider'     => $this->id(),
-            'model'        => $params['model'] ?? 'flux-schnell',
-            'prompt'       => $params['prompt'] ?? '',
-            'progress'     => $vendor['progress'],
-            'output'       => $vendor['output'],
-            'images'       => $this->images_from_output($vendor['output']),
-            'credits_used' => 12 * max(1, (int) ($params['image_count'] ?? 1)),
-            'error'        => $vendor['error'],
-            'raw'          => $body,
+            'job_id'          => $provider_job_id !== '' ? $provider_job_id : $job_id,
+            'provider_job_id' => $provider_job_id,
+            'status'          => $vendor['status'],
+            'provider'        => $this->id(),
+            'model'           => $params['model'] ?? 'flux-schnell',
+            'prompt'          => $params['prompt'] ?? '',
+            'progress'        => $vendor['progress'],
+            'output'          => $vendor['output'],
+            'images'          => $this->images_from_output($vendor['output']),
+            'credits_used'    => 12 * max(1, (int) ($params['image_count'] ?? 1)),
+            'error'           => $vendor['error'],
+            'raw'             => $body,
         ];
 
         return YooY_Job_Normalizer::normalize($result, 'image');
@@ -102,17 +119,29 @@ final class YooY_Replicate_Image_Provider implements YooY_Image_Provider_Interfa
         }
 
         $body   = json_decode(wp_remote_retrieve_body($response), true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+
+        if (class_exists('YooY_Provider_Billing_Error')) {
+            $billing = YooY_Provider_Billing_Error::detect_from_body($body);
+            if ($billing !== null && class_exists('YooY_Provider_Resolver')) {
+                YooY_Provider_Resolver::mark_billing_error($this->id(), $billing);
+            }
+        }
+
         $vendor = YooY_Job_Normalizer::from_vendor('replicate', $body);
 
         return YooY_Job_Normalizer::normalize([
-            'job_id'   => $job_id,
-            'status'   => $vendor['status'],
-            'provider' => $this->id(),
-            'progress' => $vendor['progress'],
-            'output'   => $vendor['output'],
-            'images'   => $this->images_from_output($vendor['output']),
-            'error'    => $vendor['error'],
-            'raw'      => $body,
+            'job_id'          => $job_id,
+            'provider_job_id' => (string) ($body['id'] ?? $job_id),
+            'status'          => $vendor['status'],
+            'provider'        => $this->id(),
+            'progress'        => $vendor['progress'],
+            'output'          => $vendor['output'],
+            'images'          => $this->images_from_output($vendor['output']),
+            'error'           => $vendor['error'],
+            'raw'             => $body,
         ], 'image');
     }
 

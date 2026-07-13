@@ -7,6 +7,7 @@ $user     = wp_get_current_user();
 $is_admin = current_user_can('manage_options');
 $is_logged_in = is_user_logged_in();
 $login_url    = esc_url(wp_login_url(get_permalink()));
+$register_url = esc_url(wp_registration_url());
 $logout_url   = esc_url(wp_logout_url(get_permalink()));
 $plan_label   = 'Guest';
 $plan_id       = 'free';
@@ -43,15 +44,29 @@ $nav_items = [
     ['route' => 'voice',          'label' => 'Voice',          'icon' => 'voice'],
     ['route' => 'avatar',         'label' => 'Avatar',         'icon' => 'avatar'],
     ['route' => 'writing',        'label' => 'Writing',        'icon' => 'writing'],
+    ['route' => 'translator',     'label' => 'Translator',     'icon' => 'translate'],
     ['route' => 'prompt-library', 'label' => 'Prompt Library', 'icon' => 'prompts'],
-    ['route' => 'import',         'label' => 'Import',         'icon' => 'upload'],
     ['route' => 'works',          'label' => 'Gallery',        'icon' => 'gallery'],
     ['route' => 'community',      'label' => 'Community',      'icon' => 'community'],
     ['route' => 'market',         'label' => 'Marketplace',    'icon' => 'market'],
     ['route' => 'credits',        'label' => 'Credits',        'icon' => 'credits'],
-    ['route' => 'billing',        'label' => 'Billing',        'icon' => 'credits'],
     ['route' => 'settings',       'label' => 'Settings',       'icon' => 'settings'],
 ];
+
+$user_initials = 'G';
+$user_email    = '';
+if ($is_logged_in) {
+    $user_email = (string) $user->user_email;
+    $name_src   = trim((string) ($user->display_name ?: $user->user_login));
+    if ($name_src !== '') {
+        $parts = preg_split('/\s+/', $name_src);
+        if (is_array($parts) && count($parts) >= 2) {
+            $user_initials = strtoupper(mb_substr($parts[0], 0, 1) . mb_substr($parts[1], 0, 1));
+        } else {
+            $user_initials = strtoupper(mb_substr($name_src, 0, 2));
+        }
+    }
+}
 
 $studio_quick = [
     ['route' => 'video',   'label' => 'Video',   'icon' => 'video'],
@@ -59,7 +74,8 @@ $studio_quick = [
     ['route' => 'music',   'label' => 'Music',   'icon' => 'music'],
     ['route' => 'voice',   'label' => 'Voice',   'icon' => 'voice'],
     ['route' => 'avatar',  'label' => 'Avatar',  'icon' => 'avatar'],
-    ['route' => 'writing', 'label' => 'Writing', 'icon' => 'writing'],
+    ['route' => 'writing',    'label' => 'Writing', 'icon' => 'writing'],
+    ['route' => 'translator', 'label' => 'Translator', 'icon' => 'translate'],
 ];
 ?>
 <div class="yai-app" id="yai-app" data-version="<?php echo esc_attr(YOY_AI_STUDIO_VERSION); ?>">
@@ -79,38 +95,38 @@ $studio_quick = [
         <nav class="yai-nav">
             <?php foreach ($nav_items as $item) : ?>
                 <button class="yai-nav-item" data-route="<?php echo esc_attr($item['route']); ?>" type="button">
-                    <?php echo YooY_UI_Icons::svg($item['icon'], 20); ?>
+                    <?php echo YooY_UI_Icons::svg($item['icon'], 18); ?>
                     <span><?php echo esc_html($item['label']); ?></span>
                 </button>
             <?php endforeach; ?>
 
             <?php if ($is_admin) : ?>
                 <button class="yai-nav-item yai-nav-item--admin" data-route="admin-console" type="button">
-                    <?php echo YooY_UI_Icons::svg('admin', 20); ?>
-                    <span>Operations Center</span>
-                    <em class="yai-nav-admin-tag">Admin</em>
+                    <?php echo YooY_UI_Icons::svg('admin', 18); ?>
+                    <span>Admin Console</span>
                 </button>
             <?php endif; ?>
         </nav>
 
-        <div class="yai-profile yai-profile--<?php echo esc_attr($plan_id); ?><?php echo $plan_id === 'business' ? ' yai-profile--business' : ''; ?>" id="yai-profile-card">
-            <div class="yai-membership-crystal yai-crystal--<?php echo esc_attr($crystal_class); ?> yai-crystal--md<?php echo esc_attr($crystal_diamond); ?>" id="yai-membership-crystal" role="img" aria-label="<?php echo esc_attr($crystal_label); ?>">
-                <span class="yai-crystal-core" aria-hidden="true"></span>
-                <span class="yai-crystal-shine" aria-hidden="true"></span>
-            </div>
-            <div class="yai-profile-info">
-                <?php if ($is_logged_in) : ?>
+        <div class="yai-profile yai-profile--<?php echo esc_attr($plan_id); ?>" id="yai-profile-card">
+            <?php if ($is_logged_in) : ?>
+                <div class="yai-profile-avatar" aria-hidden="true"><?php echo esc_html($user_initials); ?></div>
+                <div class="yai-profile-info">
                     <strong><?php echo esc_html($user->display_name ?: 'User'); ?></strong>
+                    <span class="yai-profile-email"><?php echo esc_html($user_email); ?></span>
+                    <b class="yai-profile-credits" id="yai-credits">Credits: —</b>
                     <span class="yai-plan-label" id="yai-tier-badge"><?php echo esc_html($plan_label); ?></span>
-                    <b id="yai-credits">Credits: —</b>
-                    <small class="yai-usage-label" id="yai-monthly-usage">Monthly usage: —</small>
-                    <button type="button" class="yai-btn yai-btn--gold yai-btn--sm" id="yai-upgrade-btn" data-route="credits">Upgrade</button>
-                <?php else : ?>
+                    <a class="yai-text-btn yai-logout-link" href="<?php echo $logout_url; ?>">로그아웃</a>
+                </div>
+            <?php else : ?>
+                <div class="yai-profile-avatar yai-profile-avatar--guest" aria-hidden="true">?</div>
+                <div class="yai-profile-info">
                     <strong>Guest</strong>
-                    <span>Login to start creating</span>
-                    <a class="yai-btn yai-btn--gold yai-login-link" href="<?php echo $login_url; ?>">Login</a>
-                <?php endif; ?>
-            </div>
+                    <span class="yai-profile-email">Login to start creating</span>
+                    <a class="yai-btn yai-btn--gold yai-btn--sm yai-register-link" href="<?php echo esc_url($register_url); ?>">회원가입</a>
+                    <a class="yai-btn yai-btn--outline yai-btn--sm yai-login-link" href="<?php echo $login_url; ?>">로그인</a>
+                </div>
+            <?php endif; ?>
         </div>
     </aside>
 
@@ -131,7 +147,9 @@ $studio_quick = [
                         <button class="yai-icon-btn" type="button" data-yai-panel="help" aria-label="Help"><?php echo YooY_UI_Icons::svg('help', 18); ?></button>
                         <button class="yai-icon-btn" data-route="settings" type="button" aria-label="Settings"><?php echo YooY_UI_Icons::svg('settings', 18); ?></button>
                     <?php else : ?>
-                        <a class="yai-btn yai-btn--gold yai-login-link" href="<?php echo $login_url; ?>">Login</a>
+                        <a class="yai-btn yai-btn--outline yai-login-link" href="<?php echo $login_url; ?>">로그인</a>
+                        <a class="yai-btn yai-btn--gold yai-register-link" href="<?php echo esc_url($register_url); ?>">회원가입</a>
+                        <button class="yai-btn yai-btn--gold yai-btn--cta" type="button" data-yai-free-start>무료로 시작하기</button>
                     <?php endif; ?>
                 </div>
             </header>
@@ -139,17 +157,16 @@ $studio_quick = [
             <!-- HOME -->
             <section class="yai-view yai-view--home" data-page="home">
                 <div class="yai-home-head">
-                    <h1>오늘 무엇을 만들까요? ✨</h1>
+                    <h1>오늘 무엇을 만들까요?</h1>
+                    <p class="yai-hero-sub">프롬프트 한 줄로 영상, 이미지, 음악, 음성, 아바타, 글쓰기를 시작하세요.</p>
                 </div>
 
                 <div class="yai-composer">
-                    <textarea id="yai-home-prompt" rows="2" placeholder="오늘 무엇을 만들까요? 예: 고래 타고 대한민국 여행, 스마트스토어 제품 썸네일, K-POP 뮤직비디오..."></textarea>
-                    <button class="yai-btn yai-btn--gold" id="yai-home-create" type="button"><?php echo YooY_UI_Icons::svg('spark', 16); ?> 만들기</button>
+                    <textarea id="yai-home-prompt" rows="2" placeholder="예: 고래 타고 대한민국 여행, 스마트스토어 제품 썸네일, K-POP 뮤직비디오..."></textarea>
+                    <button class="yai-btn yai-btn--gold" id="yai-home-create" type="button"><?php echo YooY_UI_Icons::svg('spark', 16); ?> Generate</button>
                 </div>
 
-                <div class="yai-preset-row" id="yai-home-presets" aria-label="한국형 프리셋"></div>
-
-                <div class="yai-quick-row">
+                <div class="yai-quick-row" aria-label="Studio shortcuts">
                     <?php foreach ($studio_quick as $item) : ?>
                         <button class="yai-quick-btn" data-route="<?php echo esc_attr($item['route']); ?>" type="button">
                             <?php echo YooY_UI_Icons::svg($item['icon'], 16); ?>
@@ -158,22 +175,18 @@ $studio_quick = [
                     <?php endforeach; ?>
                 </div>
 
-                <div class="yai-stats-row">
+                <div class="yai-stats-row yai-stats-row--home">
                     <article class="yai-stat" data-stat="credits">
                         <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('credits', 18); ?></div>
-                        <div><span>Total Credits</span><strong id="yai-stat-credits">—</strong><small id="yai-stat-credits-delta"></small></div>
-                    </article>
-                    <article class="yai-stat" data-stat="usage">
-                        <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('chart', 18); ?></div>
-                        <div><span>Monthly Usage</span><strong id="yai-stat-usage">—</strong><div class="yai-progress"><i id="yai-stat-usage-bar"></i></div></div>
+                        <div><span>Credits</span><strong id="yai-stat-credits">—</strong><em class="yai-stat-sub" id="yai-stat-credit-usage"></em></div>
                     </article>
                     <article class="yai-stat" data-stat="projects">
                         <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('folder', 18); ?></div>
-                        <div><span>Total Projects</span><strong id="yai-stat-projects">—</strong></div>
+                        <div><span>Projects</span><strong id="yai-stat-projects">—</strong></div>
                     </article>
-                    <article class="yai-stat" data-stat="jobs">
-                        <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('zap', 18); ?></div>
-                        <div><span>Total Generations</span><strong id="yai-stat-jobs">—</strong></div>
+                    <article class="yai-stat" data-stat="works">
+                        <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('gallery', 18); ?></div>
+                        <div><span>Works</span><strong id="yai-stat-works">—</strong></div>
                     </article>
                     <article class="yai-stat" data-stat="likes">
                         <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('heart', 18); ?></div>
@@ -181,36 +194,24 @@ $studio_quick = [
                     </article>
                 </div>
 
-                <div class="yai-home-dashboard">
-                    <div class="yai-home-main">
-                        <div class="yai-card-block yai-card-block--hero">
-                            <div class="yai-block-head">
-                                <h2>Recent Works</h2>
-                                <button class="yai-text-btn" data-route="works" type="button">Gallery</button>
-                            </div>
-                            <div class="yai-block-body yai-works-grid" id="yai-home-works"></div>
+                <div class="yai-home-main">
+                    <div class="yai-card-block yai-home-main__works">
+                        <div class="yai-block-head">
+                            <h2>Recent Works</h2>
+                            <button class="yai-text-btn" data-route="works" type="button">Gallery</button>
                         </div>
-                        <div class="yai-card-block yai-card-block--projects-strip">
-                            <div class="yai-block-head">
-                                <h2>Recent Projects</h2>
-                                <button class="yai-text-btn" data-route="projects" type="button">View all</button>
-                            </div>
-                            <div class="yai-block-body yai-projects-strip" id="yai-home-projects"></div>
-                        </div>
+                        <div class="yai-block-body yai-works-grid yai-works-grid--showcase" id="yai-home-works"></div>
                     </div>
-                    <aside class="yai-home-side">
-                        <div class="yai-card-block yai-card-block--compact">
-                            <div class="yai-block-head"><h2>Recent Activity</h2></div>
-                            <div class="yai-block-body yai-timeline yai-timeline--compact" id="yai-home-jobs"></div>
+                    <aside class="yai-card-block yai-home-main__activity">
+                        <div class="yai-block-head">
+                            <h2>Recent Activity</h2>
+                            <?php if ($is_admin) : ?>
+                                <button class="yai-text-btn" data-route="admin-console" data-admin-section="logs" type="button">전체 보기</button>
+                            <?php else : ?>
+                                <button class="yai-text-btn" data-route="image" type="button">Create</button>
+                            <?php endif; ?>
                         </div>
-                        <div class="yai-card-block yai-card-block--compact">
-                            <div class="yai-block-head"><h2>Credit Usage</h2></div>
-                            <div class="yai-block-body yai-usage-widget" id="yai-home-usage"></div>
-                        </div>
-                        <div class="yai-card-block yai-card-block--compact">
-                            <div class="yai-block-head"><h2>Announcements</h2></div>
-                            <div class="yai-block-body" id="yai-home-announcements"></div>
-                        </div>
+                        <div class="yai-block-body yai-timeline yai-timeline--compact yai-activity-panel" id="yai-home-jobs"></div>
                     </aside>
                 </div>
 
@@ -218,17 +219,24 @@ $studio_quick = [
 
                 <div class="yai-home-discover">
                     <div class="yai-card-block">
-                        <div class="yai-block-head"><h2>Marketplace 추천</h2><button class="yai-text-btn" data-route="market" type="button">전체 보기</button></div>
+                        <div class="yai-block-head"><h2>Marketplace</h2><button class="yai-text-btn" data-route="market" type="button">View all</button></div>
                         <div class="yai-block-body yai-discover-row" id="yai-home-market"></div>
                     </div>
                     <div class="yai-card-block">
-                        <div class="yai-block-head"><h2>Community 인기작</h2><button class="yai-text-btn" data-route="community" type="button">전체 보기</button></div>
+                        <div class="yai-block-head"><h2>Community Trending</h2><button class="yai-text-btn" data-route="community" type="button">View all</button></div>
                         <div class="yai-block-body yai-discover-row" id="yai-home-community-trending"></div>
                     </div>
                 </div>
 
-                <div class="yai-showcase-section">
-                    <div class="yai-block-head"><h2>YooY Official Showcase</h2><button class="yai-text-btn" data-route="community" type="button">Community</button></div>
+                <div class="yai-home-widgets yai-home-widgets--compact">
+                    <div class="yai-card-block">
+                        <div class="yai-block-head"><h2>Announcements</h2></div>
+                        <div class="yai-block-body" id="yai-home-announcements"></div>
+                    </div>
+                </div>
+
+                <div class="yai-showcase-section yai-card-block">
+                    <div class="yai-block-head"><h2>Official Showcase</h2><button class="yai-text-btn" data-route="community" type="button">Community</button></div>
                     <div class="yai-showcase-row" id="yai-showcase"></div>
                 </div>
             </section>
@@ -266,6 +274,7 @@ $studio_quick = [
             <section class="yai-view yai-view--studio" data-page="voice"><div id="yai-voice-studio"></div></section>
             <section class="yai-view yai-view--studio" data-page="avatar"><div id="yai-avatar-studio"></div></section>
             <section class="yai-view" data-page="writing"><header class="yai-page-head"><h1>Writing Studio</h1><p>블로그, 광고 카피, 스크립트 — AI 글쓰기</p></header><div class="yai-generator" id="yai-gen-writing"></div></section>
+            <section class="yai-view yai-view--studio" data-page="translator"><div id="yai-translator-studio"></div></section>
             <section class="yai-view" data-page="prompt-library"><header class="yai-page-head"><h1>Prompt Library</h1><p>저장된 프롬프트, 공식 템플릿, 한국 컨텍스트 프리셋.</p></header><div id="yai-prompts"></div></section>
             <section class="yai-view" data-page="import"><div id="yai-import-engine"></div></section>
             <section class="yai-view" data-page="market"><header class="yai-page-head"><h1>Marketplace</h1><p>프롬프트 템플릿, 가이드, 크리에이터 마켓.</p></header><div id="yai-marketplace"></div></section>
@@ -284,12 +293,14 @@ $studio_quick = [
     </div>
 
     <div class="yai-overlay" id="yai-login-modal" hidden>
-        <div class="yai-modal">
-            <h3>Login required</h3>
-            <p>Sign in with your WordPress account to create, import, publish, and manage credits.</p>
-            <div class="yai-modal-actions">
-                <button type="button" class="yai-btn--outline" data-yai-close-modal>Cancel</button>
-                <a class="yai-btn yai-btn--gold yai-login-link" href="<?php echo $login_url; ?>">Login</a>
+        <div class="yai-modal yai-modal--auth">
+            <h3>로그인이 필요합니다</h3>
+            <p>작품을 저장하고 계속 사용하려면 로그인 또는 회원가입이 필요합니다.</p>
+            <p class="yai-muted">무료 가입 시 <strong>100 Credits</strong>와 Free 플랜이 제공됩니다.</p>
+            <div class="yai-modal-actions yai-modal-actions--stack">
+                <a class="yai-btn yai-btn--gold yai-login-link" href="<?php echo $login_url; ?>">로그인</a>
+                <a class="yai-btn yai-btn--outline yai-register-link" href="<?php echo esc_url($register_url); ?>">무료 회원가입</a>
+                <button type="button" class="yai-btn--outline" data-yai-close-modal>둘러보기 계속</button>
             </div>
         </div>
     </div>

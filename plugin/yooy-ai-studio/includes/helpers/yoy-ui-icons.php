@@ -21,6 +21,7 @@ final class YooY_UI_Icons {
             'voice'      => '<path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/>',
             'avatar'     => '<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 6-6 8-6s6.5 2 8 6"/>',
             'writing'    => '<path d="M4 6h16M4 12h10M4 18h7"/>',
+            'translate'  => '<path d="M5 8h14"/><path d="M12 4v4"/><path d="m4.5 16 4-8 4 8"/><path d="M6.2 13h4.6"/><path d="M14 13h6"/><path d="M17 13c0 3-1.5 5.5-3.5 7"/><path d="M20 13c0 3-1.5 5.5-3.5 7"/>',
             'prompts'    => '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
             'gallery'    => '<rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
             'community'  => '<circle cx="9" cy="8" r="3"/><circle cx="16" cy="11" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/>',

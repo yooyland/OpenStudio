@@ -35,6 +35,7 @@
     editMode: 'edit',
     lastResult: null,
     selectedImage: null,
+    selectedResultIndex: 0,
     referenceUrl: '',
     refPanel: null,
     credits: { balance: 0, unlimited: false, estimate: 0, can_afford: true },
@@ -48,12 +49,15 @@
     lastAutoProfile: null,
     lastOptimizedPrompt: '',
     lastUserPrompt: '',
+    lastComposerMeta: null,
     recommendedStyleId: '',
     refAnalysisLabels: [],
     gallerySelectedId: null,
     galleryItems: [],
     generationMode: 'fast',
-    generateStep: ''
+    generateStep: '',
+    lastProviderHealth: null,
+    providerHealthLoading: false
   };
 
   var POLL_MAX_MS = 90000;
@@ -549,6 +553,42 @@
     return { profile: profile, refCtx: refCtx, Smart: Smart };
   }
 
+  function fetchServerCompose(prompt, callback) {
+    var api = getImageApi();
+    if (!api || !api.composePrompt || !prompt || !prompt.trim()) {
+      if (callback) callback(null);
+      return;
+    }
+    api.composePrompt({
+      user_prompt: prompt,
+      prompt: prompt,
+      smart_auto: state.smartAuto !== false,
+      generation_mode: state.generationMode || 'fast',
+      provider: state.settings.default_provider || 'auto',
+      quality: state.generationMode === 'premium' ? 'hd' : (state.settings.quality || 'standard')
+    }).then(function (res) {
+      var data = (res && res.data) ? res.data : res;
+      if (callback) callback(data || null);
+    }).catch(function () {
+      if (callback) callback(null);
+    });
+  }
+
+  function applyServerCompose(prompt, composed) {
+    if (!composed) return;
+    var Smart = getSmartAuto();
+    state.lastOptimizedPrompt = composed.canonical_prompt || composed.prompt || state.lastOptimizedPrompt;
+    state.lastComposerMeta = composed.meta || null;
+    if (Smart && Smart.applyComposerResult && composed.settings) {
+      Smart.applyComposerResult(state.settings, composed);
+      applyProfileToAutoFields(composed.settings);
+    }
+    if (composed.negative_prompt) {
+      state.settings.negative_prompt = composed.negative_prompt;
+    }
+    state.lastUserPrompt = prompt;
+  }
+
   function previewSmartAuto(root) {
     if (!state.smartAuto) return;
     var prompt = ($('#yis-prompt', root) || {}).value || state.settings.last_prompt || '';
@@ -560,6 +600,11 @@
     state.lastAutoProfile = analyzed.profile;
     state.lastOptimizedPrompt = analyzed.Smart.optimizePrompt(prompt, analyzed.profile, analyzed.refCtx);
     state.lastUserPrompt = prompt;
+    fetchServerCompose(prompt, function (composed) {
+      applyServerCompose(prompt, composed);
+      refreshAdvancedInner(root);
+      refreshAutoResultPanel(root);
+    });
     refreshAdvancedInner(root);
     refreshAutoResultPanel(root);
   }
@@ -572,21 +617,29 @@
     if (!analyzed) return { optimizedPrompt: prompt, profile: null };
     applyProfileToAutoFields(analyzed.profile);
     syncModelForProvider(state.settings.default_provider || 'auto', true);
-    var optimized = analyzed.Smart.optimizePrompt(prompt, analyzed.profile, analyzed.refCtx);
+    var localOptimized = analyzed.Smart.optimizePrompt(prompt, analyzed.profile, analyzed.refCtx);
     state.lastAutoProfile = analyzed.profile;
-    state.lastOptimizedPrompt = optimized;
+    state.lastOptimizedPrompt = localOptimized;
     state.lastUserPrompt = prompt;
-    return { optimizedPrompt: optimized, profile: analyzed.profile, refCtx: analyzed.refCtx };
+    fetchServerCompose(prompt, function (composed) {
+      applyServerCompose(prompt, composed);
+    });
+    return {
+      optimizedPrompt: prompt,
+      profile: analyzed.profile,
+      refCtx: analyzed.refCtx,
+      serverCompose: true
+    };
   }
 
   function smartAutoCardHtml() {
     return '<div class="yis-smart-card">' +
       '<div class="yis-smart-card__head"><strong>Smart Auto</strong><span class="yis-smart-badge">ON</span></div>' +
-      '<p class="yis-smart-card__lead">프롬프트만 입력하면 전문가 수준의 프리미엄 결과를 자동 생성합니다.</p>' +
+      '<p class="yis-smart-card__lead">의미·감정·장면을 분석해 ChatGPT급 프리미엄 Prompt를 자동 생성합니다. 단어를 그리지 않고 작품을 만듭니다.</p>' +
       '<ul class="yis-smart-checklist">' +
-        '<li>✔ 최적 모델 선택</li><li>✔ 최적 해상도 선택</li><li>✔ 스타일 자동 적용</li>' +
-        '<li>✔ 라이팅 최적화</li><li>✔ 색감 자동 적용</li><li>✔ 프롬프트 개선</li>' +
-        '<li>✔ 상업용 품질 보정</li><li>✔ Reference 분석</li><li>✔ 고품질 결과 생성</li>' +
+        '<li>✔ Emotion Engine — 감정을 시각언어로 변환</li><li>✔ Scene Planner — 장면 설계</li><li>✔ K-Culture 미학</li>' +
+        '<li>✔ Commercial Optimizer</li><li>✔ Provider별 Prompt 최적화</li><li>✔ 텍스트·만화풍 차단</li>' +
+        '<li>✔ 모든 옵션 AUTO</li><li>✔ Fast/Premium 품질 우선</li><li>✔ Reference 분석</li>' +
       '</ul></div>';
   }
 
@@ -612,15 +665,20 @@
   }
 
   function autoSelectedCardHtml() {
-    if (!state.lastAutoProfile) return '';
+    if (!state.lastAutoProfile && !state.lastComposerMeta) return '';
     var Smart = getSmartAuto();
     if (!Smart) return '';
-    var rows = Smart.profileLabels(state.lastAutoProfile);
+    var rows = state.lastComposerMeta
+      ? Smart.composerProfileLabels(state.lastComposerMeta)
+      : Smart.profileLabels(state.lastAutoProfile);
+    var promptPreview = state.lastOptimizedPrompt
+      ? '<div class="yis-auto-result__prompt"><span>최종 Prompt</span><p>' + esc(state.lastOptimizedPrompt) + '</p></div>'
+      : '';
     return '<div class="yis-auto-result" id="yis-auto-result">' +
-      '<h4 class="yis-auto-result__title">AI가 자동 선택한 설정</h4>' +
+      '<h4 class="yis-auto-result__title">Prompt Composer 분석</h4>' +
       '<dl class="yis-auto-result__grid">' + rows.map(function (r) {
         return '<div><dt>' + esc(r.label) + '</dt><dd>' + esc(r.value) + '</dd></div>';
-      }).join('') + '</dl></div>';
+      }).join('') + '</dl>' + promptPreview + '</div>';
   }
 
   function advancedSectionHtml() {
@@ -635,15 +693,15 @@
     var s = state.schema;
     var optimized = state.lastOptimizedPrompt || '';
     var transparentOn = (state.settings.background || '') === 'transparent';
-    return '<div class="yis-adv-section"><h4 class="yis-adv-section__title">AI</h4>' +
+    return advSection('AI', 'Provider, model, and reproducibility settings.', '<div class="yis-adv-section__grid">' +
       lockedSelectField('default_provider', 'Provider', [{ id: 'auto', label: 'Auto (Best Available)' }].concat(
         state.providers.filter(function (p) { return p.id !== 'auto'; }).map(function (p) { return { id: p.id, label: providerOptionLabel(p) }; })
       )) +
       lockedFieldHtml('default_model', 'Model', '<select data-yis-setting="default_model" id="yis-model-select"' + fieldDisabledAttr('default_model') + '>' + modelSelectHtml() + '</select>') +
       '<div class="yis-provider-preflight" id="yis-provider-preflight" hidden></div>' +
       lockedFieldHtml('seed', 'Seed', '<div class="yis-seed-row"><input type="number" data-yis-setting="seed" value="' + esc(String(state.settings.seed != null ? state.settings.seed : -1)) + '"' + fieldDisabledAttr('seed') + '><button class="yis-btn-secondary" type="button" data-yis-action="seed-random"' + (isFieldAuto('seed') && state.smartAuto ? ' disabled' : '') + '>Random</button></div>') +
-    '</div>' +
-    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Style</h4>' +
+    '</div>') +
+    advSection('Style', 'Visual tone, quality, and composition controls.', '<div class="yis-adv-section__grid">' +
       fieldRow(
         lockedSelectField('style', 'Style', s.styles || []),
         lockedSelectField('quality', 'Quality', s.qualities || [])
@@ -657,8 +715,8 @@
         lockedSelectField('lighting', 'Lighting', s.lighting || [])
       ) +
       lockedSelectField('composition', 'Composition', s.compositions || []) +
-    '</div>' +
-    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Camera</h4>' +
+    '</div>') +
+    advSection('Camera', 'Lens, angle, and depth-of-field options.', '<div class="yis-adv-section__grid">' +
       fieldRow(
         lockedSelectField('camera', 'Camera', CAMERA_OPTIONS),
         lockedSelectField('lens', 'Lens', LENS_OPTIONS)
@@ -667,26 +725,31 @@
         lockedSelectField('camera_angle', 'Camera Angle', ANGLE_OPTIONS),
         lockedSelectField('depth_of_field', 'Depth of Field', DOF_OPTIONS)
       ) +
-    '</div>' +
-    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Brand</h4>' +
+    '</div>') +
+    advSection('Brand', 'Commercial and brand-oriented generation settings.', '<div class="yis-adv-section__grid">' +
       lockedFieldHtml('commercial_mode', 'Commercial Mode', '<label class="yis-check-row"><input type="checkbox" data-yis-setting="commercial_mode"' + (state.settings.commercial_mode !== false ? ' checked' : '') + fieldDisabledAttr('commercial_mode') + '> Commercial Quality</label>') +
       fieldRow(
         lockedSelectField('brand_tone', 'Brand Tone', s.brand_tones || []),
         lockedSelectField('product_type', 'Product Type', s.product_types || [])
       ) +
-    '</div>' +
-    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Prompt</h4>' +
+    '</div>') +
+    advSection('Prompt', 'Optimized and negative prompt overrides.', '<div class="yis-adv-section__grid">' +
       (optimized ? lockedFieldHtml('optimized_prompt', 'Optimized Prompt', '<textarea readonly rows="4" class="yis-optimized-readonly">' + esc(optimized) + '</textarea>') : '') +
       lockedFieldHtml('negative_prompt', 'Negative Prompt', '<textarea data-yis-setting="negative_prompt" rows="3" aria-label="Negative prompt"' + fieldDisabledAttr('negative_prompt') + '>' + esc(state.settings.negative_prompt || '') + '</textarea>') +
-    '</div>' +
-    '<div class="yis-adv-section"><h4 class="yis-adv-section__title">Output</h4>' +
+    '</div>') +
+    advSection('Output', 'Batch size, format, and transparency.', '<div class="yis-adv-section__grid">' +
       fieldRow(
         lockedSelectField('image_count', 'Image Count', (s.image_counts || [1, 2, 3, 4]).map(function (n) { return { id: n, label: String(n) }; })),
         lockedSelectField('output_format', 'Output Format', FORMAT_OPTIONS)
       ) +
       lockedFieldHtml('transparent_bg', 'Transparent Background', '<label class="yis-check-row"><input type="checkbox" data-yis-setting="transparent_bg"' + (transparentOn ? ' checked' : '') + fieldDisabledAttr('background') + '> Enable transparent background</label>') +
       developerInfoHtml() +
-    '</div>';
+    '</div>');
+  }
+
+  function advSection(title, desc, inner) {
+    return '<div class="yis-adv-section"><h4 class="yis-adv-section__title">' + esc(title) + '</h4>' +
+      '<p class="yis-adv-section__desc">' + esc(desc) + '</p>' + inner + '</div>';
   }
 
   function fieldDisabledAttr(key) {
@@ -705,7 +768,7 @@
   function lockedFieldHtml(key, label, inputHtml) {
     var locked = isFieldAuto(key) && state.smartAuto;
     var lockBtn = state.smartAuto && key !== 'optimized_prompt'
-      ? '<button type="button" class="yis-lock-btn' + (locked ? ' is-auto' : ' is-manual') + '" data-yis-field-lock="' + esc(key) + '">' + (locked ? '🔒 Auto' : '🔓 Manual') + '</button>'
+      ? '<button type="button" class="yis-lock-btn' + (locked ? ' is-auto' : ' is-manual') + '" data-yis-field-lock="' + esc(key) + '" aria-pressed="' + (locked ? 'true' : 'false') + '">' + (locked ? 'Auto' : 'Manual') + '</button>'
       : '';
     return '<div class="yis-locked-field' + (locked ? ' is-locked' : '') + '" data-yis-field="' + esc(key) + '">' +
       '<div class="yis-locked-field__head"><label>' + esc(label) + '</label>' + lockBtn + '</div>' +
@@ -757,6 +820,28 @@
       output_format: payload.output_format || 'png',
       prompt: payload.prompt || ''
     };
+  }
+
+  function logGenerationRequest(payload) {
+    if (!global.console || !global.console.log) return;
+    payload = payload || {};
+    var health = state.lastProviderHealth && state.lastProviderHealth.resolved ? state.lastProviderHealth.resolved : null;
+    var resolvedProvider = (health && health.label) || payload.provider || 'auto';
+    var model = payload.model || (health && health.model) || 'auto';
+    var size = payload.size || payload.resolution || 'auto';
+    var quality = payload.quality || (state.generationMode === 'premium' ? 'high' : 'standard');
+    var commercial = (payload.commercial_mode !== false && payload.commercial !== false) ? 'Yes' : 'No';
+    var promptLen = String(payload.prompt || payload.user_prompt || '').length;
+    global.console.log(
+      '===== YooY Image Generation =====\n' +
+      'Resolved Provider : ' + resolvedProvider + '\n' +
+      'Model             : ' + model + '\n' +
+      'Size              : ' + size + '\n' +
+      'Quality           : ' + quality + '\n' +
+      'Commercial        : ' + commercial + '\n' +
+      'Prompt Length     : ' + promptLen + '\n' +
+      '================================='
+    );
   }
 
   function logOpenAiRequestPreview(payload) {
@@ -1037,6 +1122,63 @@
     el.hidden = !message;
   }
 
+  function providerBillingFailureMessages(data) {
+    if (!data) return null;
+    if (data.user_message) {
+      return {
+        primary: data.user_message,
+        secondary: data.user_credits_message || 'YooY 사용자 크레딧과는 별도입니다.'
+      };
+    }
+    if (data.fallback_reason === 'replicate_insufficient_credit') {
+      return {
+        primary: 'AI 공급업체 API 계정의 크레딧이 부족합니다. 다른 공급업체로 다시 시도합니다.',
+        secondary: data.user_credits_message || 'YooY 사용자 크레딧과는 별도입니다.'
+      };
+    }
+    var err = String(data.error || '').toLowerCase();
+    var rawTitle = data.raw && data.raw.title ? String(data.raw.title).toLowerCase() : '';
+    if (/insufficient credit|billing|payment required|unauthorized|invalid api token|rate limit/.test(err) ||
+        /insufficient credit|billing|payment required/.test(rawTitle)) {
+      var provider = data.provider_used || data.provider || data.catalog_provider || 'Replicate';
+      var label = provider === 'replicate' || provider === 'flux' ? 'Replicate' : provider;
+      return {
+        primary: label + ' API 계정의 크레딧이 부족합니다.',
+        secondary: 'YooY 사용자 크레딧과는 별도입니다.'
+      };
+    }
+    return null;
+  }
+
+  function replicateBillingUserMessage(data) {
+    var msgs = providerBillingFailureMessages(data);
+    if (!msgs) return '';
+    return msgs.primary + ' ' + msgs.secondary;
+  }
+
+  function showProviderBillingError(root, data) {
+    var msgs = providerBillingFailureMessages(data);
+    if (!msgs) {
+      showGenerateError(root, data && data.error ? data.error : 'Generation failed.');
+      return;
+    }
+    var area = root && root.querySelector('.yis-prompt-area');
+    if (!area) return;
+    var existing = area.querySelector('#yis-generate-error');
+    if (existing) existing.remove();
+    area.insertAdjacentHTML('beforeend',
+      '<div class="yis-error yis-error--provider-billing" id="yis-generate-error" role="alert">' +
+        '<strong>' + esc(msgs.primary) + '</strong>' +
+        '<p class="yis-error-copy">' + esc(msgs.secondary) + '</p>' +
+      '</div>');
+  }
+
+  function jobMissingProviderReference(job) {
+    if (!job) return false;
+    if (hasOutputAsset(job)) return false;
+    return !job.provider_job_id;
+  }
+
   function showGenerateError(root, errOrMessage) {
     var area = root && root.querySelector('.yis-prompt-area');
     if (!area) return;
@@ -1060,6 +1202,38 @@
       code = (d && d.code) || errOrMessage.code || '';
     } else {
       message = String(errOrMessage || 'Generation failed.');
+    }
+
+    // A REST route error is NOT a provider / OpenAI / billing failure.
+    // Show it as an infrastructure (endpoint registration) problem and always
+    // surface the exact endpoint + tried URLs so the failure is diagnosable.
+    if (code === 'rest_no_route' || (errOrMessage && errOrMessage.restNoRoute)) {
+      var rd = (d && d.endpoint) ? d : ((errOrMessage && errOrMessage.details) || {});
+      var routeMeta = '';
+      var addRow = function (label, val) {
+        if (!val) return;
+        routeMeta += '<span><b>' + esc(label) + ':</b> ' + esc(String(val)) + '</span>';
+      };
+      addRow('method', rd.method);
+      addRow('endpoint', rd.endpoint);
+      addRow('tried wp-json', rd.tried_wp_json);
+      addRow('tried rest_route', rd.tried_route || rd.tried_rest_route);
+      if (rd.missing && rd.missing.length) addRow('missing', rd.missing.join(', '));
+      if (rd.registered_similar && rd.registered_similar.length) {
+        addRow('registered', rd.registered_similar.slice(0, 6).join(', '));
+      }
+      if (global.console && global.console.error) {
+        global.console.error('[ImageStudio] rest_no_route surfaced to UI', rd);
+      }
+      area.insertAdjacentHTML('beforeend',
+        '<div class="yis-error yis-error--route" id="yis-generate-error" role="alert">' +
+          '<strong>REST API Route Not Found</strong>' +
+          '<p class="yis-error-copy">The requested endpoint is not registered. 이 오류는 OpenAI/공급업체/크레딧 문제가 아니라 WordPress REST 라우트 문제입니다.</p>' +
+          errorAnalysisHtml(errOrMessage) +
+          (routeMeta ? '<div class="yis-error-meta yis-error-meta--route">' + routeMeta + '</div>' : '') +
+          diagnosticReportButtonsHtml() +
+        '</div>');
+      return;
     }
 
     if (code === 'provider_model_mismatch') {
@@ -1125,6 +1299,31 @@
   function bindEvents(root) {
     root.addEventListener('click', function (e) {
       try {
+      var fixEl = e.target.closest('[data-yoy-fix]');
+      if (fixEl) {
+        var D = global.YooYDiagnostics;
+        if (D && D.fix) {
+          fixEl.disabled = true;
+          var orig = fixEl.textContent;
+          fixEl.textContent = '수정 중…';
+          D.fix(fixEl.getAttribute('data-yoy-fix')).then(function () {
+            verifySystemThen(root, function () {});
+          }).catch(function () {
+            fixEl.disabled = false;
+            fixEl.textContent = orig;
+          });
+        }
+        return;
+      }
+      var repEl = e.target.closest('[data-yoy-report]');
+      if (repEl) {
+        var Dr = global.YooYDiagnostics;
+        if (Dr && Dr.report) {
+          Dr.report(repEl.getAttribute('data-yoy-report'), { error: state.lastGenerateError, context: { studio: 'image-studio' } });
+        }
+        return;
+      }
+
       var t = e.target.closest('[data-yis-tab]');
       if (t) { state.tab = t.dataset.yisTab; setTab(root); renderTab(root); return; }
 
@@ -1153,6 +1352,7 @@
         state.settings.generation_mode = state.generationMode;
         renderTab(root);
         bindGenerateButton(root);
+        loadProviderHealth(root);
         return;
       }
 
@@ -1172,6 +1372,12 @@
       var galAction = e.target.closest('[data-yis-gallery-action]');
       if (galAction) {
         handleGalleryAction(galAction.dataset.yisGalleryAction, galAction.dataset.yisGalleryId, root);
+        return;
+      }
+
+      var thumb = e.target.closest('[data-yis-result-thumb]');
+      if (thumb) {
+        setActiveResultIndex(parseInt(thumb.dataset.yisResultThumb, 10) || 0, root);
         return;
       }
 
@@ -1227,6 +1433,10 @@
           if (modelSelect) modelSelect.innerHTML = modelSelectHtml();
           refreshOutputSizeControl(root);
           updateProviderUX(root);
+          loadProviderHealth(root);
+        }
+        if (k === 'default_model' || k === 'quality') {
+          loadProviderHealth(root);
         }
         if (k === 'default_model') {
           state.settings.model = state.settings.default_model;
@@ -1317,13 +1527,19 @@
 
   function updateGenerateProgress(root) {
     var host = root && root.querySelector('#yis-generate-progress');
-    if (!host) return;
-    if (state.generating) {
-      host.innerHTML = generationProgressHtml();
-      host.hidden = false;
-    } else {
-      host.innerHTML = '';
-      host.hidden = true;
+    var boardHost = root && root.querySelector('#yis-result-board-progress');
+    var html = state.generating ? generationProgressHtml() : '';
+    if (host) {
+      if (state.generating) {
+        host.innerHTML = html;
+        host.hidden = false;
+      } else {
+        host.innerHTML = '';
+        host.hidden = true;
+      }
+    }
+    if (boardHost && state.generating) {
+      boardHost.innerHTML = html;
     }
   }
 
@@ -1332,6 +1548,8 @@
     var status = data.status || '';
     if (status === 'failed' || status === 'error' || status === 'timeout') return false;
     if (status === 'completed') return false;
+    if (jobMissingProviderReference(data) && replicateBillingUserMessage(data)) return false;
+    if (jobMissingProviderReference(data)) return false;
     var prov = data.provider_used || data.provider || '';
     if (ASYNC_POLL_PROVIDERS.indexOf(prov) < 0 && status === 'completed') return false;
     return ['queued', 'running', 'processing', 'pending'].indexOf(status) >= 0;
@@ -1349,13 +1567,12 @@
   }
 
   function renderGenerate(ws, ctrl, root) {
-    var ratio = state.settings.size === 'auto' ? '1:1' : (state.settings.aspect_ratio || '1:1');
     var promptVal = state.settings.last_prompt || '';
     ws.innerHTML =
       '<div class="yis-header"><h2>Image Studio</h2></div>' +
       modeToggleHtml() +
       generationModeHtml() +
-      '<div class="yis-preview" id="yis-preview" data-ratio="' + esc(ratio) + '">' + previewHtml() + '</div>' +
+      resultBoardHtml() +
       '<div class="yis-prompt-area yis-generate-flow">' +
         '<label class="yis-prompt-label" for="yis-prompt">Prompt</label>' +
         '<textarea id="yis-prompt" placeholder="예: 고래 타고 세계여행, K-Beauty 광고 비주얼, 영화 포스터...">' + esc(promptVal) + '</textarea>' +
@@ -1371,20 +1588,80 @@
         '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' + (state.generating ? generationProgressHtml() : '') + '</div>' +
         '<div class="yis-info" id="yis-generate-info" hidden></div></div>' +
         advancedSectionHtml() +
-        resultActionsHtml() +
       '</div>';
     ctrl.innerHTML = sidePanelHtml();
     mountRefAssets($('#yis-ref-panel-host', ws), 'image-studio');
-    updatePreviewRatio(root);
+    updateResultBoardRatio(root);
     bindPromptFields(root);
     bindGenerateButton(root);
     bindAdvancedPanel(root);
     updateProviderUX(root);
+    loadProviderHealth(root);
   }
 
   function sidePanelHtml() {
-    return autoSelectedCardHtml() +
+    return aiEnginePanelHtml() +
+      autoSelectedCardHtml() +
       '<div class="yis-credits-bar">' + creditLabel() + '</div>';
+  }
+
+  function engineToneClass(tone) {
+    switch (tone) {
+      case 'ok': return 'is-ok';
+      case 'error': return 'is-error';
+      case 'warn': return 'is-warn';
+      case 'muted': return 'is-muted';
+      default: return 'is-pending';
+    }
+  }
+
+  function aiEnginePanelHtml() {
+    var h = state.lastProviderHealth;
+    var inner;
+    if (state.providerHealthLoading && !h) {
+      inner = '<p class="yis-ai-engine__loading">엔진 확인 중…</p>';
+    } else if (!h || !h.resolved) {
+      inner = '<p class="yis-ai-engine__loading">AI Engine 상태를 불러오는 중…</p>';
+    } else {
+      var r = h.resolved;
+      var tone = engineToneClass(r.status_tone);
+      var warn = (!r.is_openai && !r.is_mock)
+        ? '<p class="yis-ai-engine__warn">현재 OpenAI가 아닌 다른 공급업체로 생성됩니다.</p>'
+        : (r.is_mock ? '<p class="yis-ai-engine__warn">실제 API 없이 Mock으로 생성됩니다.</p>' : '');
+      inner =
+        '<div class="yis-ai-engine__row">' +
+          '<span class="yis-ai-engine__dot ' + tone + '"></span>' +
+          '<div class="yis-ai-engine__main">' +
+            '<strong class="yis-ai-engine__name">' + esc(r.label || '—') + '</strong>' +
+            (r.model ? '<span class="yis-ai-engine__model">' + esc(r.model) + '</span>' : '') +
+          '</div>' +
+          '<span class="yis-ai-engine__status ' + tone + '">' + esc(r.status_label || '—') + '</span>' +
+        '</div>' + warn;
+    }
+    return '<div class="yis-ai-engine" id="yis-ai-engine"><h4 class="yis-ai-engine__title">AI Engine</h4>' + inner + '</div>';
+  }
+
+  function refreshAiEnginePanel(root) {
+    var el = (root || document).querySelector('#yis-ai-engine');
+    if (!el) return;
+    el.outerHTML = aiEnginePanelHtml();
+  }
+
+  function loadProviderHealth(root) {
+    var api = getImageApi();
+    if (!api || !api.providerHealth) return;
+    if (state.providerHealthLoading) return;
+    state.providerHealthLoading = true;
+    refreshAiEnginePanel(root);
+    api.providerHealth().then(function (res) {
+      var data = (res && res.data) ? res.data : res;
+      state.lastProviderHealth = data || null;
+      state.providerHealthLoading = false;
+      refreshAiEnginePanel(root);
+    }).catch(function () {
+      state.providerHealthLoading = false;
+      refreshAiEnginePanel(root);
+    });
   }
 
   function bindGenerateButton(root) {
@@ -1482,17 +1759,161 @@
     }
   }
 
-  function previewHtml() {
-    if (state.generating) return '<div class="yis-loading">' + generationProgressHtml() + '</div>';
+  function activeResultIndex() {
     var images = resultImages(state.lastResult);
-    if (images.length) {
-      return '<div class="yis-grid" style="width:100%;padding:16px">' +
-        images.map(function (img, i) {
-          return '<div class="yis-thumb-card' + (state.selectedImage === img.url ? ' is-selected' : '') + '" data-yis-select="' + esc(img.url) + '">' +
-            '<img src="' + esc(img.url) + '" alt="result ' + i + '"><span>Image ' + (i + 1) + '</span></div>';
-        }).join('') + '</div>';
+    if (!images.length) return 0;
+    if (state.selectedResultIndex != null && state.selectedResultIndex < images.length) {
+      return state.selectedResultIndex;
     }
-    return '<div class="yis-empty">프롬프트를 입력하고 Generate를 클릭하세요.</div>';
+    for (var i = 0; i < images.length; i++) {
+      if (images[i].url === state.selectedImage) return i;
+    }
+    return 0;
+  }
+
+  function setActiveResultIndex(index, root) {
+    var images = resultImages(state.lastResult);
+    if (!images.length || !images[index]) return;
+    state.selectedResultIndex = index;
+    state.selectedImage = images[index].url;
+    state.activeGalleryId = (state.lastResult.job_id || 'job') + '_' + index;
+    refreshResultBoard(root);
+  }
+
+  function refreshResultBoard(root) {
+    var board = root && root.querySelector('#yis-result-board');
+    if (board) {
+      board.outerHTML = resultBoardHtml();
+      updateResultBoardRatio(root);
+    } else if (root) {
+      renderTab(root);
+    }
+  }
+
+  function resultAspectRatio(data) {
+    if (data && data.aspect_ratio) return data.aspect_ratio;
+    if (state.settings.size === 'auto') return '1:1';
+    return state.settings.aspect_ratio || '1:1';
+  }
+
+  function resultBoardRatioClass(ratio) {
+    var r = String(ratio || '1:1');
+    if (r === '16:9' || r === '4:3' || r === '3:2' || r === '21:9') return 'landscape';
+    if (r === '9:16' || r === '3:4' || r === '2:3') return 'portrait';
+    return 'square';
+  }
+
+  function resultTitle(data) {
+    var prompt = (data && (data.user_prompt || data.prompt)) || state.lastUserPrompt || state.settings.last_prompt || '';
+    if (!prompt) return 'Untitled Work';
+    return prompt.length > 56 ? prompt.slice(0, 56) + '…' : prompt;
+  }
+
+  function resultBoardEmptyHtml() {
+    return '<section class="yis-result-board yis-result-board--empty" id="yis-result-board" aria-label="Result Board">' +
+      '<div class="yis-result-board__stage">' +
+        '<div class="yis-result-board__empty">' +
+          '<div class="yis-result-board__empty-icon" aria-hidden="true">◇</div>' +
+          '<h3>작품을 생성하세요</h3>' +
+          '<p>프롬프트를 입력하고 Generate를 누르면 이곳에 작품이 크게 표시됩니다.<br>YooY AI Studio는 작품 감상 및 후속 제작을 위한 스튜디오입니다.</p>' +
+        '</div>' +
+      '</div></section>';
+  }
+
+  function resultBoardGeneratingHtml() {
+    return '<section class="yis-result-board yis-result-board--generating" id="yis-result-board" aria-label="Result Board">' +
+      '<div class="yis-result-board__stage">' +
+        '<div class="yis-result-board__canvas yis-result-board__canvas--square yis-result-board__canvas--generating">' +
+          '<div class="yis-result-board__generating" id="yis-result-board-progress">' + generationProgressHtml() + '</div>' +
+        '</div>' +
+      '</div></section>';
+  }
+
+  function resultBoardThumbsHtml(images, activeIndex) {
+    return '<div class="yis-result-board__thumbs" role="tablist" aria-label="Generated works">' +
+      images.map(function (img, i) {
+        var thumb = img.thumbnail || img.url;
+        return '<button type="button" class="yis-result-board__thumb' + (i === activeIndex ? ' is-active' : '') + '" data-yis-result-thumb="' + i + '" role="tab" aria-selected="' + (i === activeIndex ? 'true' : 'false') + '" aria-label="Work ' + (i + 1) + '">' +
+          '<img src="' + esc(thumb) + '" alt="">' +
+        '</button>';
+      }).join('') +
+    '</div>';
+  }
+
+  function resultMetaItem(label, value) {
+    return '<div class="yis-result-board__meta-item"><dt>' + esc(label) + '</dt><dd>' + esc(value == null || value === '' ? '—' : String(value)) + '</dd></div>';
+  }
+
+  function resultBoardMetaHtml(data, index, total) {
+    var meta = data.meta || {};
+    var resMeta = meta.provider_resolution || {};
+    var provider = data.provider_used || data.provider || resMeta.catalog_provider || '—';
+    var model = data.model || resMeta.model || '—';
+    var resolution = data.resolution || data.size || meta.resolution || state.settings.resolution || '—';
+    var format = (data.output_format || state.settings.output_format || meta.output_format || 'png').toString().toUpperCase();
+    var project = meta.project_name || data.project_name || data.project_title || data.project || '—';
+    var created = data.created_at || data.updated_at || '';
+
+    return '<div class="yis-result-board__meta">' +
+      '<h3 class="yis-result-board__title">' + esc(resultTitle(data)) + '</h3>' +
+      '<dl class="yis-result-board__meta-grid">' +
+        resultMetaItem('생성 시간', created ? formatGalleryDate(created) : '—') +
+        resultMetaItem('Provider', provider) +
+        resultMetaItem('Model', model) +
+        resultMetaItem('해상도', resolution) +
+        resultMetaItem('파일 형식', format) +
+        resultMetaItem('프로젝트', project) +
+        (total > 1 ? resultMetaItem('작품', (index + 1) + ' / ' + total) : '') +
+      '</dl></div>';
+  }
+
+  function resultToolbarBtn(action, label, danger) {
+    return '<button type="button" class="yis-result-board__action' + (danger ? ' yis-result-board__action--danger' : '') + '" data-yis-action="' + esc(action) + '">' + esc(label) + '</button>';
+  }
+
+  function resultBoardToolbarHtml() {
+    if (!state.lastResult || !state.lastResult.job_id) return '';
+    return '<div class="yis-result-board__toolbar">' +
+      '<span class="yis-result-board__toolbar-label">Action Toolbar</span>' +
+      '<div class="yis-result-board__toolbar-actions">' +
+        resultToolbarBtn('download', '다운로드') +
+        resultToolbarBtn('project', '프로젝트 저장') +
+        resultToolbarBtn('edit', 'AI 편집') +
+        resultToolbarBtn('reuse', '프롬프트 재사용') +
+        resultToolbarBtn('variation', '변형 생성') +
+        resultToolbarBtn('upscale', '업스케일') +
+        resultToolbarBtn('remove-bg', '배경 제거') +
+        resultToolbarBtn('share', 'Community 공유') +
+        resultToolbarBtn('marketplace', 'Marketplace 등록') +
+        resultToolbarBtn('delete', '삭제', true) +
+      '</div></div>';
+  }
+
+  function resultBoardHtml() {
+    if (state.generating) return resultBoardGeneratingHtml();
+    var images = resultImages(state.lastResult);
+    if (!images.length) return resultBoardEmptyHtml();
+
+    var idx = activeResultIndex();
+    var img = images[idx];
+    var data = state.lastResult;
+    var ratio = resultAspectRatio(data);
+    var ratioCls = resultBoardRatioClass(ratio);
+
+    return '<section class="yis-result-board" id="yis-result-board" aria-label="Result Board">' +
+      '<div class="yis-result-board__stage">' +
+        '<div class="yis-result-board__canvas yis-result-board__canvas--' + ratioCls + '" data-ratio="' + esc(ratio) + '">' +
+          '<img class="yis-result-board__image" src="' + esc(img.url) + '" alt="' + esc(resultTitle(data)) + '">' +
+        '</div>' +
+      '</div>' +
+      (images.length > 1 ? resultBoardThumbsHtml(images, idx) : '') +
+      resultBoardMetaHtml(data, idx, images.length) +
+      resultBoardToolbarHtml() +
+    '</section>';
+  }
+
+  function previewHtml() {
+    return resultBoardHtml();
   }
 
   function resultImages(data) {
@@ -1537,31 +1958,12 @@
   }
 
   function resultActionsHtml() {
-    if (!state.lastResult || !state.lastResult.job_id) return '';
-    var id = state.activeGalleryId || (state.lastResult.job_id + '_0');
-    return '<div class="yis-result-actions">' +
-      '<span>Result Actions</span>' +
-      '<button class="yis-btn-secondary" type="button" data-yis-action="download">다운로드</button>' +
-      '<button class="yis-btn-secondary" type="button" data-yis-action="edit">편집</button>' +
-      '<button class="yis-btn-secondary" type="button" data-yis-action="copy">프롬프트 복사</button>' +
-      '<button class="yis-btn-secondary" type="button" data-yis-action="reuse">재사용</button>' +
-      '<button class="yis-btn-secondary" type="button" data-yis-action="public">공개</button>' +
-      '<button class="yis-btn-secondary" type="button" data-yis-action="marketplace">Marketplace</button>' +
-      '</div>';
+    return '';
   }
 
   function handleResultAction(action, root) {
     var galleryId = state.activeGalleryId || (state.lastResult && (state.lastResult.job_id + '_0'));
-    if (!galleryId || !Core.gallery) return;
-
-    var map = {
-      download: function () { return Core.gallery.download(galleryId); },
-      copy: function () { return Core.gallery.copy(galleryId); },
-      reuse: function () { return Core.gallery.regenerate(galleryId); },
-      public: function () { return Core.gallery.visibility(galleryId, true); },
-      marketplace: function () { return Core.gallery.marketplace(galleryId); },
-      edit: null
-    };
+    if (!galleryId) return;
 
     if (action === 'edit') {
       state.tab = 'edit';
@@ -1569,6 +1971,78 @@
       renderTab(root);
       return;
     }
+
+    if (action === 'variation') {
+      if (Core && Core.gallery && Core.gallery.regenerate) {
+        Core.gallery.regenerate(galleryId).then(function () {
+          state.settings.last_prompt = (state.settings.last_prompt || '') + ' — creative variation';
+          state.tab = 'generate';
+          setTab(root);
+          renderTab(root);
+        }).catch(function (err) { alert(err.message || 'Variation failed.'); });
+      } else {
+        reusePrompt(galleryId, 'result', root);
+        state.settings.last_prompt = (state.settings.last_prompt || '') + ' — creative variation';
+        renderTab(root);
+      }
+      return;
+    }
+
+    if (action === 'upscale') {
+      var src = state.selectedImage;
+      if (!src) return;
+      var api = getImageApi();
+      if (!api || !api.upscale) { alert('Upscale is not available.'); return; }
+      api.upscale({
+        source_url: src,
+        provider: state.settings.default_provider || 'auto',
+        auto_save: true
+      }).then(function (res) {
+        finalizeJob(res.data || res, root);
+      }).catch(function (err) { showGenerateError(root, err.message || 'Upscale failed.'); });
+      return;
+    }
+
+    if (action === 'remove-bg') {
+      state.selectedImage = state.selectedImage || (resultImages(state.lastResult)[activeResultIndex()] || {}).url;
+      state.tab = 'edit';
+      state.editMode = 'edit';
+      setTab(root);
+      renderTab(root);
+      return;
+    }
+
+    if (action === 'delete') {
+      if (!window.confirm('이 작품을 삭제할까요?')) return;
+      deleteGalleryItem(galleryId).then(function () {
+        var images = resultImages(state.lastResult);
+        if (images.length <= 1) {
+          state.lastResult = null;
+          state.selectedImage = null;
+          state.selectedResultIndex = 0;
+          state.activeGalleryId = null;
+        } else {
+          state.selectedResultIndex = 0;
+          state.activeGalleryId = (state.lastResult.job_id || 'job') + '_0';
+          state.selectedImage = images[0] && images[0].url;
+        }
+        notifyGalleryUpdated();
+        renderTab(root);
+      }).catch(function (err) { showGenerateError(root, err.message || 'Delete failed.'); });
+      return;
+    }
+
+    if (!Core || !Core.gallery) return;
+
+    var map = {
+      download: function () { return Core.gallery.download(galleryId); },
+      copy: function () { return Core.gallery.copy(galleryId); },
+      reuse: function () { return Core.gallery.regenerate(galleryId); },
+      public: function () { return Core.gallery.visibility(galleryId, true); },
+      share: function () { return Core.gallery.share(galleryId); },
+      marketplace: function () { return Core.gallery.marketplace(galleryId); },
+      project: function () { return Core.gallery.project(galleryId, ''); }
+    };
 
     var fn = map[action];
     if (!fn) return;
@@ -1585,8 +2059,16 @@
         consumeRegenerate();
         renderTab(root);
       }
+      if (action === 'share') {
+        var link = (res.data && (res.data.url || res.data.share_url)) || '';
+        if (link && navigator.clipboard) navigator.clipboard.writeText(link);
+        if (link) alert('공유 링크가 복사되었습니다.');
+      }
+      if (action === 'project') {
+        alert('프로젝트에 저장되었습니다.');
+      }
       notifyGalleryUpdated();
-    }).catch(function (err) { alert(err.message); });
+    }).catch(function (err) { alert(err.message || 'Action failed.'); });
   }
 
   function selectField(key, label, options) {
@@ -1640,12 +2122,53 @@
     return '<div id="yis-ref-panel-host"></div>';
   }
 
+  function updateResultBoardRatio(root) {
+    var canvas = root && root.querySelector('.yis-result-board__canvas:not(.yis-result-board__canvas--generating)');
+    if (!canvas) return;
+    var ratio = state.lastResult ? resultAspectRatio(state.lastResult) : (state.settings.size === 'auto' ? '1:1' : (state.settings.aspect_ratio || '1:1'));
+    var cls = resultBoardRatioClass(ratio);
+    canvas.dataset.ratio = ratio;
+    canvas.className = 'yis-result-board__canvas yis-result-board__canvas--' + cls;
+  }
+
   function updatePreviewRatio(root) {
-    var p = $('#yis-preview', root);
-    if (p) {
-      var ratio = state.settings.size === 'auto' ? '1:1' : (state.settings.aspect_ratio || '1:1');
-      p.dataset.ratio = ratio;
+    updateResultBoardRatio(root);
+  }
+
+  // Verifies the REST routes required for generation are registered before
+  // starting. This runs BEFORE any provider work so a rest_no_route condition
+  // is never misreported as an OpenAI / provider / billing failure.
+  function verifyRestHealthThen(root, next) {
+    if (state.restHealth && state.restHealth.ok === true) { next(); return; }
+    if (state.restHealth && state.restHealth.ok === false) {
+      showRestRouteError(root, state.restHealth);
+      return;
     }
+    if (!(Core && Core.restHealth)) { next(); return; }
+    Core.restHealth().then(function (res) {
+      var data = (res && (res.data || res)) || {};
+      state.restHealth = data;
+      if (data.ok === false) {
+        showRestRouteError(root, data);
+      } else {
+        next();
+      }
+    }).catch(function () {
+      // Health endpoint unreachable — let the actual generate call surface any error.
+      next();
+    });
+  }
+
+  function showRestRouteError(root, health) {
+    var missing = (health && health.missing) || [];
+    if (global.console && global.console.error) {
+      global.console.error('[ImageStudio] REST route health failed. Missing:', missing);
+    }
+    showGenerateError(root, {
+      code: 'rest_no_route',
+      restNoRoute: true,
+      details: { code: 'rest_no_route', missing: missing }
+    });
   }
 
   function doGenerate(root) {
@@ -1658,7 +2181,7 @@
     }
 
     var smart = runSmartAuto(prompt);
-    var sendPrompt = smart.optimizedPrompt || prompt;
+    var sendPrompt = smart.serverCompose ? prompt : (smart.optimizedPrompt || prompt);
     var negative = state.settings.negative_prompt || '';
 
     var preflight = getProviderPreflight();
@@ -1675,6 +2198,92 @@
 
     if (state.generating) return;
 
+    var api = getImageApi();
+    if (!api) {
+      showGenerateError(root, 'Image API unavailable. Reload the page.');
+      return;
+    }
+
+    verifySystemThen(root, function () {
+      startGenerate(root, prompt, sendPrompt, negative);
+    });
+  }
+
+  // Essential-only pre-generate gate driven by the self-diagnosis engine.
+  // Blocks generation (no Running job) when REST / Provider / Credits /
+  // Gallery / Image Save are not healthy. Falls back to the REST-health gate
+  // when diagnostics are unavailable.
+  function verifySystemThen(root, next) {
+    var D = global.YooYDiagnostics;
+    if (!D || !D.run) { verifyRestHealthThen(root, next); return; }
+    D.run(true).then(function (report) {
+      if (report && report.essential_ok === false) {
+        showSystemBlock(root, report);
+      } else {
+        next();
+      }
+    }).catch(function () {
+      verifyRestHealthThen(root, next);
+    });
+  }
+
+  function showSystemBlock(root, report) {
+    var area = root && root.querySelector('.yis-prompt-area');
+    if (!area) return;
+    var existing = area.querySelector('#yis-generate-error');
+    if (existing) existing.remove();
+
+    var failed = (report.checks || []).filter(function (c) {
+      return c.essential && c.status === 'error';
+    });
+    var rows = failed.map(function (c) {
+      var fixBtn = c.fixable
+        ? '<button type="button" class="yis-sys-fix" data-yoy-fix="' + esc(c.fix_action) + '">Fix →</button>'
+        : '';
+      return '<div class="yis-sys-block-row"><span>🔴 <b>' + esc(c.label) + '</b> — ' + esc(c.message) + '</span>' + fixBtn + '</div>';
+    }).join('');
+
+    if (global.console && global.console.error) {
+      global.console.error('[ImageStudio] generation blocked by System Check', failed);
+    }
+
+    area.insertAdjacentHTML('beforeend',
+      '<div class="yis-error yis-error--route" id="yis-generate-error" role="alert">' +
+        '<strong>생성을 시작할 수 없습니다 — 필수 시스템 점검 실패</strong>' +
+        '<p class="yis-error-copy">아래 항목을 해결한 뒤 다시 시도하세요. (Running 작업은 생성되지 않았습니다.)</p>' +
+        '<div class="yis-sys-block">' + rows + '</div>' +
+        diagnosticReportButtonsHtml() +
+      '</div>');
+  }
+
+  function diagnosticReportButtonsHtml() {
+    return '<div class="yis-diag-report">진단 리포트: ' +
+      '<button type="button" data-yoy-report="json">JSON</button>' +
+      '<button type="button" data-yoy-report="txt">TXT</button>' +
+      '<button type="button" data-yoy-report="md">Markdown</button>' +
+      '</div>';
+  }
+
+  // Prioritised root-cause analysis + inline Fix buttons for a known error.
+  function errorAnalysisHtml(err) {
+    var D = global.YooYDiagnostics;
+    if (!D || !D.analyzeError) return '';
+    var analysis = D.analyzeError(err);
+    if (!analysis) return '';
+    var causeRows = analysis.causes.map(function (c) {
+      var fix = c.fix
+        ? '<button type="button" class="yis-sys-fix" data-yoy-fix="' + esc(c.fix.action) + '">' + esc(c.fix.label) + '</button>'
+        : '';
+      return '<li><span class="yis-cause-p">' + esc(c.priority) + '</span>' + esc(c.text) + fix + '</li>';
+    }).join('');
+    return '<div class="yis-error-analysis">' +
+      (analysis.note ? '<p class="yis-error-copy">' + esc(analysis.note) + '</p>' : '') +
+      '<div class="yis-cause-title">가능한 원인 (우선순위순)</div>' +
+      '<ul class="yis-cause-list">' + causeRows + '</ul>' +
+      '</div>';
+  }
+
+  function startGenerate(root, prompt, sendPrompt, negative) {
     var api = getImageApi();
     if (!api) {
       showGenerateError(root, 'Image API unavailable. Reload the page.');
@@ -1699,7 +2308,7 @@
     var payload = applyRefPayload(Object.assign({}, state.settings, {
       prompt: sendPrompt,
       user_prompt: prompt,
-      optimized_prompt: sendPrompt,
+      optimized_prompt: state.lastOptimizedPrompt || sendPrompt,
       negative_prompt: negative,
       provider: providerId,
       size: state.settings.size || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || '',
@@ -1734,6 +2343,7 @@
     state.generateStep = 'generating';
     updateGenerateProgress(root);
 
+    logGenerationRequest(payload);
     logOpenAiRequestPreview(payload);
     debugLog('generate request', payload.provider);
     global.YooYLastGenerateRequest = '/image-studio/generate';
@@ -1744,10 +2354,12 @@
       if (isStudioAdmin() && err && err.details) {
         logOpenAiResponse(err.details.data || err.details);
       }
+      state.lastGenerateError = err;
       state.generating = false;
       showGenerateError(root, err);
       renderTab(root);
       bindGenerateButton(root);
+      loadProviderHealth(root);
     });
   }
 
@@ -1759,6 +2371,18 @@
       return;
     }
 
+    if (jobMissingProviderReference(data) && ['queued', 'running', 'processing', 'pending'].indexOf(data.status || '') >= 0) {
+      state.generating = false;
+      if (providerBillingFailureMessages(data)) {
+        showProviderBillingError(root, data);
+      } else {
+        showGenerateError(root, data.error || 'Job has no provider reference and no output.');
+      }
+      renderTab(root);
+      bindGenerateButton(root);
+      return;
+    }
+
     if (shouldPollJob(data)) {
       state.generateStep = mapStatusToStep(data.status);
       updateGenerateProgress(root);
@@ -1767,8 +2391,14 @@
 
     if (data.status === 'failed' || data.status === 'error' || data.status === 'timeout') {
       state.generating = false;
-      showGenerateError(root, data.error || 'Generation failed.');
+      if (providerBillingFailureMessages(data)) {
+        showProviderBillingError(root, data);
+      } else {
+        showGenerateError(root, data.error || 'Generation failed.');
+      }
       renderTab(root);
+      bindGenerateButton(root);
+      loadProviderHealth(root);
       return;
     }
 
@@ -1783,6 +2413,7 @@
     state.lastResult = data;
     state.generating = false;
     state.generateStep = 'completed';
+    state.selectedResultIndex = 0;
     state.activeGalleryId = (data.job_id || '') + '_0';
     var imgs = resultImages(data);
     if (imgs[0]) state.selectedImage = imgs[0].url;
@@ -1799,6 +2430,9 @@
     logOpenAiResponse(data);
     if (data.warning) {
       showGenerateInfo(root, data.warning);
+    } else if (data.fallback_reason === 'replicate_insufficient_credit') {
+      var fb = providerBillingFailureMessages(data);
+      showGenerateInfo(root, fb ? (fb.primary + ' ' + fb.secondary) : data.warning);
     } else if (isDebugMode() && (data.size_corrected || (resMeta && resMeta.size_corrected))) {
       showGenerateInfo(root, '[Debug] Size adjusted from ' + (resMeta.size_original || resMeta.size_requested || 'requested') + ' to ' + (resMeta.size || state.settings.size) + '.');
     } else if (data.fallback_reason) {
@@ -1828,7 +2462,11 @@
     function failPoll(message, job) {
       state.generating = false;
       state.generateStep = message.indexOf('timeout') >= 0 || message.indexOf('Timeout') >= 0 ? 'timeout' : 'failed';
-      showGenerateError(root, (job && job.error) || message);
+      if (providerBillingFailureMessages(job)) {
+        showProviderBillingError(root, job);
+      } else {
+        showGenerateError(root, (job && job.error) || message);
+      }
       renderTab(root);
       bindGenerateButton(root);
     }
@@ -1859,9 +2497,8 @@
         }
 
         if (!job.provider_job_id && !hasOutputAsset(job) && provider !== 'mock' &&
-            ['queued', 'running', 'processing', 'pending'].indexOf(status) >= 0 &&
-            attempts > 1) {
-          failPoll('Job has no provider reference and no output.', job);
+            ['queued', 'running', 'processing', 'pending'].indexOf(status) >= 0) {
+          failPoll(replicateBillingUserMessage(job) || job.error || 'Job has no provider reference and no output.', job);
           return;
         }
 

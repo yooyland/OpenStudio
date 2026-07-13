@@ -2,7 +2,7 @@
 /**
  * Plugin Name: YooY AI Studio
  * Description: YooY Land AI Creator OS - Core Engine connecting AI Router, Credits, Gallery, Projects, and all modules.
- * Version: 11.7.8
+ * Version: 11.15.1
  * Requires PHP: 7.4
  * Author: YooY Land
  * Text Domain: yooy-ai-studio
@@ -21,7 +21,7 @@ if (version_compare(PHP_VERSION, '7.4.0', '<')) {
     return;
 }
 
-define('YOY_AI_STUDIO_VERSION', '11.7.8');
+define('YOY_AI_STUDIO_VERSION', '11.15.1');
 define('YOY_AI_STUDIO_FILE', __FILE__);
 define('YOY_AI_STUDIO_DIR', plugin_dir_path(__FILE__));
 define('YOY_AI_STUDIO_URL', plugin_dir_url(__FILE__));
@@ -56,6 +56,7 @@ $core_files = [
     'includes/core/class-yoy-generation-exception.php',
     'includes/core/class-yoy-module-registry.php',
     'includes/core/class-yoy-job-status.php',
+    'includes/core/class-yoy-provider-billing-error.php',
     'includes/core/class-yoy-job-normalizer.php',
     'includes/core/class-yoy-job-store.php',
     'includes/core/class-yoy-credits-service.php',
@@ -67,13 +68,18 @@ $core_files = [
     'includes/core/class-yoy-secrets.php',
     'includes/core/class-yoy-provider-catalog.php',
     'includes/core/class-yoy-provider-resolver.php',
+    'includes/core/class-yoy-provider-stats.php',
     'includes/core/class-yoy-system-log.php',
+    'includes/core/class-yoy-system-diagnostics.php',
     'includes/helpers/yoy-ui-icons.php',
     'includes/core/class-yoy-studio-credits.php',
     'includes/core/class-yoy-core-engine.php',
     'includes/core/class-yoy-rest-controller.php',
+    'includes/core/class-yoy-public-works-feed.php',
+    'includes/core/class-yoy-user-welcome.php',
     'includes/class-yoy-ai-studio.php',
     'includes/admin/class-yoy-wp-admin-console.php',
+    'official-showcase/class-yoy-official-showcase.php',
 ];
 
 foreach ($core_files as $relative) {
@@ -89,7 +95,20 @@ foreach ($core_files as $relative) {
     require_once $path;
 }
 
-add_action('plugins_loaded', function () {
+register_activation_hook(YOY_AI_STUDIO_FILE, static function () {
+    if (class_exists('YooY_Official_Showcase')) {
+        YooY_Official_Showcase::instance()->seed_if_empty();
+    }
+    // Ensure the /wp-json/ REST rewrite endpoint is registered on the host so
+    // pretty-permalink REST calls resolve. Runs once on activation only.
+    flush_rewrite_rules(false);
+});
+
+add_action('plugins_loaded', static function () {
+    if (class_exists('YooY_Official_Showcase')) {
+        YooY_Official_Showcase::instance()->seed_if_empty();
+    }
+
     if (class_exists('YooY_Rest_Error')) {
         YooY_Rest_Error::register();
     }
@@ -105,5 +124,9 @@ add_action('plugins_loaded', function () {
 
     if (class_exists('YooY_WooCommerce_Billing')) {
         YooY_WooCommerce_Billing::register();
+    }
+
+    if (class_exists('YooY_User_Welcome')) {
+        YooY_User_Welcome::register();
     }
 }, 5);

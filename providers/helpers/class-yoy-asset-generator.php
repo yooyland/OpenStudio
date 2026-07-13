@@ -25,7 +25,21 @@ final class YooY_Asset_Generator {
         }
 
         $data_uri = self::svg_data_uri($width, $height, $label);
-        return self::import_from_data_uri($data_uri, $basename . '.svg', $user_id);
+        $stored = self::import_from_data_uri($data_uri, $basename . '.svg', $user_id);
+        if (!empty($stored['url'])) {
+            return $stored;
+        }
+
+        $http = self::persist_svg_image($width, $height, $label, $basename);
+        if (self::is_http_asset_url($http)) {
+            return [
+                'url'           => $http,
+                'thumbnail'     => $http,
+                'attachment_id' => 0,
+            ];
+        }
+
+        return ['url' => $data_uri, 'thumbnail' => $data_uri, 'attachment_id' => 0];
     }
 
     /**
@@ -98,26 +112,145 @@ final class YooY_Asset_Generator {
     }
 
     public static function resolve_attachment(int $attachment_id): array {
+        $empty = self::empty_manifest();
+
         if ($attachment_id <= 0 || !function_exists('wp_get_attachment_url')) {
-            return ['attachment_id' => 0, 'url' => '', 'thumbnail' => ''];
+            return $empty;
         }
 
-        $url = wp_get_attachment_url($attachment_id);
-        $url = is_string($url) ? self::normalize_url_scheme($url) : '';
+        $full = wp_get_attachment_url($attachment_id);
+        $full = is_string($full) ? self::normalize_url_scheme($full) : '';
 
-        $thumb = '';
-        if ($url !== '') {
-            $thumb = wp_get_attachment_image_url($attachment_id, 'medium');
-            if (!$thumb) {
-                $thumb = wp_get_attachment_image_url($attachment_id, 'thumbnail');
+        $size_keys = ['full', 'large', 'medium_large', 'medium', 'thumbnail'];
+        $images = [];
+        foreach ($size_keys as $size) {
+            $src = wp_get_attachment_image_url($attachment_id, $size);
+            if (is_string($src) && $src !== '') {
+                $images[$size] = self::normalize_url_scheme($src);
             }
-            $thumb = is_string($thumb) ? self::normalize_url_scheme($thumb) : $url;
         }
+        if ($full !== '' && empty($images['full'])) {
+            $images['full'] = $full;
+        }
+
+        $meta = wp_get_attachment_metadata($attachment_id);
+        $width = (int) (is_array($meta) ? ($meta['width'] ?? 0) : 0);
+        $height = (int) (is_array($meta) ? ($meta['height'] ?? 0) : 0);
+
+        $srcset = function_exists('wp_get_attachment_image_srcset')
+            ? wp_get_attachment_image_srcset($attachment_id, 'large')
+            : '';
+        $sizes_attr = function_exists('wp_get_attachment_image_sizes')
+            ? wp_get_attachment_image_sizes($attachment_id, 'large')
+            : '';
+
+        $large = $images['large'] ?? $images['full'] ?? $full;
+        $medium_large = $images['medium_large'] ?? $large;
+        $medium = $images['medium'] ?? $medium_large;
+        $thumb = $images['thumbnail'] ?? $medium;
 
         return [
-            'attachment_id' => $attachment_id,
-            'url'           => $url,
-            'thumbnail'     => $thumb ?: $url,
+            'attachment_id'    => $attachment_id,
+            'url'              => $full,
+            'thumbnail'        => $thumb ?: $full,
+            'original_url'     => $images['full'] ?? $full,
+            'full_url'         => $images['full'] ?? $full,
+            'large_url'        => $large,
+            'medium_large_url' => $medium_large,
+            'medium_url'       => $medium,
+            'thumbnail_url'    => $thumb,
+            'images'           => $images,
+            'srcset'           => is_string($srcset) ? $srcset : '',
+            'sizes'            => is_string($sizes_attr) && $sizes_attr !== ''
+                ? $sizes_attr
+                : '(max-width: 768px) 100vw, 33vw',
+            'width'            => $width,
+            'height'           => $height,
+        ];
+    }
+
+    /**
+     * Build responsive image manifest from attachment or flat URL fields.
+     */
+    public static function build_media_manifest(array $item): array {
+        $attachment_id = (int) ($item['attachment_id'] ?? 0);
+        if ($attachment_id <= 0) {
+            $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+            $attachment_id = (int) ($meta['attachment_id'] ?? 0);
+        }
+
+        if ($attachment_id > 0) {
+            return self::resolve_attachment($attachment_id);
+        }
+
+        $manifest = self::empty_manifest();
+        $priority = [
+            'original_url', 'full_url', 'large_url', 'medium_large_url',
+            'image_url', 'output_url', 'asset_url', 'url', 'video_url', 'audio_url',
+            'thumbnail_url', 'thumbnail',
+        ];
+
+        $canonical = '';
+        foreach ($priority as $key) {
+            $url = self::sanitize_asset_url($item[$key] ?? '');
+            if ($url !== '') {
+                $canonical = $url;
+                break;
+            }
+        }
+
+        if ($canonical === '') {
+            $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+            $canonical = self::sanitize_asset_url($meta['asset_url'] ?? $meta['original_url'] ?? '');
+        }
+
+        if ($canonical === '') {
+            return $manifest;
+        }
+
+        $thumb = self::sanitize_asset_url($item['thumbnail_url'] ?? $item['thumbnail'] ?? '');
+        if ($thumb === '') {
+            $thumb = $canonical;
+        }
+
+        $manifest['url'] = $canonical;
+        $manifest['original_url'] = $canonical;
+        $manifest['full_url'] = $canonical;
+        $manifest['large_url'] = $canonical;
+        $manifest['medium_large_url'] = $canonical;
+        $manifest['medium_url'] = $thumb !== $canonical ? $thumb : $canonical;
+        $manifest['thumbnail_url'] = $thumb;
+        $manifest['thumbnail'] = $thumb;
+        $manifest['images'] = [
+            'full'          => $canonical,
+            'large'         => $canonical,
+            'medium_large'  => $canonical,
+            'medium'        => $manifest['medium_url'],
+            'thumbnail'     => $thumb,
+        ];
+
+        return $manifest;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function empty_manifest(): array {
+        return [
+            'attachment_id'    => 0,
+            'url'              => '',
+            'thumbnail'        => '',
+            'original_url'     => '',
+            'full_url'         => '',
+            'large_url'        => '',
+            'medium_large_url' => '',
+            'medium_url'       => '',
+            'thumbnail_url'    => '',
+            'images'           => [],
+            'srcset'           => '',
+            'sizes'            => '(max-width: 768px) 100vw, 33vw',
+            'width'            => 0,
+            'height'           => 0,
         ];
     }
 

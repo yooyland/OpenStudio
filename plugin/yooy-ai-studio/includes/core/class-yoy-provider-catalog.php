@@ -127,6 +127,16 @@ final class YooY_Provider_Catalog {
                 'name' => 'Claude', 'studios' => ['writing'], 'option' => 'yoy_claude_api_key',
                 'priority' => 78, 'type' => 'writing', 'impl' => 'bridge',
             ],
+
+            // Translation (Translator Studio)
+            'openai-translator' => [
+                'name' => 'OpenAI Translator', 'studios' => ['translation'], 'option' => 'yoy_openai_api_key',
+                'priority' => 95, 'type' => 'translation', 'impl' => 'openai-translator', 'route_id' => 'openai',
+            ],
+            'mock-translator' => [
+                'name' => 'Mock Translator', 'studios' => ['translation'], 'option' => '',
+                'priority' => 0, 'type' => 'translation', 'impl' => 'mock', 'route_id' => 'mock',
+            ],
         ];
     }
 

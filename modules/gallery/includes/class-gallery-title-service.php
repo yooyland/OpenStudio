@@ -267,6 +267,8 @@ final class YooY_Gallery_Title_Service {
                 return '음성';
             case 'writing':
                 return '글';
+            case 'translation':
+                return '번역';
             case 'avatar':
                 return '아바타';
             default:

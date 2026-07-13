@@ -15,6 +15,13 @@ $staging = Join-Path $Root 'dist\package-staging'
 $pluginDir = Join-Path $staging 'yooy-ai-studio'
 $zipPath = Join-Path $Root $ZipName
 
+# Gate: REST routes MUST all be registered before we build/ZIP anything.
+Write-Host "== REST route verification (pre-build gate) ==" -ForegroundColor Cyan
+& (Join-Path $PSScriptRoot 'verify-rest-routes.ps1') -Root $Root
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Build aborted: REST route verification failed. No ZIP generated."
+}
+
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
 
 if (Test-Path $pluginDir) {

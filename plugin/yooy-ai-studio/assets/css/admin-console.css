@@ -5,7 +5,7 @@
   --ops-gap-card: 24px;
   --ops-gap-grid: 24px;
   --ops-pad-card: 24px;
-  --ops-radius: 16px;
+  --ops-radius: 12px;
   --ops-gold: #ffd76a;
   --ops-gold-dim: #d8a63a;
   --ops-bg: #050505;
@@ -462,6 +462,24 @@
 
 .yai-ops-provider-metric span { color: #ddd; font-size: 13px; font-weight: 600; }
 
+.yai-ops-provider-metric--wide { grid-column: 1 / -1; }
+.yai-ops-provider-metric--wide span {
+  color: #ff9a9a;
+  font-weight: 500;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yai-ops-error-table td.yai-ops-err-msg {
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #ff9a9a;
+}
+
 .yai-ops-provider-key {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -489,12 +507,6 @@
 
 .yai-ops-provider-config select,
 .yai-ops-provider-config input {
-  background: var(--ops-surface);
-  border: 1px solid var(--ops-border);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 12px;
-  padding: 10px 12px;
   width: 100%;
 }
 
@@ -708,12 +720,14 @@
 }
 
 .yai-ops-form-grid input,
-.yai-ops-form-grid select {
-  background: var(--ops-surface);
-  border: 1px solid var(--ops-border);
-  border-radius: 8px;
-  color: #fff;
-  padding: 10px 12px;
+.yai-ops-form-grid select,
+.yai-ops-form-grid textarea {
+  width: 100%;
+}
+
+.yai-ops-section-form textarea,
+#yai-ops-section-editor textarea {
+  min-height: 96px;
 }
 
 .yai-ops-split {
@@ -902,6 +916,66 @@
   line-height: 1.45;
   margin: 0;
 }
+
+.yai-ops-provider-billing-block {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ops-border);
+  border-radius: 10px;
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.yai-ops-provider-billing-hdr {
+  color: #eee;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.yai-ops-provider-billing-hdr em {
+  color: var(--ops-muted);
+  display: block;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+  margin-top: 4px;
+  text-transform: none;
+}
+
+.yai-ops-provider-billing-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.yai-ops-provider-billing-row {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+}
+
+.yai-ops-provider-billing-row b {
+  color: var(--ops-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.yai-ops-billing-val { font-weight: 700; }
+.yai-ops-billing-val--connected { color: #4ade80; }
+.yai-ops-billing-val--error { color: var(--ops-red); }
+.yai-ops-billing-val--pending { color: #fbbf24; }
+.yai-ops-billing-val--muted { color: var(--ops-muted); }
+
+.yai-ops-provider-billing-note {
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 10px 0 0;
+}
+
+.yai-ops-provider-billing-note.is-error { color: var(--ops-red); }
 
 .yai-ops-modal,
 .yai-ops-drawer {
@@ -1213,3 +1287,174 @@
   font-size: 12px;
   gap: 16px;
 }
+
+/* Home Sections manager */
+.yai-ops-muted {
+  color: var(--ops-muted);
+  font-size: 12px;
+}
+
+.yai-ops-table-wrap {
+  margin-top: 8px;
+  overflow-x: auto;
+}
+
+.yai-ops-table {
+  border-collapse: collapse;
+  min-width: 760px;
+  width: 100%;
+}
+
+.yai-ops-table th,
+.yai-ops-table td {
+  border-bottom: 1px solid var(--ops-border);
+  padding: 12px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.yai-ops-table th {
+  color: var(--ops-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.yai-ops-table td strong {
+  color: #fff;
+}
+
+.yai-ops-btn-ghost {
+  background: var(--ops-surface);
+  border: 1px solid var(--ops-border);
+  border-radius: 8px;
+  color: #e8e8e8;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
+  padding: 7px 12px;
+}
+
+.yai-ops-btn-ghost:hover:not(:disabled) {
+  border-color: rgba(216, 166, 58, 0.45);
+  color: var(--ops-gold);
+}
+
+.yai-ops-btn-ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.yai-ops-btn-ghost--danger {
+  border-color: rgba(255, 138, 138, 0.35);
+  color: #ffb4b4;
+}
+
+.yai-ops-btn-ghost--danger:hover:not(:disabled) {
+  border-color: rgba(255, 138, 138, 0.65);
+  color: #ffd0d0;
+}
+
+.yai-ops-btn-primary {
+  background: linear-gradient(135deg, #f2c14e, #ffd76a);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #0a0a0a;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+}
+
+.yai-ops-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.yai-ops-section-form {
+  margin-top: 16px;
+}
+
+.yai-ops-section-form h3,
+.yai-ops-section-form h4 {
+  color: #fff;
+  margin: 0 0 16px;
+}
+
+.yai-ops-section-form .yai-ops-form-span-2 {
+  grid-column: 1 / -1;
+}
+
+.yai-ops-section-form input[type="text"],
+.yai-ops-section-form input[type="number"],
+.yai-ops-section-form textarea,
+.yai-ops-section-form select,
+#yai-ops-section-editor input[type="text"],
+#yai-ops-section-editor input[type="number"],
+#yai-ops-section-editor textarea,
+#yai-ops-section-editor select {
+  width: 100%;
+}
+
+.yai-ops-check-label {
+  align-items: center;
+  color: #ccc;
+  display: flex;
+  flex-direction: row;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.yai-ops-check-label input[type="checkbox"] {
+  accent-color: var(--ops-gold);
+  height: 16px;
+  width: 16px;
+}
+
+.yai-ops-section-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.yai-ops-section-manual {
+  border-top: 1px solid var(--ops-border);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.yai-ops-section-manual-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.yai-ops-section-manual-search input {
+  flex: 1;
+}
+
+#yai-sec-manual-list {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+#yai-sec-selected code {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: #ddd;
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+/* System Health cards */
+.yai-sysh-msg {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ops-muted, #9a9aa2);
+  line-height: 1.45;
+}
+.yai-ops-health--red .yai-sysh-msg { color: #ff9d9d; }
+.yai-ops-health--yellow .yai-sysh-msg { color: #ffd98a; }
+.yai-sysh-fix { margin-top: 10px; }

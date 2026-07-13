@@ -52,6 +52,9 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
         $this->register_route('/providers/(?P<id>[a-zA-Z0-9_-]+)/monitoring', [
             'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'provider_monitoring'], 'permission_callback' => $admin,
         ]);
+        $this->register_route('/provider-errors', [
+            'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'provider_error_log'], 'permission_callback' => $admin,
+        ]);
         $this->register_route('/providers/(?P<id>[a-zA-Z0-9_-]+)/disable', [
             'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'disable_provider'], 'permission_callback' => $admin,
         ]);
@@ -89,6 +92,9 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
         ]);
         $this->register_route('/system', [
             'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'system_info'], 'permission_callback' => $admin,
+        ]);
+        $this->register_route('/system-health', [
+            'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'system_health'], 'permission_callback' => $admin,
         ]);
         $this->register_route('/backup', [
             'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'backup_info'], 'permission_callback' => $admin,
@@ -138,6 +144,37 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
                 'permission_callback' => $admin,
             ],
         ]);
+
+        $this->register_route('/official-showcase', [
+            [
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => [$this, 'official_showcase_list'],
+                'permission_callback' => $admin,
+            ],
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [$this, 'official_showcase_create'],
+                'permission_callback' => $admin,
+            ],
+        ]);
+        $this->register_route('/official-showcase/reorder', [
+            'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'official_showcase_reorder'], 'permission_callback' => $admin,
+        ]);
+        $this->register_route('/official-showcase/seed', [
+            'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'official_showcase_seed'], 'permission_callback' => $admin,
+        ]);
+        $this->register_route('/official-showcase/(?P<id>[a-zA-Z0-9_-]+)', [
+            [
+                'methods'             => WP_REST_Server::EDITABLE,
+                'callback'            => [$this, 'official_showcase_update'],
+                'permission_callback' => $admin,
+            ],
+            [
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => [$this, 'official_showcase_delete'],
+                'permission_callback' => $admin,
+            ],
+        ]);
     }
 
     public function require_admin() {
@@ -175,6 +212,11 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
     public function provider_monitoring(WP_REST_Request $request): WP_REST_Response {
         $id = sanitize_text_field($request->get_param('id'));
         return $this->success(YooY_Admin_Providers::provider_monitoring($id));
+    }
+
+    public function provider_error_log(WP_REST_Request $request): WP_REST_Response {
+        $limit = max(1, min(100, (int) ($request->get_param('limit') ?: 100)));
+        return $this->success(YooY_Admin_Providers::provider_error_log($limit));
     }
 
     public function disable_provider(WP_REST_Request $request): WP_REST_Response {
@@ -532,6 +574,13 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
         ]);
     }
 
+    public function system_health(): WP_REST_Response {
+        if (!class_exists('YooY_System_Diagnostics')) {
+            return $this->error('Diagnostics engine unavailable.', 500);
+        }
+        return $this->success(YooY_System_Diagnostics::run(get_current_user_id(), true));
+    }
+
     public function system_info(): WP_REST_Response {
         global $wp_version;
         return $this->success([
@@ -722,5 +771,91 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
         return $this->success([
             'works' => $this->home_sections->search_works($q, $limit),
         ]);
+    }
+
+    private function official_showcase_service(): ?YooY_Official_Showcase {
+        if (!class_exists('YooY_Official_Showcase')) {
+            if (defined('YOY_AI_STUDIO_DIR') && file_exists(YOY_AI_STUDIO_DIR . 'official-showcase/class-yoy-official-showcase.php')) {
+                require_once YOY_AI_STUDIO_DIR . 'official-showcase/class-yoy-official-showcase.php';
+            }
+        }
+        if (!class_exists('YooY_Official_Showcase')) {
+            return null;
+        }
+        $service = YooY_Official_Showcase::instance();
+        $service->seed_if_empty();
+        return $service;
+    }
+
+    public function official_showcase_list(): WP_REST_Response {
+        $service = $this->official_showcase_service();
+        if (!$service) {
+            return $this->error('Official Showcase service unavailable.', 500);
+        }
+        return $this->success(['items' => $service->list_all()]);
+    }
+
+    public function official_showcase_create(WP_REST_Request $request): WP_REST_Response {
+        $service = $this->official_showcase_service();
+        if (!$service) {
+            return $this->error('Official Showcase service unavailable.', 500);
+        }
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $title = sanitize_text_field($body['title'] ?? '');
+        if ($title === '') {
+            return $this->error('Title is required.', 400);
+        }
+        $item = $service->create($body);
+        return $this->success(['item' => $item], 201);
+    }
+
+    public function official_showcase_update(WP_REST_Request $request): WP_REST_Response {
+        $service = $this->official_showcase_service();
+        if (!$service) {
+            return $this->error('Official Showcase service unavailable.', 500);
+        }
+        $id = sanitize_text_field($request->get_param('id'));
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $item = $service->update($id, $body);
+        if (!$item) {
+            return $this->error('Item not found.', 404);
+        }
+        return $this->success(['item' => $item]);
+    }
+
+    public function official_showcase_delete(WP_REST_Request $request): WP_REST_Response {
+        $service = $this->official_showcase_service();
+        if (!$service) {
+            return $this->error('Official Showcase service unavailable.', 500);
+        }
+        $id = sanitize_text_field($request->get_param('id'));
+        if (!$service->delete($id)) {
+            return $this->error('Item not found.', 404);
+        }
+        return $this->success(['deleted' => true]);
+    }
+
+    public function official_showcase_reorder(WP_REST_Request $request): WP_REST_Response {
+        $service = $this->official_showcase_service();
+        if (!$service) {
+            return $this->error('Official Showcase service unavailable.', 500);
+        }
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $ordered = is_array($body['ordered_ids'] ?? null) ? $body['ordered_ids'] : [];
+        return $this->success(['items' => $service->reorder($ordered)]);
+    }
+
+    public function official_showcase_seed(): WP_REST_Response {
+        $service = $this->official_showcase_service();
+        if (!$service) {
+            return $this->error('Official Showcase service unavailable.', 500);
+        }
+        delete_option('yoy_official_showcase_seeded');
+        delete_option('yoy_official_showcase');
+        $count = $service->seed_if_empty();
+        return $this->success(['seeded' => $count, 'items' => $service->list_all()]);
     }
 }

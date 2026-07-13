@@ -29,20 +29,19 @@ final class YooY_Provider_Resolver {
             self::throw_provider_error($requested, $studio, $eval, 'provider_resolver', 'provider_unavailable');
         }
 
-        $admin_default = self::admin_default_for_studio($studio);
-        if ($admin_default !== '' && $admin_default !== 'mock' && $admin_default !== 'auto' && strpos($admin_default, 'mock-') !== 0) {
-            $eval = self::evaluate($admin_default, $studio);
-            if ($eval['usable']) {
-                return self::build(self::route_provider_id($admin_default, $studio), $requested ?: 'auto', null, null, true, $studio, $admin_default);
-            }
-            if (!empty($eval['billing_blocked'])) {
-                self::throw_provider_error($admin_default, $studio, $eval, 'credit_check', 'billing_blocked');
-            }
-        }
+        $is_auto = ($requested === '' || $requested === 'auto');
 
         $best = self::best_live_for_studio($studio);
         if ($best) {
-            return self::build(self::route_provider_id($best['id'], $studio), $requested ?: 'auto', null, null, true, $studio, $best['id']);
+            return self::build(
+                self::route_provider_id($best['id'], $studio),
+                $requested ?: 'auto',
+                null,
+                null,
+                !$is_auto,
+                $studio,
+                $best['id']
+            );
         }
 
         $configured = self::best_configured_unsupported_for_studio($studio);
@@ -52,14 +51,66 @@ final class YooY_Provider_Resolver {
                 $requested ?: 'auto',
                 null,
                 null,
-                true,
+                !$is_auto,
                 $studio,
                 $configured['id']
             );
         }
 
-        $reason = self::fallback_reason($studio, $admin_default, $best);
+        $reason = self::fallback_reason($studio, self::admin_default_for_studio($studio), $best);
         return self::build('mock', $requested ?: 'auto', $reason, self::fallback_warning($reason), false, $studio, $studio === 'image' ? 'mock-image' : 'mock');
+    }
+
+    /** Mark provider billing failure and disable auto routing until resolved. */
+    public static function mark_billing_error(string $provider_id, string $message): void {
+        $message = sanitize_text_field($message);
+        if ($message === '') {
+            $message = 'Insufficient credit';
+        }
+
+        $targets = [$provider_id];
+        if ($provider_id === 'replicate') {
+            $targets[] = 'flux';
+        } elseif ($provider_id === 'flux') {
+            $targets[] = 'replicate';
+        }
+
+        $registry = self::get_registry();
+        foreach (array_unique($targets) as $id) {
+            $state = self::get_provider_state($id);
+            $state['billing_status'] = 'blocked';
+            $state['auto_routing_disabled'] = true;
+            $state['last_test_error'] = $message;
+            $state['last_test_error_type'] = 'billing_error';
+            $state['last_test_status'] = 'failed';
+            $state['active'] = false;
+            $state['success_rate'] = 0;
+            $registry[$id] = $state;
+        }
+        update_option(self::REGISTRY_OPTION, $registry, false);
+    }
+
+    public static function is_auto_excluded(string $provider_id): bool {
+        $state = self::get_provider_state($provider_id);
+        if (!empty($state['auto_routing_disabled'])) {
+            return true;
+        }
+        if (($state['billing_status'] ?? '') === 'blocked') {
+            return true;
+        }
+        $error = (string) ($state['last_test_error'] ?? '');
+        if ($error !== '' && class_exists('YooY_Provider_Billing_Error') && YooY_Provider_Billing_Error::matches($error)) {
+            return true;
+        }
+        if (in_array($provider_id, ['replicate', 'flux'], true) && ($state['last_test_status'] ?? '') === 'failed') {
+            return true;
+        }
+        return false;
+    }
+
+    public static function is_openai_image_ready(): bool {
+        $eval = self::evaluate('openai', 'image');
+        return !empty($eval['usable']) && !empty($eval['is_live']);
     }
 
     public static function apply(array &$payload, string $studio, int $user_id = 0): array {
@@ -168,6 +219,7 @@ final class YooY_Provider_Resolver {
             'last_test_error'  => '',
             'last_test_error_type' => '',
             'billing_status'   => 'unknown',
+            'auto_routing_disabled' => false,
             'priority'         => 50,
             'success_rate'     => null,
         ], $state);
@@ -281,7 +333,7 @@ final class YooY_Provider_Resolver {
 
     public static function set_studio_default(string $studio, string $provider_id): array {
         $studio = sanitize_text_field($studio);
-        if (!in_array($studio, ['image', 'video', 'music', 'voice', 'avatar', 'writing'], true)) {
+        if (!in_array($studio, ['image', 'video', 'music', 'voice', 'avatar', 'writing', 'translation'], true)) {
             throw new Exception('Invalid studio type.');
         }
 
@@ -447,6 +499,10 @@ final class YooY_Provider_Resolver {
 
     /** Auto routing eligibility: tier 1 = test passed live, tier 2 = configured but test unsupported. */
     public static function evaluate_for_auto(string $provider_id, string $studio): array {
+        if (self::is_auto_excluded($provider_id)) {
+            return ['tier' => 0, 'usable' => false, 'priority' => 0];
+        }
+
         $tier1 = self::evaluate($provider_id, $studio);
         if (!empty($tier1['usable']) && !empty($tier1['is_live'])) {
             return [
@@ -500,11 +556,12 @@ final class YooY_Provider_Resolver {
         $warning = '';
         if (!empty($row['has_key']) && !$eval_image['usable'] && empty($eval_image['billing_blocked'])) {
             $warning = 'Provider is registered but not usable: ' . ($eval_image['message'] ?? 'check configuration.');
-        } elseif (!empty($eval_image['billing_blocked'])) {
-            $warning = 'Provider is connected but billing or credits are unavailable.';
+        } elseif (!empty($eval_image['billing_blocked']) || !empty($state['auto_routing_disabled'])) {
+            $warning = 'Provider API account billing issue. This is separate from YooY user credits.';
         }
 
         $routing_status = self::routing_status($row['id'], $row, $eval_image, $studio_map, $defaults);
+        $billing_display = self::provider_billing_display($row, $state, $eval_image);
 
         if (!empty($state['model'])) {
             $row['model'] = (string) $state['model'];
@@ -524,6 +581,7 @@ final class YooY_Provider_Resolver {
             'last_test_label'  => $test_map[$state['last_test_status'] ?? 'not_tested'] ?? 'Not tested',
             'billing_status'   => $state['billing_status'] ?? 'unknown',
             'billing_label'    => $billing_map[$state['billing_status'] ?? 'unknown'] ?? 'Unknown',
+            'auto_routing_disabled' => !empty($state['auto_routing_disabled']),
             'mode_label'       => $mode_label,
             'supports'         => $row['studios'] ?? [],
             'studio_defaults'  => $studio_map,
@@ -533,7 +591,75 @@ final class YooY_Provider_Resolver {
             'routing_label_ko' => $routing_status['label_ko'],
             'configured'       => !empty($row['has_key']),
             'warning'          => $warning,
+            'provider_billing_status' => $billing_display['billing'],
+            'provider_api_status'     => $billing_display['api'],
+            'provider_test_status'    => $billing_display['test'],
+            'provider_billing_tone'   => $billing_display['billing_tone'],
+            'provider_api_tone'       => $billing_display['api_tone'],
+            'provider_test_tone'      => $billing_display['test_tone'],
         ]);
+    }
+
+    /** Provider API billing / key / test — separate from YooY user credits. */
+    private static function provider_billing_display(array $row, array $state, array $eval): array {
+        $is_mock = (($row['impl'] ?? '') === 'mock') || (strpos((string) ($row['id'] ?? ''), 'mock-') === 0);
+        if ($is_mock) {
+            return [
+                'billing' => 'N/A (Mock)',
+                'api'     => 'N/A',
+                'test'    => 'N/A',
+                'billing_tone' => 'muted',
+                'api_tone'     => 'muted',
+                'test_tone'    => 'muted',
+            ];
+        }
+
+        $billing = 'Unknown';
+        $billing_tone = 'pending';
+        $billing_error = (string) ($state['last_test_error'] ?? '');
+        $billing_blocked = !empty($state['auto_routing_disabled']) || ($state['billing_status'] ?? '') === 'blocked';
+
+        if ($billing_blocked) {
+            $billing_tone = 'error';
+            if ($billing_error !== '' && class_exists('YooY_Provider_Billing_Error') && stripos($billing_error, 'insufficient') !== false) {
+                $billing = 'Insufficient Credit';
+            } elseif ($billing_error !== '' && class_exists('YooY_Provider_Billing_Error') && YooY_Provider_Billing_Error::matches($billing_error)) {
+                $billing = 'Billing Error';
+            } elseif (($state['billing_status'] ?? '') === 'blocked') {
+                $billing = 'Blocked';
+            } else {
+                $billing = 'Billing Error';
+            }
+        } elseif (($state['billing_status'] ?? '') === 'available' || !empty($eval['usable'])) {
+            $billing = 'Connected';
+            $billing_tone = 'connected';
+        }
+
+        $api = !empty($row['has_key']) ? 'Valid' : 'Missing';
+        $api_tone = !empty($row['has_key']) ? 'connected' : 'error';
+        if (!empty($row['has_key']) && ($state['last_test_error_type'] ?? '') === 'auth_error') {
+            $api = 'Invalid';
+            $api_tone = 'error';
+        }
+
+        $test_status = $state['last_test_status'] ?? 'not_tested';
+        $test_map = [
+            'passed'      => 'Passed',
+            'failed'      => 'Failed',
+            'unsupported' => 'Unsupported',
+            'not_tested'  => 'Not Tested',
+        ];
+        $test = $test_map[$test_status] ?? 'Not Tested';
+        $test_tone = $test_status === 'passed' ? 'connected' : ($test_status === 'failed' ? 'error' : 'pending');
+
+        return [
+            'billing' => $billing,
+            'api'     => $api,
+            'test'    => $test,
+            'billing_tone' => $billing_tone,
+            'api_tone'     => $api_tone,
+            'test_tone'    => $test_tone,
+        ];
     }
 
     private static function best_live_for_studio(string $studio): ?array {
@@ -568,11 +694,30 @@ final class YooY_Provider_Resolver {
             return null;
         }
 
-        usort($candidates, function ($a, $b) {
-            return $b['priority'] <=> $a['priority'];
+        usort($candidates, function ($a, $b) use ($studio) {
+            $score_a = self::auto_sort_score($a['id'], $studio, (int) $a['priority']);
+            $score_b = self::auto_sort_score($b['id'], $studio, (int) $b['priority']);
+            return $score_b <=> $score_a;
         });
 
         return $candidates[0];
+    }
+
+    private static function auto_sort_score(string $provider_id, string $studio, int $base_priority): int {
+        $score = $base_priority;
+        if ($studio === 'image') {
+            if ($provider_id === 'openai' && self::is_openai_image_ready()) {
+                $score += 500;
+            }
+            if (in_array($provider_id, ['replicate', 'flux'], true)) {
+                $score -= 100;
+            }
+        }
+        $admin_default = self::admin_default_for_studio($studio);
+        if ($admin_default !== '' && $provider_id === $admin_default) {
+            $score += 50;
+        }
+        return $score;
     }
 
     private static function evaluate_configured_unsupported(string $provider_id, string $studio): array {
@@ -773,6 +918,10 @@ final class YooY_Provider_Resolver {
     }
 
     private static function routing_status(string $provider_id, array $row, array $eval, array $studio_map, array $defaults): array {
+        $state = self::get_provider_state($provider_id);
+        if (!empty($state['auto_routing_disabled']) || ($state['billing_status'] ?? '') === 'blocked') {
+            return ['code' => 'billing_error', 'label' => 'Billing Error', 'label_ko' => '결제 오류'];
+        }
         if (empty($row['enabled'])) {
             return ['code' => 'disabled', 'label' => 'Disabled', 'label_ko' => '비활성화'];
         }

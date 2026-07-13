@@ -1,0 +1,537 @@
+/* YooY AI Studio v11.8.1 — Big Spacious Creator SaaS UI */
+
+.yai-app {
+  font-size: var(--yai-body-size, 15px);
+}
+
+/* ── Typography scale ── */
+.yai-home-head h1 {
+  font-size: clamp(36px, 5vw, 56px);
+  margin: 0 0 28px;
+}
+
+.yai-page-head h1 {
+  font-size: clamp(30px, 4vw, 42px);
+}
+
+.yai-page-head p,
+.yai-block-head h2,
+.yai-home-section-head h2 {
+  font-size: 18px;
+}
+
+.yai-home-section-head p {
+  font-size: 15px;
+}
+
+.yai-block-head h2 {
+  font-size: 20px;
+}
+
+.yai-crumb {
+  font-size: 12px;
+}
+
+.yai-work-card-title {
+  font-size: 16px;
+}
+
+.yai-work-card-meta,
+.yai-project-chip span,
+.yai-project-card span {
+  font-size: 13px;
+}
+
+/* ── Hero composer ── */
+.yai-composer {
+  border-radius: var(--yai-radius-lg, 24px);
+  gap: 16px;
+  margin-bottom: 24px;
+  max-width: none;
+  padding: 12px 12px 12px 28px;
+}
+
+.yai-composer textarea {
+  font-size: 17px;
+  max-height: 160px;
+  min-height: 32px;
+  padding: 14px 0;
+}
+
+.yai-preset-label {
+  font-size: 13px;
+}
+
+.yai-preset-chip {
+  font-size: 14px;
+  padding: 10px 18px;
+}
+
+.yai-quick-btn {
+  border-radius: 16px;
+  font-size: 15px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 20px;
+}
+
+.yai-stats-row {
+  gap: 16px;
+  margin-bottom: var(--yai-section-gap, 32px);
+}
+
+.yai-stat {
+  border-radius: 18px;
+  padding: 18px 20px;
+}
+
+.yai-stat strong {
+  font-size: 24px;
+}
+
+.yai-modal-panel {
+  border-radius: 24px;
+  max-width: 560px;
+}
+
+.yai-modal-head h2 {
+  font-size: 22px;
+}
+
+.yai-discover-card {
+  border-radius: var(--yai-radius, 20px);
+  padding: 20px;
+}
+
+.yai-discover-card strong {
+  font-size: 16px;
+}
+
+/* ── Primary buttons ── */
+.yai-btn {
+  border-radius: 16px;
+  font-size: 16px;
+  min-height: var(--yai-btn-height-sm, 44px);
+  padding: 12px 24px;
+}
+
+.yai-btn--gold,
+.yai-composer .yai-btn--gold {
+  font-size: 16px;
+  font-weight: 700;
+  min-height: var(--yai-btn-height, 52px);
+  padding: 0 28px;
+}
+
+.yai-btn--outline {
+  border-radius: 14px;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 10px 18px;
+}
+
+.yai-text-btn {
+  font-size: 14px;
+}
+
+/* ── Home dashboard ── */
+.yai-home-dashboard {
+  gap: var(--yai-section-gap, 32px);
+  grid-template-columns: minmax(0, 2.4fr) minmax(220px, 0.55fr);
+  margin-bottom: var(--yai-section-gap, 32px);
+}
+
+.yai-home-main,
+.yai-home-col {
+  gap: var(--yai-section-gap, 32px);
+}
+
+.yai-home-side {
+  gap: 16px;
+  max-width: 300px;
+}
+
+.yai-card-block,
+.yai-home-section--gallery {
+  padding: 16px 0 24px;
+}
+
+.yai-home-sections {
+  gap: 28px;
+}
+
+.yai-block-head {
+  margin-bottom: 18px;
+}
+
+.yai-block-body {
+  gap: 14px;
+}
+
+/* ── Works showcase grid ── */
+.yai-works-grid--showcase {
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.yai-work-card--showcase {
+  border-radius: 18px;
+}
+
+.yai-work-card--showcase .yai-work-card-thumb {
+  aspect-ratio: auto;
+  min-height: 240px;
+}
+
+.yai-work-card--showcase .yai-work-card-body {
+  gap: 8px;
+  padding: 12px 14px 16px;
+}
+
+.yai-work-card--showcase .yai-work-card-title {
+  font-size: 17px;
+}
+
+.yai-work-card--showcase .yai-work-card-meta {
+  font-size: 13px;
+}
+
+/* Dense grid (sections / project detail) — bigger than before */
+.yai-works-grid--dense {
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.yai-work-card--dense {
+  border-radius: 14px;
+}
+
+.yai-work-card--dense .yai-work-card-thumb {
+  aspect-ratio: 4 / 5;
+  min-height: 220px;
+}
+
+.yai-work-card--dense .yai-work-card-body {
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.yai-work-card--dense .yai-work-card-title {
+  font-size: 15px;
+}
+
+.yai-work-card--dense .yai-work-card-meta--compact {
+  font-size: 12px;
+}
+
+.yai-home-section-row--grid {
+  gap: 6px;
+}
+
+.yai-home-section-row--carousel {
+  gap: 8px;
+}
+
+.yai-work-card--section .yai-work-card-thumb {
+  min-height: 280px;
+}
+
+.yai-work-card--section .yai-work-card-thumb img {
+  min-height: 280px;
+}
+
+/* Hover actions — bigger */
+.yai-work-card-hover {
+  gap: 10px;
+  padding: 16px;
+}
+
+.yai-work-card-hover button {
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 40px;
+  padding: 10px 14px;
+}
+
+.yai-work-type-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+}
+
+/* ── Home projects strip → cards ── */
+.yai-projects-strip {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.yai-project-chip {
+  align-items: stretch;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+  min-height: 220px;
+  padding: 16px;
+}
+
+.yai-project-chip-thumb {
+  aspect-ratio: 16 / 10;
+  border-radius: 14px;
+  height: auto;
+  min-height: 140px;
+  width: 100%;
+}
+
+.yai-project-chip strong {
+  font-size: 17px;
+}
+
+.yai-project-chip span {
+  font-size: 14px;
+}
+
+.yai-project-chip .yai-btn--outline {
+  justify-self: start;
+  margin-top: auto;
+}
+
+/* ── Activity sidebar — compact ── */
+.yai-timeline--compact .yai-timeline-item {
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.yai-timeline--compact .yai-timeline-item strong {
+  font-size: 13px;
+}
+
+.yai-timeline--compact .yai-timeline-item span {
+  font-size: 12px;
+}
+
+.yai-card-block--compact {
+  padding: 18px;
+}
+
+/* ── Projects page ── */
+.yai-project-grid {
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.yai-project-card {
+  border-radius: 22px;
+  gap: 14px;
+  min-height: 320px;
+  padding: 20px;
+}
+
+.yai-project-card-cover {
+  border-radius: 16px;
+  min-height: 180px;
+}
+
+.yai-project-card strong {
+  font-size: 18px;
+}
+
+.yai-project-card p {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.yai-project-detail-cover {
+  border-radius: 22px;
+  max-height: 420px;
+}
+
+.yai-project-detail-cover img {
+  max-height: 420px;
+}
+
+.yai-filter-chip {
+  font-size: 14px;
+  min-height: 40px;
+  padding: 10px 16px;
+}
+
+/* ── Studio modules shared ── */
+.yis-btn-primary,
+.yvs-btn-primary,
+.yms-btn-primary,
+.yas-btn-primary,
+.yvs-btn-primary {
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  min-height: 56px;
+  padding: 0 28px;
+}
+
+.yis-btn-secondary,
+.yvs-btn-secondary,
+.yms-btn-secondary,
+.yas-btn-secondary {
+  border-radius: 14px;
+  font-size: 14px;
+  min-height: 44px;
+  padding: 10px 20px;
+}
+
+.yis-workspace,
+.yvs-workspace {
+  padding: 28px 32px;
+}
+
+.yis-header h2,
+.yvs-header h2 {
+  font-size: 28px;
+}
+
+.yis-controls,
+.yvs-controls {
+  padding: 24px;
+}
+
+/* ── Gallery module ── */
+.ygl-grid {
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.ygl-card {
+  border-radius: 18px;
+}
+
+.ygl-thumb {
+  aspect-ratio: 4 / 5;
+  min-height: 240px;
+}
+
+.ygl-card-body {
+  padding: 12px 14px 16px;
+}
+
+.ygl-card-body strong {
+  font-size: 16px;
+}
+
+.ygl-card-body span {
+  font-size: 13px;
+}
+
+.ygl-btn {
+  border-radius: 12px;
+  font-size: 14px;
+  min-height: 44px;
+  padding: 12px 16px;
+}
+
+.ygl-filter,
+.ygl-sync {
+  font-size: 14px;
+  min-height: 40px;
+  padding: 10px 18px;
+}
+
+.ygl-drawer {
+  width: min(480px, 96vw);
+}
+
+.ygl-title-input {
+  font-size: 20px;
+}
+
+.ygl-desc-input {
+  font-size: 15px;
+  min-height: 96px;
+}
+
+.ygl-action-group h4,
+.ygl-prompt-block small {
+  font-size: 13px;
+}
+
+/* ── Operations Center ── */
+.yai-ops-head h1 {
+  font-size: clamp(32px, 4vw, 44px);
+}
+
+.yai-ops-head p {
+  font-size: 16px;
+  max-width: 720px;
+}
+
+.yai-ops-badge {
+  font-size: 11px;
+  padding: 5px 12px;
+}
+
+.yai-ops-form-grid {
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.yai-ops-section-form h3,
+.yai-ops-section-form h4 {
+  font-size: 22px;
+}
+
+.yai-ops-search {
+  font-size: 15px;
+  min-height: 48px;
+  padding: 12px 16px;
+}
+
+.yai-ops-provider {
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.yai-ops-card {
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.yai-ops-modal-panel {
+  border-radius: 24px;
+  padding: 28px;
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --yai-page-pad-x: 28px;
+    --yai-page-pad-y: 28px;
+  }
+
+  .yai-home-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .yai-home-side {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --yai-page-pad-x: 20px;
+    --yai-page-pad-y: 24px;
+    --yai-section-gap: 24px;
+    --yai-card-pad: 20px;
+  }
+
+  .yai-works-grid--showcase,
+  .yai-works-grid--dense,
+  .ygl-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yai-projects-strip {
+    grid-template-columns: 1fr;
+  }
+}

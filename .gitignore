@@ -11,12 +11,20 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Logs
+# Logs / temp
 *.log
+*.tmp
 
 # Env / secrets
 .env
 .env.*
+
+# Dependencies / build artifacts
+node_modules/
+vendor/
+dist/
+build/
+.cache/
 
 # WordPress (if local)
 wp-config.php

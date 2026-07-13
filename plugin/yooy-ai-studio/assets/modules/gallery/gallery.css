@@ -11,7 +11,7 @@
 .ygl-card:hover{border-color:rgba(220,170,45,.45);transform:translateY(-2px)}
 .ygl-card.is-fav{border-color:rgba(255,215,106,.5)}
 .ygl-thumb{aspect-ratio:1;background:#0a0a0a;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
-.ygl-thumb img,.ygl-thumb video{width:100%;height:100%;object-fit:cover}
+.ygl-thumb img,.ygl-thumb video,.ygl-thumb .yai-gallery-img{width:100%;height:100%;object-fit:cover;image-rendering:auto}
 .ygl-thumb-icon{font-size:36px;opacity:.6}
 .ygl-type-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);color:#ffd76a;font-size:10px;padding:3px 8px;border-radius:999px;text-transform:uppercase}
 .ygl-fav-badge{position:absolute;top:8px;right:8px;font-size:14px}
@@ -78,9 +78,7 @@
 .ygl-card-menu-pop button{background:transparent;border:0;color:#ddd;cursor:pointer;font-size:12px;padding:6px 8px;text-align:left}
 .ygl-card-menu-pop button:hover{color:#ffd76a}
 .ygl-market-modal{position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:3}
-.ygl-market-panel{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:16px;display:flex;flex-direction:column;gap:10px;max-height:90vh;overflow:auto;padding:18px;width:min(420px,96vw)}
-.ygl-market-panel h3{margin:0 0 4px}
-.ygl-market-panel label{color:#aaa;display:flex;flex-direction:column;font-size:12px;gap:4px}
-.ygl-market-panel input,.ygl-market-panel textarea{background:#0a0a0a;border:1px solid rgba(220,170,45,.2);border-radius:8px;color:#eee;padding:8px 10px}
+.ygl-market-panel{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:16px;display:grid;gap:12px;max-height:90vh;overflow:auto;padding:20px;width:min(520px,96vw)}
+.ygl-market-panel h3{color:#ffd76a;font-size:18px;font-weight:700;margin:0}
 .ygl-check{flex-direction:row!important;align-items:center;gap:8px!important}
-.ygl-market-actions{display:flex;gap:8px;margin-top:6px}
+.ygl-market-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}

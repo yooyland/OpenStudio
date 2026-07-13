@@ -44,6 +44,14 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
             'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'config'], 'permission_callback' => $public,
         ]);
 
+        $this->register_route('/prompt/compose', [
+            'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'compose_prompt'], 'permission_callback' => $auth,
+        ]);
+
+        $this->register_route('/provider-health', [
+            'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'provider_health'], 'permission_callback' => $auth,
+        ]);
+
         // Generate
         $this->register_route('/generate', [
             'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'generate'], 'permission_callback' => $auth,
@@ -157,8 +165,38 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
         }
     }
 
+    public function compose_prompt(WP_REST_Request $request): WP_REST_Response {
+        try {
+            $user_id = $this->require_user();
+            if ($user_id instanceof WP_REST_Response) return $user_id;
+            $params = array_merge($this->settings->get($user_id), $request->get_json_params() ?: []);
+            $composed = $this->generator->compose_prompt($user_id, $params);
+            return $this->success([
+                'prompt'            => $composed['prompt'] ?? '',
+                'canonical_prompt'  => $composed['canonical_prompt'] ?? '',
+                'negative_prompt'   => $composed['negative_prompt'] ?? '',
+                'settings'          => $composed['settings'] ?? [],
+                'meta'              => $composed['meta'] ?? [],
+                'resolved_provider' => $composed['resolved_provider'] ?? null,
+            ]);
+        } catch (Exception $e) {
+            return $this->from_exception($e);
+        }
+    }
+
     public function generate_options(): WP_REST_Response {
         return $this->success($this->generator->options());
+    }
+
+    public function provider_health(WP_REST_Request $request): WP_REST_Response {
+        try {
+            $user_id = $this->require_user();
+            if ($user_id instanceof WP_REST_Response) return $user_id;
+            $params = array_merge($this->settings->get($user_id), $request->get_json_params() ?: [], $request->get_query_params() ?: []);
+            return $this->success($this->generator->provider_health($user_id, $params));
+        } catch (Exception $e) {
+            return $this->from_exception($e);
+        }
     }
 
     public function list_references(): WP_REST_Response {

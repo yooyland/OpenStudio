@@ -67,7 +67,7 @@ final class YooY_Project_Store {
             }
             if (isset($data['type'])) {
                 $type = sanitize_text_field($data['type']);
-                $allowed = ['mixed', 'video', 'image', 'music', 'writing', 'avatar', 'voice'];
+                $allowed = ['mixed', 'video', 'image', 'music', 'writing', 'translation', 'avatar', 'voice'];
                 if (in_array($type, $allowed, true)) {
                     $items[$idx]['type'] = $type;
                 }
@@ -306,7 +306,7 @@ final class YooY_Project_Store {
 
     private function normalize(array $item, int $user_id): array {
         $type = sanitize_text_field($item['type'] ?? 'mixed');
-        $allowed_types = ['mixed', 'video', 'image', 'music', 'writing', 'avatar', 'voice'];
+        $allowed_types = ['mixed', 'video', 'image', 'music', 'writing', 'translation', 'avatar', 'voice'];
         if (!in_array($type, $allowed_types, true)) {
             $type = 'mixed';
         }

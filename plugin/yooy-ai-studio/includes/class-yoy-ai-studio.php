@@ -22,6 +22,41 @@ final class YooY_AI_Studio {
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('admin_menu', [$this, 'register_admin_menu']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+
+        // Force cache invalidation for every plugin JS/CSS asset. The version
+        // query is rewritten to plugin-version + file modification time so a
+        // rebuilt file always busts browser and CDN caches (no stale core.js).
+        add_filter('script_loader_src', [$this, 'bust_asset_cache'], 20, 2);
+        add_filter('style_loader_src', [$this, 'bust_asset_cache'], 20, 2);
+    }
+
+    /**
+     * Rewrites the ?ver= query for our own assets to VERSION.mtime so stale
+     * cached copies (e.g. core.js?ver=11.4.0-ui-beta) can never linger.
+     *
+     * @param string $src    Asset source URL.
+     * @param string $handle Registered handle.
+     * @return string
+     */
+    public function bust_asset_cache($src, $handle) {
+        if (!is_string($src) || $src === '') {
+            return $src;
+        }
+        if (strpos($src, YOY_AI_STUDIO_URL) !== 0) {
+            return $src;
+        }
+        $clean = $src;
+        $qpos = strpos($clean, '?');
+        if ($qpos !== false) {
+            $clean = substr($clean, 0, $qpos);
+        }
+        $rel = ltrim(substr($clean, strlen(YOY_AI_STUDIO_URL)), '/');
+        $file = YOY_AI_STUDIO_DIR . $rel;
+        $ver = YOY_AI_STUDIO_VERSION;
+        if (file_exists($file)) {
+            $ver .= '.' . filemtime($file);
+        }
+        return add_query_arg('ver', $ver, $clean);
     }
 
     public function body_class(array $classes): array {
@@ -48,9 +83,23 @@ final class YooY_AI_Studio {
         );
 
         wp_enqueue_style(
+            'yoy-form',
+            YOY_AI_STUDIO_URL . 'assets/css/form.css',
+            ['yoy-creator-os-fonts'],
+            YOY_AI_STUDIO_VERSION
+        );
+
+        wp_enqueue_style(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/css/studio.css',
-            ['yoy-creator-os-fonts'],
+            ['yoy-creator-os-fonts', 'yoy-form'],
+            YOY_AI_STUDIO_VERSION
+        );
+
+        wp_enqueue_style(
+            'yoy-spacious',
+            YOY_AI_STUDIO_URL . 'assets/css/spacious.css',
+            ['yoy-ai-studio'],
             YOY_AI_STUDIO_VERSION
         );
 
@@ -62,11 +111,27 @@ final class YooY_AI_Studio {
             true
         );
 
+        wp_enqueue_script(
+            'yoy-diagnostics',
+            YOY_AI_STUDIO_URL . 'assets/js/diagnostics.js',
+            ['yoy-ai-studio-core'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
         wp_enqueue_style(
             'yoy-gallery',
             YOY_AI_STUDIO_URL . 'assets/modules/gallery/gallery.css',
             ['yoy-ai-studio'],
             YOY_AI_STUDIO_VERSION
+        );
+
+        wp_enqueue_script(
+            'yoy-gallery-image',
+            YOY_AI_STUDIO_URL . 'assets/js/gallery-image.js',
+            [],
+            YOY_AI_STUDIO_VERSION,
+            true
         );
 
         wp_enqueue_script(
@@ -80,7 +145,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-gallery',
             YOY_AI_STUDIO_URL . 'assets/modules/gallery/gallery.js',
-            ['yoy-gallery-api'],
+            ['yoy-gallery-api', 'yoy-gallery-image'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -88,7 +153,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-gallery-api', 'yoy-gallery', 'yoy-reference-assets-panel'],
+            ['yoy-ai-studio-core', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -176,13 +241,16 @@ final class YooY_AI_Studio {
         $user = wp_get_current_user();
 
         wp_localize_script('yoy-ai-studio-core', 'YooYStudio', [
-            'restUrl'   => esc_url_raw(rest_url('yoy-ai-studio/v1')),
+            'restUrl'      => esc_url_raw(rest_url('yoy-ai-studio/v1')),
+            'restRouteUrl' => esc_url_raw(site_url('index.php')) . '?rest_route=/yoy-ai-studio/v1',
+            'restRoot'     => esc_url_raw(rest_url()),
             'nonce'     => wp_create_nonce('wp_rest'),
             'version'   => YOY_AI_STUDIO_VERSION,
             'debug'     => (defined('YOOY_DEBUG') && YOOY_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG),
             'loggedIn'  => is_user_logged_in(),
             'isAdmin'   => current_user_can('manage_options'),
             'loginUrl'  => esc_url_raw(wp_login_url(get_permalink())),
+            'registerUrl' => esc_url_raw(wp_registration_url()),
             'logoutUrl' => esc_url_raw(wp_logout_url(get_permalink())),
             'user'      => [
                 'id'    => $user->ID,
@@ -299,7 +367,7 @@ final class YooY_AI_Studio {
         ];
 
         if (current_user_can('manage_options')) {
-            $routes[] = ['id' => 'admin-console', 'label' => 'Operations Center', 'module' => 'admin-console'];
+            $routes[] = ['id' => 'admin-console', 'label' => 'Admin Console', 'module' => 'admin-console'];
         }
 
         return $routes;

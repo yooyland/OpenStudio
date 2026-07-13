@@ -16,7 +16,8 @@
     mode: 'Auto는 키·테스트 상태에 따라 자동 선택, Live는 실제 API를 사용, Mock은 샌드박스 미리보기만 사용합니다. 처음에는 Auto를 권장합니다.',
     priority: '여러 AI 제공업체를 사용할 수 있을 때 우선적으로 선택되는 순서입니다. 숫자가 높을수록 먼저 사용됩니다.',
     enabled: '비활성화하면 생성 요청에서 이 제공업체가 사용되지 않습니다. 일시 중지할 때 끄세요.',
-    billing: '제공업체 결제·크레딧 상태입니다. 차단(Blocked)이면 Live 생성이 제한될 수 있습니다.',
+    billing: 'AI 제공업체(API) 계정의 결제·크레딧 상태입니다. YooY Studio 사용자 Credits와는 별개입니다.',
+    provider_billing_status: 'Provider Billing Status는 AI API 계정(예: Replicate, OpenAI)의 결제 상태입니다. 사용자 Business 플랜 Credits와 혼동하지 마세요.',
     api_key: 'AI 제공업체에서 발급받은 인증 키입니다. 외부에 노출되지 않으며 암호화되어 저장됩니다.',
     studio_default: '선택한 스튜디오의 기본 제공업체로 설정합니다. Auto 대신 이 제공업체가 우선 사용됩니다.',
     test: 'API Key가 정상적으로 동작하는지 확인합니다. 테스트에 성공해야 실제 생성에 사용할 수 있습니다.',
@@ -170,6 +171,7 @@
       CONNECTED: '연결됨',
       'NOT TESTED': '테스트 필요',
       FAILED: '실패',
+      'BILLING ERROR': '결제 오류',
       UNSUPPORTED: '미지원',
       DISABLED: '비활성화',
       MOCK: '모의 실행',
@@ -178,6 +180,26 @@
     };
     var label = labelMap[badge.label] || badge.label;
     return '<span class="yai-ops-pill yai-ops-pill--' + esc(badge.tone) + '">' + esc(label) + '</span>';
+  }
+
+  function billingStatusTone(tone) {
+    return 'yai-ops-billing-val yai-ops-billing-val--' + (tone || 'pending');
+  }
+
+  function providerBillingStatusHtml(p) {
+    var billing = p.provider_billing_status || p.billing_label || billingLabel(p.billing_status || 'unknown');
+    var api = p.provider_api_status || (p.has_key ? 'Valid' : 'Missing');
+    var test = p.provider_test_status || testStatusLabel(p);
+    return '<div class="yai-ops-provider-billing-block">' +
+      '<div class="yai-ops-provider-billing-hdr">Provider Billing Status' + helpIcon('provider_billing_status') +
+      '<em>사용자 Credits와 별개</em></div>' +
+      '<div class="yai-ops-provider-billing-rows">' +
+      '<div class="yai-ops-provider-billing-row"><b>Billing</b><span class="' + billingStatusTone(p.provider_billing_tone) + '">' + esc(billing) + '</span></div>' +
+      '<div class="yai-ops-provider-billing-row"><b>API</b><span class="' + billingStatusTone(p.provider_api_tone) + '">' + esc(api) + '</span></div>' +
+      '<div class="yai-ops-provider-billing-row"><b>Test</b><span class="' + billingStatusTone(p.provider_test_tone) + '">' + esc(test) + '</span></div>' +
+      '</div>' +
+      (p.auto_routing_disabled ? '<p class="yai-ops-provider-billing-note is-error">Auto routing disabled until provider billing is resolved.</p>' : '') +
+      '</div>';
   }
 
   function providerCardHtml(p) {
@@ -198,8 +220,8 @@
       '<div class="yai-ops-provider-metric"><b>Latency' + helpIcon('latency') + '</b><span class="yai-ops-latency">' + esc(latencyLabel(p)) + '</span></div>' +
       '<div class="yai-ops-provider-metric"><b>라우팅' + helpIcon('routing') + '</b><span>' + esc(routingLabel(p)) + '</span></div>' +
       '<div class="yai-ops-provider-metric"><b>Studio Default' + helpIcon('studio_default') + '</b><span>' + esc(studioDefaultsList(p)) + '</span></div>' +
-      '<div class="yai-ops-provider-metric"><b>Billing' + helpIcon('billing') + '</b><span>' + esc(p.billing_label || billingLabel(p.billing_status || 'unknown')) + '</span></div>' +
       '</div>' +
+      providerBillingStatusHtml(p) +
       (showWarning ? '<p class="yai-ops-provider-warning">' + esc(p.error_reason) + '</p>' : '') +
       '<div class="yai-ops-provider-foot">' +
       '<div class="yai-btn-group">' +
@@ -284,13 +306,50 @@
   }
 
   function logsPanelHtml(list) {
-    var html = '<div class="yai-ops-logs-panel"><div class="yai-ops-form-grid" style="margin-bottom:16px">' +
+    var html = '<div class="yai-ops-logs-panel">' +
+      '<section class="yai-ops-card" style="margin-bottom:16px">' +
+      '<h3 style="margin:0 0 4px">Provider Error Log</h3>' +
+      '<p class="yai-ops-muted" style="margin:0 0 12px">최근 100건의 Provider API 오류 (YooY 사용자 크레딧과 무관).</p>' +
+      '<div id="yai-ops-provider-errors"><p class="yai-ops-toast">Loading error log…</p></div>' +
+      '</section>' +
+      '<div class="yai-ops-form-grid" style="margin-bottom:16px">' +
       '<label>Provider<select id="yai-ops-logs-provider"><option value="">All providers</option>' +
       providersCache.map(function (p) {
         return '<option value="' + esc(p.id) + '"' + (logsDrawerId === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
       }).join('') + '</select></label></div>' +
       '<div id="yai-ops-logs-stream"><p class="yai-ops-toast">Loading logs…</p></div></div>';
     return html;
+  }
+
+  function providerErrorRowsHtml(entries) {
+    if (!entries.length) {
+      return deps.empty('오류 없음', 'Provider API 오류 기록이 없습니다.');
+    }
+    var rows = entries.map(function (e) {
+      var when = e.created_at ? relTime(e.created_at) : '—';
+      var retry = e.retry ? 'Yes' : 'No';
+      return '<tr>' +
+        '<td>' + esc(e.provider || '—') + '</td>' +
+        '<td>' + esc(e.model || '—') + '</td>' +
+        '<td class="yai-ops-err-msg" title="' + esc(e.error || '') + '">' + esc(e.error || '—') + '</td>' +
+        '<td>' + esc(when) + '</td>' +
+        '<td>' + esc(retry) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="yai-ops-table-wrap"><table class="yai-ops-table yai-ops-error-table">' +
+      '<thead><tr><th>Provider</th><th>Model</th><th>Error</th><th>Time</th><th>Retry</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function loadProviderErrorLog() {
+    var host = document.getElementById('yai-ops-provider-errors');
+    if (!host || !deps.Core.admin.providerErrorLog) return;
+    deps.Core.admin.providerErrorLog(100).then(function (res) {
+      var entries = (res.data && res.data.entries) || [];
+      host.innerHTML = providerErrorRowsHtml(entries);
+    }).catch(function (e) {
+      host.innerHTML = '<p class="yai-ops-toast is-error">' + esc(e.message) + '</p>';
+    });
   }
 
   function modalShell() {
@@ -345,7 +404,7 @@
           return '<option value="' + b + '"' + ((p.billing_status || 'unknown') === b ? ' selected' : '') + '>' + esc(billingLabel(b)) + '</option>';
         }).join('') + '</select>') +
       labelRow('활성화', 'enabled', '<input type="checkbox" class="yai-ops-enabled" data-id="' + esc(p.id) + '"' + (p.enabled !== false ? ' checked' : '') + '>') +
-      labelRow('API Key', 'api_key', '<input type="password" class="yai-ops-key" data-id="' + esc(p.id) + '" placeholder="' + esc(p.has_key ? '새 API Key (변경 시에만 입력)' : 'API Key 입력') + '" autocomplete="off">') +
+      labelRow('API Key', 'api_key', '<div class="yai-ops-secret-row"><input type="password" class="yai-ops-key" data-id="' + esc(p.id) + '" placeholder="' + esc(p.has_key ? '새 API Key (변경 시에만 입력)' : 'API Key 입력') + '" autocomplete="off"><button type="button" class="yai-ops-secret-toggle" data-yai-toggle-key>표시</button></div>') +
       labelRow('Model', 'model', '<select class="yai-ops-model" data-id="' + esc(p.id) + '">' +
         modelOptionsForProvider(p).map(function (m) {
           return '<option value="' + esc(m) + '"' + ((p.model || '') === m ? ' selected' : '') + '>' + esc(m) + '</option>';
@@ -616,6 +675,18 @@
       el.dataset.boundClose = '1';
       el.addEventListener('click', closeDrawer);
     });
+    root.querySelectorAll('[data-yai-toggle-key]').forEach(function (btn) {
+      if (btn.dataset.boundToggle) return;
+      btn.dataset.boundToggle = '1';
+      btn.addEventListener('click', function () {
+        var row = btn.closest('.yai-ops-secret-row');
+        var input = row && row.querySelector('input');
+        if (!input) return;
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.textContent = show ? '숨김' : '표시';
+      });
+    });
   }
 
   function bindChrome() {
@@ -665,17 +736,25 @@
         loadLogsStream(logsDrawerId);
       });
       loadLogsStream(logsDrawerId);
+      loadProviderErrorLog();
     }
     document.querySelectorAll('[data-monitor]').forEach(function (card) {
       var id = card.getAttribute('data-monitor');
       deps.Core.admin.providerMonitoring(id).then(function (res) {
         var d = res.data || {};
+        var balance = d.balance && d.balance.value ? d.balance.value : 'N/A';
+        var lastErr = d.last_error ? d.last_error : '—';
+        var billing = d.billing_status ? d.billing_status : '—';
         card.innerHTML = '<h3>' + esc((providersCache.find(function (p) { return p.id === id; }) || {}).name || id) + '</h3>' +
           '<div class="yai-ops-provider-metrics yai-ops-provider-metrics--v2">' +
-          '<div class="yai-ops-provider-metric"><b>Requests</b><span>' + esc(String(d.request_count || 0)) + '</span></div>' +
-          '<div class="yai-ops-provider-metric"><b>Success</b><span>' + esc(d.success_rate != null ? d.success_rate + '%' : '—') + '</span></div>' +
+          '<div class="yai-ops-provider-metric"><b>Today Requests</b><span>' + esc(String(d.today_requests || 0)) + '</span></div>' +
+          '<div class="yai-ops-provider-metric"><b>Today Success</b><span>' + esc(String(d.today_success || 0)) + '</span></div>' +
+          '<div class="yai-ops-provider-metric"><b>Today Fail</b><span>' + esc(String(d.today_fail || 0)) + '</span></div>' +
+          '<div class="yai-ops-provider-metric"><b>Success Rate</b><span>' + esc(d.success_rate != null ? d.success_rate + '%' : '—') + '</span></div>' +
           '<div class="yai-ops-provider-metric"><b>Latency</b><span>' + esc(d.avg_latency_ms ? d.avg_latency_ms + 'ms' : '—') + '</span></div>' +
-          '<div class="yai-ops-provider-metric"><b>Errors</b><span>' + esc(String(d.failed_count || 0)) + '</span></div>' +
+          '<div class="yai-ops-provider-metric"><b>Billing</b><span>' + esc(billing) + '</span></div>' +
+          '<div class="yai-ops-provider-metric"><b>Balance</b><span>' + esc(balance) + '</span></div>' +
+          '<div class="yai-ops-provider-metric yai-ops-provider-metric--wide"><b>Last Error</b><span title="' + esc(lastErr) + '">' + esc(lastErr) + '</span></div>' +
           '</div>' +
           (d.usage ? deps.barChart('Usage', d.usage.labels || [], d.usage.values || []) : '');
       }).catch(function () {

@@ -2,10 +2,10 @@
   'use strict';
 
   var Core = global.YooYCore;
-  if (!Core || !Core.gallery) return;
+  if (!Core || !Core.gallery || typeof Core.gallery.item !== 'function') return;
 
   var TYPE_ICONS = {
-    video: '🎬', image: '🖼', music: '🎵', writing: '📝', avatar: '👤', voice: '🎙'
+    video: '🎬', image: '🖼', music: '🎵', writing: '📝', translation: '🌐', avatar: '👤', voice: '🎙'
   };
 
   var STUDIO_ROUTES = {
@@ -14,7 +14,8 @@
     'music-studio': 'music',
     'voice-studio': 'voice',
     'avatar-studio': 'avatar',
-    'writing-studio': 'writing'
+    'writing-studio': 'writing',
+    'translator-studio': 'translator'
   };
 
   var state = { items: [], filter: 'all', selected: null, editing: false };
@@ -44,24 +45,40 @@
   }
 
   function typeLabel(type) {
-    var map = { video: '영상', image: '이미지', music: '음악', writing: '글', avatar: '아바타', voice: '음성' };
+    var map = { video: '영상', image: '이미지', music: '음악', writing: '글', translation: '번역', avatar: '아바타', voice: '음성' };
     return map[type] || type || 'Work';
+  }
+
+  function galleryImg(item, opts) {
+    opts = opts || {};
+    if (global.YooYGalleryImage && typeof global.YooYGalleryImage.imgTag === 'function') {
+      return global.YooYGalleryImage.imgTag(item, opts);
+    }
+    var src = (global.YooYGalleryImage && global.YooYGalleryImage.pickUrl)
+      ? global.YooYGalleryImage.pickUrl(item, opts.size || 'large')
+      : (item.display_url || item.large_url || item.full_url || item.image_url || item.thumbnail_url || '');
+    if (!src) return '';
+    return '<img src="' + esc(src) + '" alt="" class="yai-gallery-img" loading="' + (opts.lazy === false ? 'eager' : 'lazy') + '" decoding="async">';
   }
 
   function thumbHtml(item) {
     if (item.asset_missing) return '<span class="ygl-thumb-missing">Asset missing</span>';
-    var url = item.thumbnail_url || item.thumbnail || item.image_url || item.output_url || item.asset_url || '';
     var type = item.type || 'image';
-    if (url && (type === 'video' || type === 'avatar')) {
-      return '<video src="' + esc(url) + '" muted loop playsinline></video>';
+    if (type === 'video' || type === 'avatar') {
+      var videoUrl = global.YooYGalleryImage
+        ? global.YooYGalleryImage.pickUrl(item, 'large')
+        : (item.large_url || item.full_url || item.image_url || item.asset_url || '');
+      return '<video src="' + esc(videoUrl) + '" muted loop playsinline></video>';
     }
-    if (url && type === 'image') {
-      return '<img src="' + esc(url) + '" alt="" loading="lazy">';
+    if (type === 'image') {
+      return galleryImg(item, { size: 'large', className: 'yai-gallery-img' });
     }
-    if (url && (type === 'music' || type === 'voice')) {
-      return '<img src="' + esc(url) + '" alt="" loading="lazy"><span class="ygl-thumb-icon">' + (TYPE_ICONS[type] || '📁') + '</span>';
+    if (type === 'music' || type === 'voice') {
+      return galleryImg(item, { size: 'thumb', className: 'yai-gallery-img' }) +
+        '<span class="ygl-thumb-icon">' + (TYPE_ICONS[type] || '📁') + '</span>';
     }
     if (type === 'writing') return '<span class="ygl-thumb-icon">📝</span>';
+    if (type === 'translation') return '<span class="ygl-thumb-icon">🌐</span>';
     return '<span class="ygl-thumb-icon">' + (TYPE_ICONS[type] || '📁') + '</span>';
   }
 
@@ -69,16 +86,25 @@
     if (item.asset_missing) {
       return '<div class="ygl-thumb-missing ygl-thumb-missing--preview">Image asset is missing.</div>';
     }
-    var url = item.asset_url || item.image_url || item.output_url || item.thumbnail_url || item.thumbnail || '';
     var type = item.type;
     if (type === 'writing') {
       return '<div class="ygl-text-preview">' + esc(item.user_prompt || item.prompt || '') + '</div>';
     }
+    if (type === 'translation') {
+      var translated = item.translated_text || (item.meta && item.meta.translated_text) || '';
+      var source = item.user_prompt || item.prompt || '';
+      return '<div class="ygl-text-preview">' +
+        '<div class="ygl-muted" style="margin-bottom:8px">' + esc(source) + '</div>' +
+        '<strong>' + esc(translated || '번역 결과 없음') + '</strong></div>';
+    }
+    var url = global.YooYGalleryImage
+      ? global.YooYGalleryImage.pickUrl(item, 'full')
+      : (item.full_url || item.original_url || item.asset_url || item.image_url || item.output_url || '');
     if (url && (type === 'video' || type === 'avatar')) {
       return '<video src="' + esc(url) + '" controls autoplay></video>';
     }
     if (url && type === 'image') {
-      return '<img src="' + esc(url) + '" alt="">';
+      return galleryImg(item, { size: 'full', lazy: false, className: 'yai-gallery-img yai-gallery-img--preview' });
     }
     if (url && (type === 'music' || type === 'voice')) {
       return '<audio src="' + esc(url) + '" controls autoplay></audio>';
@@ -167,6 +193,19 @@
         '<div class="ygl-prompt-block"><small>User Prompt</small><div class="ygl-prompt-box">' + esc(item.user_prompt || item.prompt || '—') + '</div></div>' +
         (item.optimized_prompt ? '<div class="ygl-prompt-block"><small>Optimized Prompt</small><div class="ygl-prompt-box">' + esc(item.optimized_prompt) + '</div></div>' : '') +
         '<div class="ygl-prompt-block"><small>Reference Assets</small>' + refs + '</div>' +
+        (Core.config && Core.config.isAdmin ? (
+          '<div class="ygl-image-debug"><h4>Image Debug (Admin)</h4><dl class="ygl-meta">' +
+            metaRow('attachment_id', item.attachment_id || 0) +
+            metaRow('original_url', item.original_url || '—') +
+            metaRow('full_url', item.full_url || '—') +
+            metaRow('large_url', item.large_url || '—') +
+            metaRow('medium_large_url', item.medium_large_url || '—') +
+            metaRow('thumbnail_url', item.thumbnail_url || '—') +
+            metaRow('display_url', item.display_url || '—') +
+            metaRow('natural size', (item.image_width || 0) + ' × ' + (item.image_height || 0)) +
+            metaRow('srcset', item.srcset ? 'yes' : 'no') +
+          '</dl></div>'
+        ) : '') +
         drawerActionsHtml(item) +
       '</div></aside>';
   }
@@ -224,24 +263,31 @@
     var modal = document.createElement('div');
     modal.className = 'ygl-market-modal';
     modal.innerHTML =
-      '<div class="ygl-market-panel">' +
-      '<h3>Marketplace 등록</h3>' +
-      '<label>판매 제목<input id="ygl-mkt-title" value="' + esc(item.title || '') + '"></label>' +
-      '<label>설명<textarea id="ygl-mkt-desc">' + esc(item.description || '') + '</textarea></label>' +
-      '<label>가격 (KRW)<input type="number" id="ygl-mkt-price" value="0" min="0"></label>' +
-      '<label>카테고리<input id="ygl-mkt-cat" value="general"></label>' +
-      '<label>태그 (쉼표 구분)<input id="ygl-mkt-tags" placeholder="광고,제품,이미지"></label>' +
-      '<label>라이선스<input id="ygl-mkt-license" value="standard"></label>' +
-      '<label class="ygl-check"><input type="checkbox" id="ygl-mkt-prompt"> Prompt 공개</label>' +
-      '<label class="ygl-check"><input type="checkbox" id="ygl-mkt-ref"> Reference 공개</label>' +
-      '<label class="ygl-check"><input type="checkbox" id="ygl-mkt-dl"> 원본 다운로드 허용</label>' +
-      '<div class="ygl-market-actions">' +
+      '<div class="ygl-market-panel yai-form-grid yai-form-grid--2">' +
+      '<h3 class="yai-form-span-2">Marketplace 등록</h3>' +
+      '<label class="yai-field yai-form-span-2"><span>판매 제목</span><input id="ygl-mkt-title" value="' + esc(item.title || '') + '"></label>' +
+      '<label class="yai-field yai-form-span-2"><span>설명</span><textarea id="ygl-mkt-desc" rows="3">' + esc(item.description || '') + '</textarea></label>' +
+      '<label class="yai-field"><span>가격 (KRW)</span><input type="number" id="ygl-mkt-price" value="0" min="0"></label>' +
+      '<label class="yai-field"><span>카테고리</span><input id="ygl-mkt-cat" value="general"></label>' +
+      '<label class="yai-field yai-form-span-2"><span>태그 (쉼표 구분)</span><input id="ygl-mkt-tags" placeholder="광고,제품,이미지"></label>' +
+      '<label class="yai-field"><span>라이선스</span><input id="ygl-mkt-license" value="standard"></label>' +
+      '<label class="ygl-check yai-form-span-2"><input type="checkbox" id="ygl-mkt-prompt"> Prompt 공개</label>' +
+      '<label class="ygl-check yai-form-span-2"><input type="checkbox" id="ygl-mkt-ref"> Reference 공개</label>' +
+      '<label class="ygl-check yai-form-span-2"><input type="checkbox" id="ygl-mkt-dl"> 원본 다운로드 허용</label>' +
+      '<div class="ygl-market-actions yai-form-span-2">' +
         '<button type="button" class="ygl-btn ygl-btn-primary" id="ygl-mkt-save">등록</button>' +
         '<button type="button" class="ygl-btn" id="ygl-mkt-cancel">취소</button>' +
       '</div></div>';
     overlay.appendChild(modal);
 
-    modal.querySelector('#ygl-mkt-cancel').addEventListener('click', function () { modal.remove(); });
+    function closeMarketModal() {
+      modal.remove();
+      if (overlay.classList.contains('ygl-market-host')) {
+        overlay.remove();
+      }
+    }
+
+    modal.querySelector('#ygl-mkt-cancel').addEventListener('click', closeMarketModal);
     modal.querySelector('#ygl-mkt-save').addEventListener('click', function () {
       var tags = (modal.querySelector('#ygl-mkt-tags').value || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
       Core.gallery.marketplace(item.id, {
@@ -257,10 +303,30 @@
       }).then(function (res) {
         var updated = (res.data && res.data.item) || item;
         updateItemInState(updated);
-        modal.remove();
+        closeMarketModal();
         toast('Marketplace draft가 생성되었습니다.');
         notifyUpdated();
       }).catch(function (err) { toast(err.message); });
+    });
+  }
+
+  function openMarketplace(id) {
+    if (!id) return;
+    Core.gallery.item(id).then(function (res) {
+      var item = (res.data && res.data.item) || null;
+      if (!item) {
+        toast('작품을 찾을 수 없습니다.');
+        return;
+      }
+      var host = document.createElement('div');
+      host.className = 'ygl-drawer-overlay ygl-market-host';
+      document.body.appendChild(host);
+      host.addEventListener('click', function (e) {
+        if (e.target === host) host.remove();
+      });
+      openMarketplaceModal(item, host);
+    }).catch(function (err) {
+      toast(err.message || 'Marketplace 등록을 시작할 수 없습니다.');
     });
   }
 
@@ -391,9 +457,14 @@
 
       case 'share':
         Core.gallery.share(item.id).then(function (res) {
-          var url = (res.data && res.data.url) || '';
-          if (url && navigator.clipboard) {
-            navigator.clipboard.writeText(url).then(function () { toast('공유 링크 복사됨'); });
+          var data = res.data || {};
+          var copy = data.url || data.text || '';
+          if (copy && navigator.clipboard) {
+            navigator.clipboard.writeText(copy).then(function () {
+              toast(data.text && !data.url ? '번역문 복사됨' : '공유 링크 복사됨');
+            });
+          } else if (!copy) {
+            toast('공유할 내용이 없습니다.');
           }
         }).catch(function (err) { toast(err.message); });
         break;
@@ -534,6 +605,7 @@
       { id: 'image', label: '이미지' },
       { id: 'music', label: '음악' },
       { id: 'writing', label: '글' },
+      { id: 'translation', label: '번역' },
       { id: 'avatar', label: '아바타' },
       { id: 'voice', label: '음성' }
     ];
@@ -605,6 +677,7 @@
     mount: mount,
     reload: reload,
     openDetail: openDetail,
-    closeDetail: closeDetail
+    closeDetail: closeDetail,
+    openMarketplace: openMarketplace
   };
 })(window);

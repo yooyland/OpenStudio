@@ -44,6 +44,34 @@ final class YooY_Provider_Bootstrap {
         ], 'YooY_Bridge_Avatar_Provider');
     }
 
+    /**
+     * Translation providers for Translator Studio (OpenAI + Mock).
+     * Does not touch image/video/music/voice registries.
+     */
+    public static function register_translation(array &$registry): void {
+        require_once YOY_AI_STUDIO_PROVIDERS_DIR . 'interface-translation-provider.php';
+
+        $mock_file = YOY_AI_STUDIO_PROVIDERS_DIR . 'mock-translator/class-mock-translation-provider.php';
+        if (file_exists($mock_file)) {
+            require_once $mock_file;
+            if (class_exists('YooY_Mock_Translation_Provider')) {
+                $mock = new YooY_Mock_Translation_Provider();
+                $registry['mock'] = $mock;
+                $registry['mock-translator'] = $mock;
+            }
+        }
+
+        $openai_file = YOY_AI_STUDIO_PROVIDERS_DIR . 'openai-translator/class-openai-translation-provider.php';
+        if (file_exists($openai_file)) {
+            require_once $openai_file;
+            if (class_exists('YooY_OpenAI_Translation_Provider')) {
+                $openai = new YooY_OpenAI_Translation_Provider();
+                $registry['openai'] = $openai;
+                $registry['openai-translator'] = $openai;
+            }
+        }
+    }
+
     public static function catalog_providers(string $studio): array {
         if (!class_exists('YooY_Provider_Catalog')) {
             return [];

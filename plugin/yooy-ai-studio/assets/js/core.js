@@ -16,17 +16,68 @@
 
     function restConfig() {
       var restUrl = config.restUrl || '';
+      var restRouteUrl = config.restRouteUrl || '';
       var nonce = config.nonce || '';
       if (!restUrl && global.wpApiSettings && global.wpApiSettings.root) {
         restUrl = String(global.wpApiSettings.root).replace(/\/$/, '') + '/yoy-ai-studio/v1';
       }
+      // Always be able to fall back to the index.php?rest_route= form, which
+      // works on every host (Apache/Nginx) regardless of permalink settings.
+      if (!restRouteUrl && restUrl) {
+        var origin = restUrl.replace(/\/wp-json\/.*$/, '').replace(/\?rest_route=.*$/, '').replace(/\/$/, '');
+        if (restUrl.indexOf('rest_route=') === -1 && origin) {
+          restRouteUrl = origin + '/index.php?rest_route=/yoy-ai-studio/v1';
+        }
+      }
       if (!nonce && global.wpApiSettings && global.wpApiSettings.nonce) {
         nonce = global.wpApiSettings.nonce;
       }
-      return { restUrl: restUrl, nonce: nonce };
+      return { restUrl: restUrl, restRouteUrl: restRouteUrl, nonce: nonce };
+    }
+
+    // Split a raw endpoint path (e.g. "/core/public-works?limit=10") into its
+    // path portion and query string so query params never corrupt the
+    // rest_route value on plain-permalink hosts.
+    function splitPath(rawPath) {
+      var qIndex = rawPath.indexOf('?');
+      return {
+        path: qIndex === -1 ? rawPath : rawPath.slice(0, qIndex),
+        query: qIndex === -1 ? '' : rawPath.slice(qIndex + 1)
+      };
+    }
+
+    // Join a namespace base URL with an endpoint path. Handles BOTH:
+    //   pretty: https://site/wp-json/yoy-ai-studio/v1
+    //   plain : https://site/index.php?rest_route=/yoy-ai-studio/v1
+    function joinRestUrl(base, rawPath) {
+      base = base || '';
+      var parts = splitPath(rawPath);
+      var m = base.match(/([?&])rest_route=([^&#]*)([\s\S]*)$/);
+      if (m) {
+        var routeVal = m[2].replace(/\/$/, '') + parts.path;
+        var url = base.slice(0, m.index) + m[1] + 'rest_route=' + routeVal + (m[3] || '');
+        if (parts.query) url += '&' + parts.query;
+        return url;
+      }
+      var built = base.replace(/\/$/, '') + parts.path;
+      if (parts.query) built += '?' + parts.query;
+      return built;
+    }
+
+    function isNoRoute(res, json) {
+      return res && res.status === 404 && json && json.code === 'rest_no_route';
     }
 
     function parseApiError(json, res) {
+      // A rest_no_route error is a REST wiring problem, NOT a provider /
+      // OpenAI / billing failure. Surface it unmistakably.
+      if (json && json.code === 'rest_no_route') {
+        var routeErr = new Error('REST API Route Not Found — The requested endpoint is not registered.');
+        routeErr.code = 'rest_no_route';
+        routeErr.restNoRoute = true;
+        routeErr.details = json || {};
+        return routeErr;
+      }
       var message = '';
       if (json && json.message) {
         message = json.message;
@@ -44,25 +95,11 @@
       return err;
     }
 
-    function api(path, options) {
-      options = options || {};
-      var cfg = restConfig();
-      var url = (cfg.restUrl || '').replace(/\/$/, '') + path;
+    function rawFetch(url, options, cfg) {
       var headers = {
         'Content-Type': 'application/json',
         'X-WP-Nonce': cfg.nonce || ''
       };
-
-      debugLog('request', options.method || 'GET', url);
-
-      if (config.isAdmin && options.body && path.indexOf('/image-studio/generate') !== -1) {
-        if (global.console && global.console.log) {
-          global.console.log('===== REST Fetch Body (pre-fetch) =====');
-          global.console.log(JSON.stringify(options.body, null, 2));
-          global.console.log('=======================================');
-        }
-      }
-
       return fetch(url, {
         method: options.method || 'GET',
         headers: headers,
@@ -71,18 +108,126 @@
       }).then(function (res) {
         return res.text().then(function (text) {
           var json = null;
+          var parseError = false;
           try {
             json = text ? JSON.parse(text) : {};
           } catch (parseErr) {
+            parseError = true;
             debugLog('json parse error', parseErr, text.slice(0, 200));
-            throw new Error('Invalid API response');
           }
-          if (!res.ok) {
-            throw parseApiError(json, res);
-          }
-          return json;
+          return { res: res, json: json, parseError: parseError };
         });
       });
+    }
+
+    function baseModeLabel(base) {
+      return (base && base.indexOf('rest_route=') !== -1) ? 'rest_route' : 'wp-json';
+    }
+
+    // Session-persistent transport mode. Once a form (wp-json / rest_route)
+    // succeeds it is kept for the whole session so Whois-style hosts that block
+    // /wp-json/ transparently stay on index.php?rest_route= after one fallback.
+    function getRestMode() {
+      if (typeof getRestMode._v === 'string') return getRestMode._v;
+      var v = '';
+      try { v = global.sessionStorage.getItem('yoyRestMode') || ''; } catch (e) {}
+      getRestMode._v = v;
+      return v;
+    }
+    function setRestMode(mode) {
+      if (getRestMode._v === mode) return;
+      getRestMode._v = mode;
+      try { global.sessionStorage.setItem('yoyRestMode', mode); } catch (e) {}
+    }
+
+    function buildNoRouteError(endpoint, method, triedPretty, triedRoute, serverJson) {
+      var similar = [];
+      try {
+        var h = global.YooYRestHealth;
+        if (h && h.registered && h.registered.length) {
+          var seg = endpoint.split('?')[0].split('/').filter(Boolean);
+          var needle = seg.length ? seg[0] : '';
+          similar = h.registered.filter(function (r) { return needle && r.indexOf(needle) !== -1; });
+        }
+      } catch (e) {}
+      var details = {
+        code: 'rest_no_route',
+        endpoint: endpoint,
+        method: method,
+        tried_wp_json: triedPretty,
+        tried_rest_route: triedRoute,
+        registered_similar: similar,
+        server: serverJson || {}
+      };
+      var err = new Error('REST API Route Not Found — ' + method + ' ' + endpoint);
+      err.code = 'rest_no_route';
+      err.restNoRoute = true;
+      err.details = details;
+      return err;
+    }
+
+    function api(path, options) {
+      options = options || {};
+      var cfg = restConfig();
+
+      var pretty = cfg.restUrl || '';
+      var route = cfg.restRouteUrl || '';
+      var order;
+      if (getRestMode() === 'rest_route' && route) {
+        order = [route, pretty];
+      } else {
+        order = [pretty, route];
+      }
+      order = order.filter(function (b, i, arr) { return b && arr.indexOf(b) === i; });
+      if (!order.length) order = [pretty];
+
+      var method = options.method || 'GET';
+      var triedPretty = pretty ? joinRestUrl(pretty, path) : '';
+      var triedRoute = route ? joinRestUrl(route, path) : '';
+
+      function attempt(i) {
+        var base = order[i];
+        var url = joinRestUrl(base, path);
+        var mode = baseModeLabel(base);
+
+        // Trace every REST call directly before dispatch (req. 1).
+        if (global.console && global.console.log) {
+          global.console.log('[YooY REST]', {
+            method: method,
+            endpoint: path,
+            baseMode: mode,
+            finalUrl: url,
+            body: options.body || null,
+            assetVersion: config.version || ''
+          });
+        }
+
+        return rawFetch(url, options, cfg).then(function (r) {
+          if (r.res.ok && !r.parseError) {
+            setRestMode(mode);
+            return r.json;
+          }
+          var unreachable = isNoRoute(r.res, r.json) || r.res.status === 404 || (r.parseError && !r.res.ok);
+          // Exactly one automatic fallback to the alternate permalink form.
+          if (unreachable && (i + 1) < order.length) {
+            debugLog('unreachable on', url, '(status ' + r.res.status + ') -> single fallback');
+            return attempt(i + 1);
+          }
+          if (unreachable) {
+            var routeErr = buildNoRouteError(path, method, triedPretty, triedRoute, r.json);
+            if (global.console && global.console.error) {
+              global.console.error('[YooY REST] rest_no_route — endpoint unreachable via both forms', routeErr.details);
+            }
+            throw routeErr;
+          }
+          if (r.parseError) {
+            throw new Error('Invalid API response');
+          }
+          throw parseApiError(r.json, r.res);
+        });
+      }
+
+      return attempt(0);
     }
 
     var Core = {
@@ -94,8 +239,43 @@
         return api('/core/status');
       },
 
+      restHealth: function () {
+        return api('/core/rest-health').then(function (res) {
+          var data = res && (res.data || res);
+          if (data) { try { global.YooYRestHealth = data; } catch (e) {} }
+          return res;
+        });
+      },
+
+      systemCheck: function () {
+        return api('/core/system-check').then(function (res) {
+          var data = res && (res.data || res);
+          if (data) { try { global.YooYSystemHealth = data; } catch (e) {} }
+          return res;
+        });
+      },
+
+      systemFix: function (action) {
+        return api('/core/system-fix', { method: 'POST', body: { action: action } });
+      },
+
       dashboard: function () {
         return api('/core/dashboard');
+      },
+
+      homePublic: function () {
+        return api('/core/home-public');
+      },
+
+      publicWorks: function (params) {
+        var q = '';
+        if (params && params.limit) q += '?limit=' + encodeURIComponent(params.limit);
+        if (params && params.source) q += (q ? '&' : '?') + 'source=' + encodeURIComponent(params.source);
+        return api('/core/public-works' + q);
+      },
+
+      deleteJob: function (id) {
+        return api('/core/jobs/' + encodeURIComponent(id), { method: 'DELETE' });
       },
 
       modules: function () {
@@ -179,7 +359,8 @@
         uploadFiles: function (fileList, options) {
           options = options || {};
           var c = restConfig();
-          var url = (c.restUrl || '').replace(/\/$/, '') + '/import-engine/upload';
+          var uploadBase = (getRestMode() === 'rest_route' && c.restRouteUrl) ? c.restRouteUrl : (c.restUrl || '');
+          var url = joinRestUrl(uploadBase, '/import-engine/upload');
           var fd = new FormData();
           for (var i = 0; i < fileList.length; i++) {
             fd.append('files[]', fileList[i]);
@@ -230,6 +411,7 @@
 
       admin: {
         dashboard: function () { return Core.get('admin-console', '/dashboard'); },
+        systemHealth: function () { return Core.get('admin-console', '/system-health'); },
         providers: function () { return Core.get('admin-console', '/providers'); },
         getProvider: function (id) { return Core.get('admin-console', '/providers/' + encodeURIComponent(id)); },
         providersSummary: function () { return Core.get('admin-console', '/providers/summary'); },
@@ -262,6 +444,7 @@
         enableProvider: function (id) { return Core.post('admin-console', '/providers/' + encodeURIComponent(id) + '/enable', {}); },
         providerLogs: function (id) { return Core.get('admin-console', '/providers/' + encodeURIComponent(id) + '/logs'); },
         providerMonitoring: function (id) { return Core.get('admin-console', '/providers/' + encodeURIComponent(id) + '/monitoring'); },
+        providerErrorLog: function (limit) { return Core.get('admin-console', '/provider-errors' + (limit ? '?limit=' + encodeURIComponent(limit) : '')); },
         users: function (search) {
           var q = search ? '?search=' + encodeURIComponent(search) : '';
           return Core.get('admin-console', '/users' + q);
@@ -309,6 +492,14 @@
             var query = parts.length ? '?' + parts.join('&') : '';
             return Core.get('admin-console', '/home-sections/works-search' + query);
           }
+        },
+        officialShowcase: {
+          list: function () { return Core.get('admin-console', '/official-showcase'); },
+          create: function (data) { return Core.post('admin-console', '/official-showcase', data); },
+          update: function (id, data) { return Core.put('admin-console', '/official-showcase/' + encodeURIComponent(id), data); },
+          remove: function (id) { return Core.del('admin-console', '/official-showcase/' + encodeURIComponent(id)); },
+          reorder: function (orderedIds) { return Core.post('admin-console', '/official-showcase/reorder', { ordered_ids: orderedIds }); },
+          seed: function () { return Core.post('admin-console', '/official-showcase/seed', {}); }
         }
       }
     };

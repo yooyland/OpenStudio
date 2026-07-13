@@ -19,6 +19,43 @@ final class YooY_Credits_Service {
         return $balance;
     }
 
+    public function grant_welcome_bonus(int $user_id): void {
+        if ($user_id <= 0) {
+            return;
+        }
+
+        $flag = get_user_meta($user_id, 'yoy_welcome_bonus_granted', true);
+        if ($flag === '1') {
+            return;
+        }
+
+        $plan_credits = 100;
+        if (class_exists('YooY_Credits_Plans')) {
+            $free = YooY_Credits_Plans::get('free');
+            if (is_array($free)) {
+                $plan_credits = (int) ($free['credits'] ?? 100);
+            }
+        }
+
+        update_user_meta($user_id, self::PLAN_KEY, 'free');
+        update_user_meta($user_id, self::BALANCE_KEY, $plan_credits);
+        update_user_meta($user_id, self::RENEWAL_KEY, gmdate('c', strtotime('+30 days')));
+        update_user_meta($user_id, 'yoy_welcome_bonus_granted', '1');
+
+        $this->append_ledger($user_id, [
+            'id'            => 'tx_welcome_' . wp_generate_uuid4(),
+            'type'          => 'grant',
+            'amount'        => $plan_credits,
+            'label'         => 'Welcome bonus',
+            'module'        => 'credits',
+            'studio'        => 'credits',
+            'provider'      => '',
+            'status'        => 'completed',
+            'balance_after' => $plan_credits,
+            'created_at'    => gmdate('c'),
+        ]);
+    }
+
     public function is_unlimited(int $user_id): bool {
         return user_can($user_id, 'manage_options');
     }

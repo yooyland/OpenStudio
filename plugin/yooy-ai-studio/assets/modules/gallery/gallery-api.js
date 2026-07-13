@@ -4,7 +4,7 @@
   var Core = global.YooYCore;
   if (!Core) return;
 
-  Core.gallery = {
+  Object.assign(Core.gallery || {}, {
     showcase: function () { return Core.get('gallery', '/showcase'); },
     works: function (params) {
       var q = '';
@@ -46,7 +46,7 @@
     duplicate: function (id) { return Core.post('gallery', '/items/' + id + '/duplicate', {}); },
     share: function (id) { return Core.get('gallery', '/items/' + id + '/share'); },
     useAsReference: function (id, data) { return Core.post('gallery', '/items/' + id + '/reference', data || {}); }
-  };
+  });
 
   Core.apiDelete = function (module, endpoint) {
     var config = Core.config || {};

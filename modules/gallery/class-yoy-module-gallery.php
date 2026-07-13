@@ -179,6 +179,7 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
                 ['id' => 'image', 'label' => '이미지'],
                 ['id' => 'music', 'label' => '음악'],
                 ['id' => 'writing', 'label' => '글'],
+                ['id' => 'translation', 'label' => '번역'],
                 ['id' => 'avatar', 'label' => '아바타'],
                 ['id' => 'voice', 'label' => '음성'],
             ],
@@ -464,7 +465,8 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             'negative_prompt'  => (string) ($item['negative_prompt'] ?? ''),
             'reference_assets' => is_array($item['reference_assets'] ?? null) ? $item['reference_assets'] : [],
             'settings'         => is_array($item['settings'] ?? null) ? $item['settings'] : [],
-            'asset_url'        => (string) ($item['asset_url'] ?? $item['output_url'] ?? $item['image_url'] ?? ''),
+            'asset_url'        => (string) ($item['asset_url'] ?? $item['full_url'] ?? $item['output_url'] ?? $item['image_url'] ?? ''),
+            'display_url'      => (string) ($item['display_url'] ?? $item['large_url'] ?? $item['full_url'] ?? ''),
             'project_id'       => (string) ($item['project_id'] ?? ''),
             'visibility'       => !empty($item['public']) ? 'public' : 'private',
             'is_favorite'      => !empty($item['favorite']),
@@ -482,6 +484,8 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
                 return '음악';
             case 'writing':
                 return '글';
+            case 'translation':
+                return '번역';
             case 'avatar':
                 return '아바타';
             case 'voice':
