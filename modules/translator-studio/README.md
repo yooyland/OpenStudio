@@ -5,6 +5,22 @@ Language Intelligence Engine for YooY AI Studio. Produces **Language Assets** in
 Baseline snapshot: `v11.15.1-development-snapshot` (`1d7cf9d`).
 Release candidate: **11.16.0**.
 
+## Source Types (= Input Adapters)
+
+| Source Type | 상태 | 역할 |
+|-------------|------|------|
+| Text | Available | Identity Adapter |
+| File | Planned | Document Adapter + Extractors |
+| Website | Planned | HTML Adapter + Extractor |
+| Image | Planned | OCR Adapter |
+| Audio | Planned | Speech Adapter |
+| Video | Planned | Media / subtitle Adapter |
+| YouTube | Planned | Subtitle Adapter |
+
+설계: `docs/AI_INPUT_ADAPTER.md` · 표/REST: `docs/TRANSLATOR_SOURCE_TYPES.md` · OS: `docs/ARCHITECTURE_BIBLE.md`
+
+새 Source Type은 Adapter + Extractor만 추가한다. Translator Core / Gallery / Credits는 수정하지 않는다.
+
 ## Phase status
 
 | Phase | Scope | Status |
@@ -13,24 +29,18 @@ Release candidate: **11.16.0**.
 | 2-A | Gallery + History | Code complete |
 | 2-B | My Works + Projects | Code complete |
 | 2-C | Credits ledger | Code complete |
-| **2-D** | RC verify + version + ZIP + tag | Packaging in progress — **live Whois pending operator** |
-
-## Phase 2-D live checklist (operator — not claimed here)
-
-1. OpenAI translate → text result OK
-2. Credits balance decreases; ledger `deduct` row
-3. Mock / Mock Fallback → balance unchanged
-4. Gallery `type=translation` row; History groups/badges
-5. Project 저장 → Project detail shows translation
-6. Admin Unlimited → deducted 0
-7. Regression: Image / Video / Music / Voice / Avatar / Writing / Gallery / Projects / Credits / Marketplace / Community / Admin Console
+| 2-D | RC package 11.16.0 | Packaging done — live Whois pending |
+| **Source Types** | Multi-input foundation (UI + meta + validator) | **Code complete** — Text only runtime |
 
 ## Extension points (not implemented)
 
+- `docs/ARCHITECTURE_BIBLE.md` — OS canonical map
+- `docs/AI_INPUT_ADAPTER.md` — Adapter → Extractor → Engine
 - `docs/CREDITS_TRANSACTION.md`
 - `docs/CREDITS_LEDGER_TYPES.md`
 - `docs/LANGUAGE_ASSET.md` (asset_uuid chain)
 - Cost Strategy interface under `includes/cost/`
+- File/Website/Image/Audio/Video/YouTube extract pipelines
 
 ## Reuse
 

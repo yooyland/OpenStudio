@@ -22,6 +22,9 @@ Language Asset의 첫 Producer이다.
 Studio Engine → Gallery Store → History (filter) → Projects → Credits → Community(optional)
 ```
 
+Language 입력은 Source Type UI 너머 **Input Adapter → Content Extractor → Normalized Content**
+경로로 Engine에 들어간다. 상세: `docs/AI_INPUT_ADAPTER.md`.
+
 새 Store / Gallery / Credits / History / Projects를 만들지 않는다.
 
 ## Identity
@@ -51,6 +54,9 @@ Gallery `id` remains the operational key. `asset_uuid` is for future chain graph
 | `meta.character_count` | meta | |
 | `meta.project_id` | meta | Projects link |
 | `meta.fallback_*` | meta | observability |
+| `meta.source_type` | meta | `text` (active); file/website/… planned |
+
+상세 Source Type: `docs/TRANSLATOR_SOURCE_TYPES.md`
 
 `YooY_Gallery_Store::normalize()`는 `item.meta` 배열을 **통째로 보존**한다.
 
@@ -71,6 +77,7 @@ Gallery `id` remains the operational key. `asset_uuid` is for future chain graph
 | `meta.pipeline` | Ordered stage ids |
 | `meta.pipeline_step` | Current step id |
 | `meta.workflow_id` | Multi-step workflow instance |
+| `meta.source_url` … `processing_status` | Input/output source fields — see `docs/TRANSLATOR_SOURCE_TYPES.md` |
 
 ### Parent / Chain (설계만)
 

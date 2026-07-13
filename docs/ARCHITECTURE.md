@@ -1,5 +1,8 @@
 # YooY AI Studio Architecture
 
+> **Canonical map:** [`docs/ARCHITECTURE_BIBLE.md`](ARCHITECTURE_BIBLE.md)  
+> This file is a short overview. Prefer the Bible for design decisions.
+
 ## Product principle
 YooY AI Studio is not a single generator. It is an AI Creator OS.
 
@@ -12,33 +15,17 @@ YooY AI Studio is not a single generator. It is an AI Creator OS.
 
 ### Connected modules
 - AI Router — provider selection and failover
-- **Video Studio** — Generator, Canvas, Templates, Advanced, Gallery, History, Prompt Reuse, Storyboard, API Router (Runway/Topview)
-- **Image Studio** — Prompt, Reference Image, Aspect Ratio, Resolution, Lighting, Composition, Style, Negative Prompt, Seed, Quality, Image Count, Edit, Upscale, Inpaint, Outpaint, Prompt Reuse, Gallery, API Router (GPT Image/Topview)
-- **Music Studio** — Lyrics, Genre, Mood, Tempo, Instrument, Vocal, Language, Structure, Reference Song, Negative Prompt, Advanced Settings, History, Gallery, Prompt Reuse, API Router, Credits (Suno)
-- **Avatar Studio** — Avatar, Voice, Lip Sync, Expression, Gesture, Camera, Emotion, Subtitle, Background, Scene, API Router, Gallery, Prompt History (Vidu/HeyGen)
-- **Voice Studio** — Text to Speech, Voice Clone, Emotion, Language, Speed, Pitch, Pause, Advanced, History, Gallery, API Router (ElevenLabs)
-- Credits — balance, ledger, plans
-- Gallery — showcase and My Works
-- Projects — user workspace
-- Prompt Library — saved prompts and Korean presets
-- User Profile — identity and preferences
-- Marketplace — prompt templates and guides
-- Community — public feed
-- Settings — studio and global config
+- **Video / Image / Music / Avatar / Voice / Writing / Translator Studios**
+- Credits, Gallery, Projects, Prompt Library, Marketplace, Community, Settings, Admin Console
 
-## Core modules
-- Studio Shell: left navigation, account profile, credits, workspace router
-- AI Router: provider selection and failover
-- Generator Engines: Video, Image, Music, Voice, Avatar, Writing
-- Korean Context Engine: Korea-first prompt localization
-- Source Authority (internal): official primary sources for Korea-related grounding — see `docs/SOURCE_AUTHORITY.md` (no user-facing UI)
-- Language Asset (internal schema): Translator and future language pipelines — see `docs/LANGUAGE_ASSET.md`
-- Credits Transaction (design only): `docs/CREDITS_TRANSACTION.md`
-- Credits Ledger types (docs): `docs/CREDITS_LEDGER_TYPES.md`
-- Gallery Engine: Official Showcase, Community Gallery, My Works
-- Prompt Market: prompt, guide, settings, remix flow
-- Credit Engine: KRW-fixed credits, YOY realtime conversion, WooCommerce payment
-- Admin Console: providers, models, credits, products, templates, gallery, logs
+## Core themes (see Bible)
+
+| Theme | Doc |
+|-------|-----|
+| Asset taxonomy (6) | `LANGUAGE_ASSET.md` |
+| Language Engine + Input Adapters | `AI_INPUT_ADAPTER.md`, `TRANSLATOR_SOURCE_TYPES.md` |
+| Source Authority (internal) | `SOURCE_AUTHORITY.md` |
+| Credits Transaction / ledger types | `CREDITS_TRANSACTION.md`, `CREDITS_LEDGER_TYPES.md` |
 
 ## Result lifecycle
-Generate -> Store work -> Show result actions -> Add to My Works -> Optional public gallery -> Prompt reuse -> Marketplace.
+Generate → Gallery Asset → History / My Works → Projects → Credits → optional Community / Marketplace.

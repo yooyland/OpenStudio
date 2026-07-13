@@ -4,6 +4,7 @@ YooY AI Studio는 YooY Land의 공식 AI 콘텐츠 제작 플랫폼입니다.
 단순 WordPress 플러그인이 아니라, 한국 사용자를 위한 **AI Creator OS**를 목표로 합니다.
 
 - GitHub: https://github.com/yooyland/OpenStudio
+- **Architecture Bible:** [`docs/ARCHITECTURE_BIBLE.md`](docs/ARCHITECTURE_BIBLE.md)
 
 ## 목표
 
