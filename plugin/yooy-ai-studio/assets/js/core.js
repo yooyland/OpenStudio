@@ -487,6 +487,7 @@
           update: function (id, data) { return Core.put('admin-console', '/home-sections/' + encodeURIComponent(id), data); },
           remove: function (id) { return Core.del('admin-console', '/home-sections/' + encodeURIComponent(id)); },
           reorder: function (orderedIds) { return Core.post('admin-console', '/home-sections/reorder', { ordered_ids: orderedIds }); },
+          seedDashboard: function () { return Core.post('admin-console', '/home-sections/seed-dashboard', {}); },
           searchWorks: function (q, limit) {
             var parts = [];
             if (q) parts.push('q=' + encodeURIComponent(q));

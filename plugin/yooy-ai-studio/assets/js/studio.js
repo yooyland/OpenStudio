@@ -297,6 +297,8 @@
   var Y = window;
 
   var loaded = {};
+  var currentPage = 'home';
+  var routePending = false;
   var currentProjectId = '';
   var projectDetailFilter = 'all';
   var workspaceTab = 'overview';
@@ -754,11 +756,39 @@
       '</div>';
   }
 
-  function route(name) {
+  function route(name, opts) {
+    opts = opts || {};
     if (name === 'admin-console' && !Core.config.isAdmin) return;
     if (PROTECTED_ROUTES.indexOf(name) !== -1 && !isLoggedIn()) {
       showLoginModal();
       return;
+    }
+    if (routePending) return;
+
+    var from = currentPage;
+    if (!opts.skipDirtyCheck && !opts.fromBack && from && from !== name && window.YooYNavigation && typeof window.YooYNavigation.guardLeave === 'function') {
+      routePending = true;
+      window.YooYNavigation.guardLeave(from, name).then(function (ok) {
+        routePending = false;
+        if (!ok) return;
+        applyRoute(name, Object.assign({}, opts, { skipDirtyCheck: true, from: from }));
+      });
+      return;
+    }
+    applyRoute(name, Object.assign({}, opts, { from: from }));
+  }
+
+  function applyRoute(name, opts) {
+    opts = opts || {};
+    var from = opts.from || currentPage;
+
+    if (!opts.replace && !opts.fromBack && from && from !== name && window.YooYNavigation) {
+      window.YooYNavigation.push({
+        route: from,
+        active_project_id: (window.YooYActiveProject && window.YooYActiveProject.getId && window.YooYActiveProject.getId()) || '',
+        source_context: opts.source_context || '',
+        source_asset_id: opts.source_asset_id || ''
+      });
     }
 
     document.querySelectorAll('.yai-view').forEach(function (el) {
@@ -777,6 +807,11 @@
     setTopbarTitle(name);
     var main = document.getElementById('yai-main');
     if (main) main.scrollTop = 0;
+    currentPage = name;
+    if (window.YooYNavigation) {
+      window.YooYNavigation.setCurrent(name);
+      window.YooYNavigation.bindChrome();
+    }
     hydrate(name);
     syncProjectContextBanner(name);
   }
@@ -893,6 +928,18 @@
       setText('yai-stat-likes', fmt(d.community_likes || 0));
       setText('yai-top-credits', (cr.unlimited ? '∞' : fmt(cr.balance)) + ' Credits');
       renderUsageWidget(mu);
+      if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.updateCredits === 'function') {
+        window.YooYHomeDashboard.updateCredits({
+          plan: cr.plan || cr.tier,
+          tier: cr.tier || cr.plan,
+          plan_name: cr.plan_name || cr.tier,
+          plan_credits: cr.plan_credits != null ? cr.plan_credits : cr.monthly_limit,
+          credits: cr.plan_credits,
+          balance: cr.balance,
+          remaining: cr.balance,
+          unlimited: cr.unlimited,
+        });
+      }
     } else {
       setText('yai-stat-credits', '—');
       setText('yai-stat-projects', '—');
@@ -900,8 +947,8 @@
       setText('yai-stat-likes', '—');
       setText('yai-top-credits', '무료로 시작하기');
       renderUsageWidget({ used: 0, limit: 0, percent: 0 });
-      var head = document.querySelector('.yai-home-head h1');
-      if (head) head.textContent = 'AI Creator Platform에 오신 것을 환영합니다 ✨';
+      var greet = document.getElementById('yai-hd-greeting-title');
+      if (greet) greet.textContent = 'AI Creator Platform에 오신 것을 환영합니다 👋';
       var sub = document.querySelector('.yai-hero-sub');
       if (sub) sub.textContent = '다른 크리에이터의 작품을 둘러보고, 가입 후 나만의 작품을 만들어 보세요.';
     }
@@ -913,7 +960,11 @@
     renderShowcase(filterFeedWorks(d.showcase || []));
     renderHomeMarket(filterFeedWorks(d.marketplace || []));
     renderHomeCommunity(filterFeedWorks(d.community_trending || []));
-    renderHomeSections(d.home_sections || []);
+    if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.onFeed === 'function') {
+      window.YooYHomeDashboard.onFeed(d);
+    } else {
+      renderHomeSections(d.home_sections || []);
+    }
     renderProjects(Array.isArray(d.projects) ? d.projects.slice(0, 8) : []);
     loadHomeRecommendations();
   }
@@ -964,7 +1015,11 @@
     renderShowcase([]);
     renderHomeMarket([]);
     renderHomeCommunity([]);
-    renderHomeSections([]);
+    if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.onFeed === 'function') {
+      window.YooYHomeDashboard.onFeed({});
+    } else {
+      renderHomeSections([]);
+    }
     renderProjects([]);
     loadHomeRecommendations();
     renderUsageWidget({ used: 0, limit: 0, percent: 0 });
@@ -2165,7 +2220,11 @@
     renderJobs([]);
     renderAnnouncements([]);
     renderShowcase([]);
-    renderHomeSections([]);
+    if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.onFeed === 'function') {
+      window.YooYHomeDashboard.onFeed({});
+    } else {
+      renderHomeSections([]);
+    }
     renderProjects([]);
     loadHomeRecommendations();
     renderUsageWidget({ used: 0, limit: 0, percent: 0 });
@@ -2183,6 +2242,13 @@
       if (!existing || existing.id !== projectId) {
         Y.YooYActiveProject.set({ id: projectId, name: 'Project' });
       }
+    }
+    if (window.YooYNavigation && typeof window.YooYNavigation.rememberSource === 'function') {
+      window.YooYNavigation.rememberSource({
+        previous_route: currentPage || 'projects',
+        source_context: 'project-workspace',
+        active_project_id: projectId
+      });
     }
     route('project-detail');
   }
@@ -3108,9 +3174,9 @@
 
   function loadWriting() {
     var el = document.getElementById('yai-gen-writing');
-    if (!el || el.dataset.ready) return;
-    el.dataset.ready = '1';
+    if (!el) return;
     el.innerHTML =
+      (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('writing') : '') +
       '<div class="yai-writing-layout">' +
         '<textarea class="yai-prompt-input" placeholder="블로그, 광고 카피, 스크립트 프롬프트를 입력하세요…"></textarea>' +
         '<aside id="yai-writing-ref-host"></aside>' +
@@ -3151,7 +3217,17 @@
       }).catch(function (err) { result.innerHTML = '<p class="yai-error">' + esc(err.message) + '</p>'; })
         .finally(function () { btn.disabled = false; });
     });
+    el.dataset.ready = '1';
   }
+
+  // Writing reset remounts UI
+  window.YooYWritingReset = function () {
+    var el = document.getElementById('yai-gen-writing');
+    if (!el) return;
+    el.dataset.ready = '0';
+    loaded.writing = false;
+    loadWriting();
+  };
 
   function loadProfile() {
     if (!isLoggedIn()) return;
@@ -3174,6 +3250,9 @@
       if (usage) usage.textContent = 'Monthly: ' + fmt(mu.used || 0) + ' / ' + fmt(mu.limit || 0);
       if (document.getElementById('yai-top-credits')) {
         setText('yai-top-credits', (acc.unlimited ? '∞' : fmt(acc.balance)) + ' Credits');
+      }
+      if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.updateCredits === 'function') {
+        window.YooYHomeDashboard.updateCredits(acc);
       }
     }).catch(function () {
       Core.credits.balance().then(function (res) {
@@ -3313,7 +3392,20 @@
     if (wsStudio) {
       e.preventDefault();
       if (workspaceCache.project) setActiveProjectFromRecord(workspaceCache.project);
-      route(wsStudio.getAttribute('data-workspace-studio'));
+      var studioRoute = wsStudio.getAttribute('data-workspace-studio');
+      if (window.YooYNavigation && typeof window.YooYNavigation.rememberSource === 'function') {
+        window.YooYNavigation.rememberSource({
+          previous_route: 'project-detail',
+          source_context: 'project-workspace',
+          active_project_id: currentProjectId || ((window.YooYActiveProject && window.YooYActiveProject.getId && window.YooYActiveProject.getId()) || '')
+        });
+        window.YooYNavigation.push({
+          route: 'project-detail',
+          source_context: 'project-workspace',
+          active_project_id: currentProjectId || ''
+        });
+      }
+      route(studioRoute, { source_context: 'project-workspace' });
       return;
     }
 

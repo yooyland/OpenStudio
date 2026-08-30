@@ -144,23 +144,39 @@ $studio_quick = [
             <?php endif; ?>
         </nav>
 
-        <div class="yai-profile yai-profile--<?php echo esc_attr($plan_id); ?>" id="yai-profile-card">
+        <div class="yai-sidebar-footer">
             <?php if ($is_logged_in) : ?>
-                <div class="yai-profile-avatar" aria-hidden="true"><?php echo esc_html($user_initials); ?></div>
-                <div class="yai-profile-info">
-                    <strong><?php echo esc_html($user->display_name ?: 'User'); ?></strong>
-                    <span class="yai-profile-email"><?php echo esc_html($user_email); ?></span>
+                <article class="yai-hd-credit-card" id="yai-sidebar-credit-card" aria-label="크레딧 현황">
+                    <h3>크레딧 현황</h3>
+                    <div class="yai-hd-credit-row">
+                        <span>전체 크레딧</span>
+                        <strong id="yai-credit-total">—</strong>
+                    </div>
+                    <div class="yai-hd-credit-row">
+                        <span>잔여 크레딧</span>
+                        <strong id="yai-credit-remaining">—</strong>
+                    </div>
+                    <button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-route="credits">충전</button>
+                    <p class="yai-hd-credit-plan">현재 플랜: <strong id="yai-sidebar-plan-name"><?php echo esc_html($plan_label); ?></strong></p>
+                </article>
+                <nav class="yai-sidebar-util" aria-label="계정 메뉴">
+                    <button type="button" data-route="settings"><?php echo YooY_UI_Icons::svg('settings', 16); ?> 설정</button>
+                    <button type="button" data-yai-panel="help"><?php echo YooY_UI_Icons::svg('help', 16); ?> 도움말</button>
+                    <a href="<?php echo $logout_url; ?>">로그아웃</a>
+                </nav>
+                <div class="yai-profile yai-profile--compact yai-profile--<?php echo esc_attr($plan_id); ?>" id="yai-profile-card" hidden aria-hidden="true">
                     <b class="yai-profile-credits" id="yai-credits">Credits: —</b>
                     <span class="yai-plan-label" id="yai-tier-badge"><?php echo esc_html($plan_label); ?></span>
-                    <a class="yai-text-btn yai-logout-link" href="<?php echo $logout_url; ?>">로그아웃</a>
                 </div>
             <?php else : ?>
-                <div class="yai-profile-avatar yai-profile-avatar--guest" aria-hidden="true">?</div>
-                <div class="yai-profile-info">
-                    <strong>Guest</strong>
-                    <span class="yai-profile-email">Login to start creating</span>
-                    <a class="yai-btn yai-btn--gold yai-btn--sm yai-register-link" href="<?php echo esc_url($register_url); ?>">회원가입</a>
-                    <a class="yai-btn yai-btn--outline yai-btn--sm yai-login-link" href="<?php echo $login_url; ?>">로그인</a>
+                <div class="yai-profile yai-profile--guest" id="yai-profile-card">
+                    <div class="yai-profile-avatar yai-profile-avatar--guest" aria-hidden="true">?</div>
+                    <div class="yai-profile-info">
+                        <strong>Guest</strong>
+                        <span class="yai-profile-email">Login to start creating</span>
+                        <a class="yai-btn yai-btn--gold yai-btn--sm yai-register-link" href="<?php echo esc_url($register_url); ?>">회원가입</a>
+                        <a class="yai-btn yai-btn--outline yai-btn--sm yai-login-link" href="<?php echo $login_url; ?>">로그인</a>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -169,7 +185,15 @@ $studio_quick = [
     <div class="yai-stage">
         <main class="yai-main" id="yai-main">
             <header class="yai-topbar yai-topbar--global" id="yai-global-topbar">
-                <span class="yai-crumb" id="yai-topbar-title">YooY AI Studio</span>
+                <div class="yai-topbar-nav" id="yai-topbar-nav">
+                    <button type="button" class="yai-nav-chrome-btn yai-nav-chrome-btn--back" id="yai-nav-back" aria-label="뒤로" title="이전 화면으로" hidden>
+                        <span aria-hidden="true">←</span><span class="yai-nav-chrome-label">뒤로</span>
+                    </button>
+                    <span class="yai-crumb" id="yai-topbar-title">YooY AI Studio</span>
+                    <button type="button" class="yai-nav-chrome-btn yai-nav-chrome-btn--reset" id="yai-nav-reset" aria-label="초기화" title="현재 작업 초기화" hidden>
+                        <span aria-hidden="true">↻</span><span class="yai-nav-chrome-label">초기화</span>
+                    </button>
+                </div>
                 <div class="yai-topbar-actions" id="yai-topbar-actions">
                     <?php if ($is_logged_in) : ?>
                         <button class="yai-topbar-user" data-route="credits" type="button" aria-label="Credits and plan">
@@ -190,127 +214,76 @@ $studio_quick = [
                 </div>
             </header>
 
-            <!-- HOME — OpenStudio Dashboard -->
-            <section class="yai-view yai-view--home" data-page="home">
-                <div class="yai-home-head">
-                    <p class="yai-eyebrow">OpenStudio Dashboard</p>
-                    <h1>무엇을 만들고 싶으신가요?</h1>
-                    <p class="yai-hero-sub">AI Assistant와 Project에서 시작하고, Create Studio로 완성하세요.</p>
-                </div>
-
-                <section class="yai-dash-block yai-dash-block--assistant" aria-label="AI Assistant">
-                    <div class="yai-dash-assistant">
-                        <div class="yai-dash-assistant__copy">
-                            <p class="yai-dash-kicker">① AI Assistant</p>
-                            <h2>만들고 싶은 것을 말해 보세요</h2>
-                            <p>대화 · 추천 · Prompt 보완 · Studio 안내. 실행은 기존 Studio가 담당합니다.</p>
-                            <div class="yai-dash-assistant__actions">
-                                <button type="button" class="yai-btn yai-btn--gold" data-route="assistant"><?php echo YooY_UI_Icons::svg('spark', 16); ?> AI Assistant 시작</button>
-                                <button type="button" class="yai-btn yai-btn--outline" data-yai-create-project data-action="create-project">새 Project</button>
+            <!-- HOME — YooY Studio Dashboard (config-driven) -->
+            <section class="yai-view yai-view--home yai-hd-page" data-page="home">
+                <div class="yai-hd-layout<?php echo $is_admin ? '' : ' yai-hd-layout--full'; ?>">
+                    <div class="yai-hd-main">
+                        <header class="yai-hd-greeting">
+                            <div>
+                                <h1 id="yai-hd-greeting-title">안녕하세요<?php echo $is_logged_in ? ', ' . esc_html($user->display_name ?: '크리에이터') . '님' : ''; ?>! 👋</h1>
+                                <p class="yai-hero-sub">오늘은 무엇을 만들어볼까요?</p>
                             </div>
-                        </div>
-                        <div class="yai-dash-assistant__prompt">
-                            <label class="yai-sr-only" for="yai-home-prompt">빠른 아이디어</label>
-                            <textarea id="yai-home-prompt" rows="2" placeholder="예: 여름 광고, 유튜브 쇼츠, 회사 소개 영상…"></textarea>
-                            <div class="yai-dash-assistant__prompt-actions">
-                                <button type="button" class="yai-btn yai-btn--outline" id="yai-home-coach">Prompt 보완</button>
-                                <button type="button" class="yai-btn yai-btn--gold" id="yai-home-create"><?php echo YooY_UI_Icons::svg('spark', 16); ?> 빠른 시작</button>
+                            <?php if ($is_logged_in) : ?>
+                            <div class="yai-hd-plan-wrap" id="yai-plan-dropdown-wrap">
+                                <button type="button" id="yai-pro-plan-btn" aria-haspopup="true" aria-expanded="false">Pro 플랜</button>
+                                <div class="yai-hd-plan-menu" id="yai-plan-dropdown-menu" role="menu" hidden>
+                                    <span class="yai-hd-plan-menu__label">현재 플랜</span>
+                                    <span class="yai-hd-plan-menu__current" id="yai-plan-dropdown-current"><?php echo esc_html($plan_label); ?></span>
+                                    <button type="button" role="menuitem" data-route="billing" data-plan-action="upgrade">업그레이드</button>
+                                    <button type="button" role="menuitem" data-route="billing" data-plan-action="downgrade">다운그레이드</button>
+                                </div>
                             </div>
-                            <div class="yai-create-ux__coach" id="yai-home-coach-panel" hidden></div>
-                        </div>
-                    </div>
-                </section>
+                            <?php endif; ?>
+                        </header>
 
-                <section class="yai-dash-block" aria-label="Recommendations">
-                    <div class="yai-block-head">
-                        <h2>④ 추천 콘텐츠</h2>
-                        <button type="button" class="yai-text-btn" data-route="assistant">더 보기</button>
-                    </div>
-                    <div class="yai-create-ux__recs" id="yai-home-recs"></div>
-                </section>
+                        <section class="yai-hd-hero" aria-label="만들고 싶은 것을 입력하세요">
+                            <div class="yai-hd-hero__inner">
+                                <div class="yai-hd-hero__prompt">
+                                    <label for="yai-home-prompt">아이디어를 입력해 보세요</label>
+                                    <textarea id="yai-home-prompt" rows="3" placeholder="예: 여름 시즌 제품 포스터, 15초 쇼츠 영상, 블로그 소개 글…"></textarea>
+                                    <div class="yai-hd-hero__actions">
+                                        <button type="button" class="yai-btn yai-btn--outline" id="yai-home-coach">Prompt 보완</button>
+                                        <button type="button" class="yai-btn yai-btn--gold" id="yai-home-create"><?php echo YooY_UI_Icons::svg('spark', 16); ?> 빠른 시작</button>
+                                        <button type="button" class="yai-btn yai-btn--outline" data-route="assistant">AI Assistant</button>
+                                    </div>
+                                    <div class="yai-create-ux__coach" id="yai-home-coach-panel" hidden></div>
+                                </div>
+                                <div class="yai-hd-hero__visual" aria-hidden="true">
+                                    <div class="yai-hd-hero__orb"></div>
+                                </div>
+                            </div>
+                            <div class="yai-hd-chips" id="yai-home-hero-chips" aria-label="추천 시작"></div>
+                        </section>
 
-                <section class="yai-dash-block" aria-label="Recent Projects">
-                    <div class="yai-block-head">
-                        <h2>② 최근 Project</h2>
-                        <button type="button" class="yai-text-btn" data-route="projects">전체</button>
-                    </div>
-                    <div class="yai-home-projects-row" id="yai-home-projects"></div>
-                </section>
+                        <section class="yai-hd-quick-block" aria-label="빠른 도구">
+                            <h2>빠른 도구</h2>
+                            <div class="yai-hd-quick-row" id="yai-home-quick-tools"></div>
+                        </section>
 
-                <div class="yai-home-main">
-                    <div class="yai-card-block yai-home-main__works">
-                        <div class="yai-block-head">
-                            <h2>⑥ 최근 Gallery</h2>
-                            <button class="yai-text-btn" data-route="works" type="button">Gallery</button>
-                        </div>
-                        <div class="yai-block-body yai-works-grid yai-works-grid--showcase" id="yai-home-works"></div>
+                        <div id="yai-home-sections-root" aria-label="홈 섹션"></div>
                     </div>
-                    <aside class="yai-card-block yai-home-main__activity">
-                        <div class="yai-block-head">
-                            <h2>③ 최근 작업</h2>
-                            <button class="yai-text-btn" data-route="history" type="button">History</button>
-                        </div>
-                        <div class="yai-block-body yai-timeline yai-timeline--compact yai-activity-panel" id="yai-home-jobs"></div>
+
+                    <aside class="yai-hd-aside" aria-label="섹션 관리"<?php echo $is_admin ? '' : ' hidden'; ?>>
+                        <div class="yai-hd-manager" id="yai-home-section-manager"></div>
                     </aside>
                 </div>
 
-                <section class="yai-dash-block" aria-label="Quick Create">
-                    <div class="yai-block-head">
-                        <h2>⑤ 빠른 시작 (Create)</h2>
-                        <span class="yai-muted">Studio는 Create 영역입니다</span>
-                    </div>
-                    <div class="yai-quick-row" aria-label="Create studios">
-                        <?php foreach ($studio_quick as $item) : ?>
-                            <button class="yai-quick-btn" data-route="<?php echo esc_attr($item['route']); ?>" type="button">
-                                <?php echo YooY_UI_Icons::svg($item['icon'], 16); ?>
-                                <?php echo esc_html($item['label']); ?>
-                            </button>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
-
-                <div class="yai-stats-row yai-stats-row--home">
-                    <article class="yai-stat" data-stat="credits" data-route="credits" role="button" tabindex="0">
-                        <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('credits', 18); ?></div>
-                        <div><span>Credits</span><strong id="yai-stat-credits">—</strong><em class="yai-stat-sub" id="yai-stat-credit-usage"></em></div>
-                    </article>
-                    <article class="yai-stat" data-stat="projects" data-route="projects" role="button" tabindex="0">
-                        <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('folder', 18); ?></div>
-                        <div><span>Projects</span><strong id="yai-stat-projects">—</strong></div>
-                    </article>
-                    <article class="yai-stat" data-stat="works" data-route="works" role="button" tabindex="0">
-                        <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('gallery', 18); ?></div>
-                        <div><span>Gallery</span><strong id="yai-stat-works">—</strong></div>
-                    </article>
-                    <article class="yai-stat" data-stat="likes" data-route="community" role="button" tabindex="0">
-                        <div class="yai-stat-icon"><?php echo YooY_UI_Icons::svg('heart', 18); ?></div>
-                        <div><span>Community</span><strong id="yai-stat-likes">—</strong></div>
-                    </article>
-                </div>
-
-                <div class="yai-home-sections" id="yai-home-sections" aria-label="Curated home sections"></div>
-
-                <div class="yai-home-discover">
-                    <div class="yai-card-block">
-                        <div class="yai-block-head"><h2>⑦ 최근 Marketplace</h2><button class="yai-text-btn" data-route="market" type="button">판매 · 구매</button></div>
-                        <div class="yai-block-body yai-discover-row" id="yai-home-market"></div>
-                    </div>
-                    <div class="yai-card-block">
-                        <div class="yai-block-head"><h2>⑧ 최근 Community</h2><button class="yai-text-btn" data-route="community" type="button">공유 공간</button></div>
-                        <div class="yai-block-body yai-discover-row" id="yai-home-community-trending"></div>
-                    </div>
-                </div>
-
-                <div class="yai-home-widgets yai-home-widgets--compact">
-                    <div class="yai-card-block">
-                        <div class="yai-block-head"><h2>Announcements</h2></div>
-                        <div class="yai-block-body" id="yai-home-announcements"></div>
-                    </div>
-                </div>
-
-                <div class="yai-showcase-section yai-card-block">
-                    <div class="yai-block-head"><h2>Official Showcase</h2><button class="yai-text-btn" data-route="community" type="button">Community</button></div>
-                    <div class="yai-showcase-row" id="yai-showcase"></div>
+                <!-- Legacy hooks for studio.js data loaders (hidden, non-visual) -->
+                <div class="yai-sr-only" aria-hidden="true">
+                    <div id="yai-home-recs"></div>
+                    <div id="yai-home-projects"></div>
+                    <div id="yai-home-works"></div>
+                    <div id="yai-home-jobs"></div>
+                    <div id="yai-home-sections"></div>
+                    <div id="yai-home-market"></div>
+                    <div id="yai-home-community-trending"></div>
+                    <div id="yai-home-announcements"></div>
+                    <div id="yai-showcase"></div>
+                    <strong id="yai-stat-credits"></strong>
+                    <strong id="yai-stat-projects"></strong>
+                    <strong id="yai-stat-works"></strong>
+                    <strong id="yai-stat-likes"></strong>
+                    <em id="yai-stat-credit-usage"></em>
                 </div>
             </section>
 

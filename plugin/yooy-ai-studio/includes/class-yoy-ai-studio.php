@@ -103,6 +103,29 @@ final class YooY_AI_Studio {
             YOY_AI_STUDIO_VERSION
         );
 
+        wp_enqueue_style(
+            'yoy-home-dashboard',
+            YOY_AI_STUDIO_URL . 'assets/css/home-dashboard.css',
+            ['yoy-ai-studio', 'yoy-spacious'],
+            YOY_AI_STUDIO_VERSION
+        );
+
+        wp_enqueue_script(
+            'yoy-home-dashboard-config',
+            YOY_AI_STUDIO_URL . 'assets/js/home-dashboard-config.js',
+            [],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'yoy-home-dashboard',
+            YOY_AI_STUDIO_URL . 'assets/js/home-dashboard.js',
+            ['yoy-home-dashboard-config'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
         wp_enqueue_script(
             'yoy-ai-studio-core',
             YOY_AI_STUDIO_URL . 'assets/js/core.js',
@@ -158,10 +181,31 @@ final class YooY_AI_Studio {
             true
         );
 
+        wp_enqueue_style(
+            'yoy-studio-navigation',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/studio-navigation.css',
+            ['yoy-ai-studio'],
+            YOY_AI_STUDIO_VERSION
+        );
+        wp_enqueue_script(
+            'yoy-studio-navigation',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/studio-navigation.js',
+            ['yoy-ai-studio-core', 'yoy-active-project'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+        wp_enqueue_script(
+            'yoy-studio-nav-adapters',
+            YOY_AI_STUDIO_URL . 'assets/modules/shared/studio-nav-adapters.js',
+            ['yoy-studio-navigation'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard'],
             YOY_AI_STUDIO_VERSION,
             true
         );

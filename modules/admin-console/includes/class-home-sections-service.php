@@ -8,9 +8,20 @@ final class YooY_Home_Sections_Service {
     private const TYPES = [
         'latest', 'featured', 'best', 'hot', 'marketplace', 'community',
         'manual', 'project', 'category', 'tag', 'official', 'mixed',
+        'gallery', 'template', 'recent', 'guide', 'projects',
     ];
 
-    private const SOURCES = ['user', 'community', 'marketplace', 'official', 'demo', 'mixed'];
+    private const SOURCES = [
+        'user', 'community', 'marketplace', 'official', 'demo', 'mixed',
+        'gallery', 'projects', 'templates', 'guide',
+    ];
+
+    private const DISPLAY_TYPES = ['gallery', 'template', 'recent', 'guide', 'projects'];
+
+    private const DATA_SOURCES = [
+        'gallery', 'projects', 'templates', 'community', 'marketplace', 'guide',
+        'user', 'official', 'demo', 'mixed',
+    ];
 
     /** @var array<string, array<int, array<string, mixed>>> */
     private static $pool_cache = [];
@@ -89,6 +100,11 @@ final class YooY_Home_Sections_Service {
         return count($sections) < $before;
     }
 
+    public function replace_with_dashboard_defaults(): array {
+        update_option(self::OPTION_KEY, $this->default_sections(), false);
+        return $this->list_all();
+    }
+
     public function reorder(array $ordered_ids): array {
         $sections = $this->list_all();
         $map = [];
@@ -125,25 +141,53 @@ final class YooY_Home_Sections_Service {
         self::$pool_cache = [];
         $output = [];
         foreach ($this->list_visible() as $section) {
+            $display_type = $this->normalize_display_type($section);
+            $data_source = $this->normalize_data_source($section);
+            $layout = $this->normalize_layout($section);
             $type = sanitize_text_field($section['type'] ?? 'latest');
             $entry = [
-                'id'           => $section['id'],
-                'title'        => $section['title'],
-                'description'  => $section['description'],
-                'type'         => $type,
-                'source'       => $section['source'],
-                'column_count' => $section['column_count'],
-                'card_ratio'   => $section['card_ratio'],
-                'text_mode'    => $section['text_mode'],
-                'limit'        => (int) $section['limit'],
-                'works'        => [],
-                'projects'     => [],
+                'id'            => $section['id'],
+                'title'         => $section['title'],
+                'description'   => $section['description'],
+                'type'          => $type,
+                'display_type'  => $display_type,
+                'data_source'   => $data_source,
+                'source'        => $section['source'],
+                'layout'        => $layout,
+                'column_count'  => $section['column_count'],
+                'card_ratio'    => $section['card_ratio'],
+                'text_mode'     => $section['text_mode'],
+                'filter'        => is_array($section['filter'] ?? null) ? $section['filter'] : [],
+                'limit'         => (int) $section['limit'],
+                'order'         => (int) ($section['sort_order'] ?? 0),
+                'works'         => [],
+                'projects'      => [],
             ];
-            if ($type === 'project') {
-                $entry['projects'] = $this->resolve_project_section($section, $user_id);
-            } else {
-                $entry['works'] = $this->resolve_works($section, $user_id);
+
+            if ($display_type === 'guide' || $data_source === 'guide') {
+                $output[] = $entry;
+                continue;
             }
+
+            if ($display_type === 'recent') {
+                $output[] = $entry;
+                continue;
+            }
+
+            if ($display_type === 'projects' || $data_source === 'projects' || $type === 'project') {
+                $entry['projects'] = $this->resolve_project_section($section, $user_id);
+                $output[] = $entry;
+                continue;
+            }
+
+            if ($display_type === 'template' || $data_source === 'templates') {
+                $entry['works'] = $this->resolve_templates($section, $user_id);
+                $output[] = $entry;
+                continue;
+            }
+
+            $works = $this->resolve_works($section, $user_id);
+            $entry['works'] = $this->apply_filters($works, $section['filter'] ?? []);
             $output[] = $entry;
         }
         self::$pool_cache = [];
@@ -720,37 +764,92 @@ final class YooY_Home_Sections_Service {
     private function default_sections(): array {
         return [
             $this->normalize([
-                'id'          => 'sec_latest_default',
-                'title'       => '새로 만든 작품',
-                'description' => '내 작품과 플랫폼 추천을 함께 확인하세요.',
-                'type'        => 'latest',
-                'source'      => 'mixed',
-                'visible'     => true,
-                'limit'       => 12,
-                'column_count' => 4,
-                'sort_order'  => 0,
+                'id'           => 'sec_focus',
+                'title'        => '집중형 작품',
+                'description'  => '인물, 제품, 포스터 등 집중감 있는 작품',
+                'display_type' => 'gallery',
+                'data_source'  => 'gallery',
+                'type'         => 'latest',
+                'source'       => 'mixed',
+                'filter'       => ['orientation' => 'portrait'],
+                'layout'       => 'carousel',
+                'card_ratio'   => 'portrait',
+                'visible'      => true,
+                'limit'        => 12,
+                'column_count' => 'carousel',
+                'sort_order'   => 0,
             ]),
             $this->normalize([
-                'id'          => 'sec_hot_default',
-                'title'       => 'Community 인기작',
-                'description' => '커뮤니티와 마켓플레이스에서 인기 있는 작품.',
-                'type'        => 'community',
-                'source'      => 'community',
-                'visible'     => true,
-                'limit'       => 12,
-                'column_count' => 4,
-                'sort_order'  => 1,
+                'id'           => 'sec_wide',
+                'title'        => '확장형 작품',
+                'description'  => '풍경, 배경, 배너 등 넓고 시원한 작품',
+                'display_type' => 'gallery',
+                'data_source'  => 'gallery',
+                'type'         => 'latest',
+                'source'       => 'mixed',
+                'filter'       => ['orientation' => 'landscape'],
+                'layout'       => 'carousel',
+                'card_ratio'   => 'wide',
+                'visible'      => true,
+                'limit'        => 12,
+                'column_count' => 'carousel',
+                'sort_order'   => 1,
             ]),
             $this->normalize([
-                'id'          => 'sec_best_default',
-                'title'       => 'Official Showcase',
-                'description' => 'YooY 공식 큐레이션과 데모 작품.',
-                'type'        => 'official',
-                'source'      => 'official',
-                'visible'     => true,
-                'limit'       => 12,
+                'id'           => 'sec_templates',
+                'title'        => '추천 템플릿',
+                'description'  => '바로 시작할 수 있는 인기 템플릿',
+                'display_type' => 'template',
+                'data_source'  => 'templates',
+                'type'         => 'official',
+                'source'       => 'official',
+                'layout'       => 'carousel',
+                'visible'      => true,
+                'limit'        => 10,
+                'column_count' => 'carousel',
+                'sort_order'   => 2,
+            ]),
+            $this->normalize([
+                'id'           => 'sec_recent',
+                'title'        => '최근 작업',
+                'description'  => '이어서 작업하거나 다시 열어보세요',
+                'display_type' => 'recent',
+                'data_source'  => 'gallery',
+                'type'         => 'latest',
+                'source'       => 'user',
+                'layout'       => 'grid',
+                'visible'      => true,
+                'limit'        => 8,
                 'column_count' => 4,
-                'sort_order'  => 2,
+                'sort_order'   => 3,
+            ]),
+            $this->normalize([
+                'id'           => 'sec_saved_templates',
+                'title'        => '저장된 템플릿',
+                'description'  => '내가 저장한 프롬프트와 템플릿',
+                'display_type' => 'template',
+                'data_source'  => 'gallery',
+                'type'         => 'featured',
+                'source'       => 'user',
+                'layout'       => 'grid',
+                'visible'      => true,
+                'limit'        => 8,
+                'column_count' => 4,
+                'sort_order'   => 4,
+            ]),
+            $this->normalize([
+                'id'           => 'sec_guide',
+                'title'        => '초보자 가이드',
+                'description'  => '처음이어도 쉽게 따라 할 수 있어요',
+                'display_type' => 'guide',
+                'data_source'  => 'guide',
+                'type'         => 'guide',
+                'source'       => 'mixed',
+                'layout'       => 'grid',
+                'visible'      => true,
+                'limit'        => 3,
+                'column_count' => 3,
+                'sort_order'   => 5,
             ]),
         ];
     }
@@ -783,13 +882,17 @@ final class YooY_Home_Sections_Service {
             'title'       => sanitize_text_field($section['title'] ?? 'Home Section'),
             'description' => sanitize_textarea_field($section['description'] ?? ''),
             'type'        => $type,
+            'display_type'=> $this->normalize_display_type($section),
+            'data_source' => $this->normalize_data_source($section),
             'source'      => $source,
+            'layout'      => $this->normalize_layout($section),
             'column_count' => $column_count,
             'card_ratio'  => $this->normalize_card_ratio($section),
             'text_mode'   => $this->normalize_text_mode($section),
+            'filter'      => $this->normalize_filter($section),
             'visible'     => !empty($section['visible']),
             'limit'       => max(1, min(24, (int) ($section['limit'] ?? 8))),
-            'sort_order'  => (int) ($section['sort_order'] ?? 0),
+            'sort_order'  => (int) ($section['sort_order'] ?? $section['order'] ?? 0),
             'manual_ids'  => $manual_ids,
             'project_id'  => sanitize_text_field($section['project_id'] ?? ''),
             'category'    => sanitize_text_field($section['category'] ?? ''),
@@ -798,6 +901,150 @@ final class YooY_Home_Sections_Service {
             'created_at'  => $section['created_at'] ?? gmdate('c'),
             'updated_at'  => $section['updated_at'] ?? gmdate('c'),
         ];
+    }
+
+    private function normalize_display_type(array $section): string {
+        $raw = sanitize_text_field($section['display_type'] ?? '');
+        if ($raw !== '' && in_array($raw, self::DISPLAY_TYPES, true)) {
+            return $raw;
+        }
+
+        $type = sanitize_text_field($section['type'] ?? 'latest');
+        if (in_array($type, self::DISPLAY_TYPES, true)) {
+            return $type;
+        }
+        if ($type === 'project') {
+            return 'projects';
+        }
+        if ($type === 'community' || $type === 'marketplace') {
+            return 'gallery';
+        }
+        return 'gallery';
+    }
+
+    private function normalize_data_source(array $section): string {
+        $raw = sanitize_text_field($section['data_source'] ?? '');
+        if ($raw !== '' && in_array($raw, self::DATA_SOURCES, true)) {
+            return $raw;
+        }
+
+        $display = $this->normalize_display_type($section);
+        if ($display === 'guide') {
+            return 'guide';
+        }
+        if ($display === 'projects') {
+            return 'projects';
+        }
+        if ($display === 'template') {
+            return 'templates';
+        }
+
+        return $this->normalize_source($section);
+    }
+
+    private function normalize_layout(array $section): string {
+        $layout = sanitize_text_field($section['layout'] ?? '');
+        if ($layout === 'carousel' || $layout === 'grid') {
+            return $layout;
+        }
+        $columns = $section['column_count'] ?? null;
+        if ($columns === 'carousel' || (is_string($columns) && strtolower($columns) === 'carousel')) {
+            return 'carousel';
+        }
+        return 'grid';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function normalize_filter(array $section): array {
+        $filter = $section['filter'] ?? [];
+        if (!is_array($filter)) {
+            return [];
+        }
+        $out = [];
+        $orientation = sanitize_text_field($filter['orientation'] ?? '');
+        if (in_array($orientation, ['portrait', 'landscape', 'square', 'wide'], true)) {
+            $out['orientation'] = $orientation;
+        }
+        return $out;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $works
+     * @param array<string, string> $filter
+     * @return array<int, array<string, mixed>>
+     */
+    private function apply_filters(array $works, array $filter): array {
+        $orientation = sanitize_text_field($filter['orientation'] ?? '');
+        if ($orientation === '') {
+            return $works;
+        }
+
+        $filtered = array_values(array_filter($works, function ($work) use ($orientation) {
+            return $this->work_matches_orientation($work, $orientation);
+        }));
+
+        if (!empty($filtered)) {
+            return $filtered;
+        }
+
+        return $works;
+    }
+
+    private function work_matches_orientation(array $work, string $orientation): bool {
+        $ratio = $this->work_aspect_ratio($work);
+        if ($ratio === null) {
+            return true;
+        }
+
+        switch ($orientation) {
+            case 'portrait':
+                return $ratio < 0.95;
+            case 'landscape':
+            case 'wide':
+                return $ratio > 1.05;
+            case 'square':
+                return $ratio >= 0.95 && $ratio <= 1.05;
+            default:
+                return true;
+        }
+    }
+
+    private function work_aspect_ratio(array $work): ?float {
+        $meta = is_array($work['meta'] ?? null) ? $work['meta'] : [];
+        $w = (int) ($work['width'] ?? $meta['width'] ?? 0);
+        $h = (int) ($work['height'] ?? $meta['height'] ?? 0);
+        if ($w > 0 && $h > 0) {
+            return $w / $h;
+        }
+
+        $type = sanitize_text_field($work['type'] ?? '');
+        if (in_array($type, ['video', 'writing', 'music', 'voice'], true)) {
+            return 16 / 9;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function resolve_templates(array $section, int $user_id): array {
+        $limit = max(1, min(24, (int) ($section['limit'] ?? 8)));
+        $official = $this->resolve_official($limit, false);
+        if (!empty($official)) {
+            return array_map(function ($item) {
+                $item['seed'] = (string) ($item['seed_prompt'] ?? $item['prompt'] ?? $item['title'] ?? '');
+                $item['seed_prompt'] = $item['seed'];
+                return $item;
+            }, $official);
+        }
+
+        return $this->apply_filters(
+            $this->resolve_works(array_merge($section, ['type' => 'featured', 'source' => 'user']), $user_id),
+            $section['filter'] ?? []
+        );
     }
 
     /**

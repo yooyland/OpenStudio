@@ -129,6 +129,9 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
         $this->register_route('/home-sections/reorder', [
             'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'home_sections_reorder'], 'permission_callback' => $admin,
         ]);
+        $this->register_route('/home-sections/seed-dashboard', [
+            'methods' => WP_REST_Server::CREATABLE, 'callback' => [$this, 'home_sections_seed_dashboard'], 'permission_callback' => $admin,
+        ]);
         $this->register_route('/home-sections/works-search', [
             'methods' => WP_REST_Server::READABLE, 'callback' => [$this, 'home_sections_works_search'], 'permission_callback' => $admin,
         ]);
@@ -763,6 +766,10 @@ final class YooY_Module_Admin_Console extends YooY_Module_Base {
         $body = is_array($body) ? $body : [];
         $ordered = is_array($body['ordered_ids'] ?? null) ? $body['ordered_ids'] : [];
         return $this->success(['sections' => $this->home_sections->reorder($ordered)]);
+    }
+
+    public function home_sections_seed_dashboard(): WP_REST_Response {
+        return $this->success(['sections' => $this->home_sections->replace_with_dashboard_defaults()]);
     }
 
     public function home_sections_works_search(WP_REST_Request $request): WP_REST_Response {

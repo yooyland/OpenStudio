@@ -1247,13 +1247,35 @@
     'latest', 'featured', 'best', 'hot', 'marketplace', 'community', 'official', 'mixed',
     'manual', 'project', 'category', 'tag'
   ];
-  var SECTION_SOURCES = [
-    { id: 'user', label: 'User' },
+  var SECTION_DISPLAY_TYPES = [
+    { id: 'gallery', label: 'Gallery (작품 갤러리)' },
+    { id: 'template', label: 'Template (템플릿)' },
+    { id: 'recent', label: 'Recent (최근 작업)' },
+    { id: 'guide', label: 'Guide (초보자 가이드)' },
+    { id: 'projects', label: 'Projects (프로젝트)' }
+  ];
+  var SECTION_DATA_SOURCES = [
+    { id: 'gallery', label: 'Gallery' },
+    { id: 'projects', label: 'Projects' },
+    { id: 'templates', label: 'Templates' },
     { id: 'community', label: 'Community' },
     { id: 'marketplace', label: 'Marketplace' },
+    { id: 'guide', label: 'Guide (static)' },
+    { id: 'user', label: 'User (legacy)' },
     { id: 'official', label: 'Official' },
     { id: 'demo', label: 'Demo' },
     { id: 'mixed', label: 'Mixed (auto-fill)' }
+  ];
+  var SECTION_ORIENTATIONS = [
+    { id: '', label: 'Any orientation' },
+    { id: 'portrait', label: 'Portrait (집중형)' },
+    { id: 'landscape', label: 'Landscape (확장형)' },
+    { id: 'square', label: 'Square' },
+    { id: 'wide', label: 'Wide banner' }
+  ];
+  var SECTION_LAYOUTS = [
+    { id: 'carousel', label: 'Carousel' },
+    { id: 'grid', label: 'Grid' }
   ];
   var SECTION_COLUMNS = [
     { id: '2', label: '2 columns' },
@@ -1290,9 +1312,9 @@
           '<td><button type="button" class="yai-ops-btn-ghost" data-section-up="' + esc(s.id) + '"' + (idx === 0 ? ' disabled' : '') + '>↑</button>' +
           '<button type="button" class="yai-ops-btn-ghost" data-section-down="' + esc(s.id) + '"' + (idx === sections.length - 1 ? ' disabled' : '') + '>↓</button></td>' +
           '<td><strong>' + esc(s.title) + '</strong><br><span class="yai-ops-muted">' + esc(s.description || '') + '</span></td>' +
-          '<td>' + esc(s.type) + '</td>' +
-          '<td>' + esc(s.source || 'user') + '</td>' +
-          '<td>' + esc(formatColumnLabel(s.column_count)) + '</td>' +
+          '<td>' + esc(s.display_type || s.type) + '</td>' +
+          '<td>' + esc(s.data_source || s.source || 'user') + '</td>' +
+          '<td>' + esc(formatColumnLabel(s.layout === 'grid' ? s.column_count : (s.layout || s.column_count))) + '</td>' +
           '<td>' + esc(s.card_ratio || 'auto') + ' · ' + esc(s.text_mode || 'below') + '</td>' +
           '<td>' + esc(String(s.limit || 8)) + '</td>' +
           '<td>' + (s.visible ? 'Visible' : 'Hidden') + '</td>' +
@@ -1302,7 +1324,7 @@
       }).join('');
 
       body(
-        sectionOpen('Home Sections', 'Home 화면에 표시할 큐레이션 섹션을 관리합니다.', btnPrimary('New Section', 'id="yai-ops-section-create"')) +
+        sectionOpen('Home Sections', 'Home 화면에 표시할 큐레이션 섹션을 관리합니다.', btnPrimary('New Section', 'id="yai-ops-section-create"') + ' <button type="button" class="yai-ops-btn-ghost" id="yai-ops-section-seed-dashboard">대시보드 기본값 적용</button>') +
         '<div class="yai-ops-table-wrap"><table class="yai-ops-table"><thead><tr><th>Order</th><th>Section</th><th>Type</th><th>Source</th><th>Columns</th><th>Layout</th><th>Limit</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
         (rows || '<tr><td colspan="9">No sections yet.</td></tr>') +
         '</tbody></table></div>' +
@@ -1312,6 +1334,16 @@
 
       var createBtn = document.getElementById('yai-ops-section-create');
       if (createBtn) createBtn.addEventListener('click', function () { openSectionEditor(null, sections); });
+
+      var seedBtn = document.getElementById('yai-ops-section-seed-dashboard');
+      if (seedBtn) {
+        seedBtn.addEventListener('click', function () {
+          if (!confirm('집중형/확장형 등 대시보드 기본 섹션으로 교체합니다. 계속할까요?')) return;
+          Core.admin.homeSections.seedDashboard().then(function () {
+            loadHomeSections();
+          }).catch(function (e) { alert(e.message); });
+        });
+      }
 
       root.querySelectorAll('[data-section-edit]').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -1353,15 +1385,26 @@
     if (!editor) return;
     var isNew = !section;
     section = section || {
-      title: '', description: '', type: 'latest', source: 'mixed', column_count: 4, card_ratio: 'auto', text_mode: 'below',
-      visible: true, limit: 8, manual_ids: [], project_id: '', category: '', tag: ''
+      title: '', description: '', type: 'latest', display_type: 'gallery', data_source: 'gallery',
+      source: 'mixed', layout: 'carousel', column_count: 'carousel', card_ratio: 'auto', text_mode: 'below',
+      visible: true, limit: 8, filter: {}, manual_ids: [], project_id: '', category: '', tag: ''
     };
 
     var typeOptions = SECTION_TYPES.map(function (t) {
       return '<option value="' + esc(t) + '"' + (section.type === t ? ' selected' : '') + '>' + esc(t) + '</option>';
     }).join('');
-    var sourceOptions = SECTION_SOURCES.map(function (s) {
-      return '<option value="' + esc(s.id) + '"' + ((section.source || 'user') === s.id ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+    var displayOptions = SECTION_DISPLAY_TYPES.map(function (s) {
+      return '<option value="' + esc(s.id) + '"' + ((section.display_type || 'gallery') === s.id ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+    }).join('');
+    var dataSourceOptions = SECTION_DATA_SOURCES.map(function (s) {
+      return '<option value="' + esc(s.id) + '"' + ((section.data_source || section.source || 'gallery') === s.id ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+    }).join('');
+    var orientation = (section.filter && section.filter.orientation) ? section.filter.orientation : '';
+    var orientationOptions = SECTION_ORIENTATIONS.map(function (o) {
+      return '<option value="' + esc(o.id) + '"' + (orientation === o.id ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+    }).join('');
+    var layoutOptions = SECTION_LAYOUTS.map(function (l) {
+      return '<option value="' + esc(l.id) + '"' + ((section.layout || 'carousel') === l.id ? ' selected' : '') + '>' + esc(l.label) + '</option>';
     }).join('');
     var currentColumns = section.column_count != null ? String(section.column_count) : '4';
     var columnOptions = SECTION_COLUMNS.map(function (c) {
@@ -1385,9 +1428,13 @@
         '<label>Columns<select id="yai-sec-columns">' + columnOptions + '</select></label>' +
         '<label>Card Ratio<select id="yai-sec-ratio">' + ratioOptions + '</select></label>' +
         '<label>Text Mode<select id="yai-sec-text-mode">' + textModeOptions + '</select></label>' +
+        '<label>Display Type<select id="yai-sec-display-type">' + displayOptions + '</select></label>' +
+        '<label>Data Source<select id="yai-sec-data-source">' + dataSourceOptions + '</select></label>' +
+        '<label>Layout<select id="yai-sec-layout">' + layoutOptions + '</select></label>' +
+        '<label>Orientation Filter<select id="yai-sec-orientation">' + orientationOptions + '</select></label>' +
         '<label class="yai-ops-form-span-2">Description<textarea id="yai-sec-desc" rows="2">' + esc(section.description || '') + '</textarea></label>' +
-        '<label>Type<select id="yai-sec-type">' + typeOptions + '</select></label>' +
-        '<label>Source<select id="yai-sec-source">' + sourceOptions + '</select></label>' +
+        '<label>Query Type<select id="yai-sec-type">' + typeOptions + '</select></label>' +
+        '<label>Legacy Source<select id="yai-sec-source">' + dataSourceOptions + '</select></label>' +
         '<label>Limit (works)<input type="number" id="yai-sec-limit" min="1" max="24" value="' + esc(String(section.limit || 8)) + '"></label>' +
         '<label class="yai-ops-check-label yai-ops-form-span-2"><input type="checkbox" id="yai-sec-visible"' + (section.visible ? ' checked' : '') + '> Visible on Home</label>' +
       '</div>' +
@@ -1505,14 +1552,21 @@
         title: (document.getElementById('yai-sec-title').value || '').trim(),
         description: (document.getElementById('yai-sec-desc').value || '').trim(),
         type: typeEl.value,
+        display_type: (document.getElementById('yai-sec-display-type') && document.getElementById('yai-sec-display-type').value) || 'gallery',
+        data_source: (document.getElementById('yai-sec-data-source') && document.getElementById('yai-sec-data-source').value) || 'gallery',
+        layout: (document.getElementById('yai-sec-layout') && document.getElementById('yai-sec-layout').value) || 'carousel',
         source: (document.getElementById('yai-sec-source') && document.getElementById('yai-sec-source').value) || 'mixed',
         column_count: document.getElementById('yai-sec-columns').value || '4',
         card_ratio: document.getElementById('yai-sec-ratio').value || 'auto',
         text_mode: document.getElementById('yai-sec-text-mode').value || 'below',
         limit: parseInt(document.getElementById('yai-sec-limit').value, 10) || 8,
         visible: !!document.getElementById('yai-sec-visible').checked,
-        manual_ids: manualIds
+        manual_ids: manualIds,
+        filter: {}
       };
+      var orientEl = document.getElementById('yai-sec-orientation');
+      if (orientEl && orientEl.value) payload.filter.orientation = orientEl.value;
+      if (payload.layout === 'carousel') payload.column_count = 'carousel';
       if (!payload.title) { alert('Title is required.'); return; }
       var projectInput = document.getElementById('yai-sec-project-id');
       if (projectInput) payload.project_id = projectInput.value.trim();
