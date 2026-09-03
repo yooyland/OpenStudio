@@ -40,7 +40,15 @@
 
   function sortedVisibleSections() {
     return (state.sections || [])
-      .filter(function (s) { return s.visible !== false; })
+      .filter(function (s) {
+        if (s.visible === false) return false;
+        if (!isLoggedInHome()) {
+          var dt = sectionDisplayType(s);
+          if (dt === 'recent' || dt === 'projects') return false;
+          if ((s.data_source || s.source) === 'user') return false;
+        }
+        return true;
+      })
       .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
   }
 
@@ -59,10 +67,47 @@
     return all;
   }
 
+  function isLoggedInHome() {
+    if (global.YooYCore && global.YooYCore.config) return !!global.YooYCore.config.loggedIn;
+    if (global.YooYStudio) return !!global.YooYStudio.loggedIn;
+    return false;
+  }
+
+  function isRealPublicWork(w) {
+    if (!w) return false;
+    var url = w.thumbnail_url || w.display_url || w.large_url || w.cover || w.url || '';
+    if (!url) return false;
+    if (url.indexOf('placeholder.svg') !== -1 || url.indexOf('placehold.co') !== -1) return false;
+    if (w.is_demo || w.feed_source === 'demo') return false;
+    return true;
+  }
+
   function sectionWorks(section, feed) {
-    if (Array.isArray(section.works) && section.works.length) return section.works;
-    if (Array.isArray(section.projects) && section.projects.length) return section.projects;
-    return fallbackWorks(feed, section);
+    var list = [];
+    if (Array.isArray(section.works) && section.works.length) list = section.works;
+    else if (Array.isArray(section.projects) && section.projects.length) list = section.projects;
+    else list = fallbackWorks(feed, section);
+    var dt = sectionDisplayType(section);
+    if (dt === 'template' || dt === 'projects' || (section.data_source || '') === 'templates') {
+      return list || [];
+    }
+    return (list || []).filter(isRealPublicWork);
+  }
+
+  function guestSectionTitle(section) {
+    if (isLoggedInHome()) return section.title || '';
+    var id = String(section.id || '');
+    var src = String(section.data_source || section.source || '');
+    if (src === 'community' || id.indexOf('community') !== -1 || id.indexOf('best') !== -1) {
+      return '인기 작품';
+    }
+    if (src === 'marketplace' || id.indexOf('market') !== -1) {
+      return '이런 작품도 만들어보세요';
+    }
+    if (id.indexOf('latest') !== -1 || id.indexOf('recent') !== -1 || (section.title || '').indexOf('최근') !== -1) {
+      return '최근 공개 작품';
+    }
+    return section.title || '공개 작품';
   }
 
   function jobsFromFeed(feed) {
@@ -377,7 +422,7 @@
 
     return '<section class="yai-hd-section ' + ratioCls + '" data-section-id="' + esc(section.id) + '" data-section-type="' + esc(dt) + '">' +
       '<header class="yai-hd-section__head">' +
-        '<div><h2>' + esc(section.title) + '</h2><p>' + esc(section.description || '') + '</p></div>' +
+        '<div><h2>' + esc(guestSectionTitle(section)) + '</h2><p>' + esc(section.description || '') + '</p></div>' +
         '<button type="button" class="yai-text-btn" data-route="' + esc(moreRouteFor(section)) + '">전체 보기</button>' +
       '</header>' +
       '<div class="yai-hd-section__body">' + body + '</div>' +
@@ -584,11 +629,25 @@
       }
 
       if (e.target.closest('[data-home-remix]')) {
+        e.preventDefault();
+        e.stopPropagation();
         var remixBtn = e.target.closest('[data-home-remix]');
         var remixId = remixBtn.getAttribute('data-work-id') || '';
-        storeRemixShell(state.workById[remixId] || { id: remixId });
+        var item = state.workById[remixId] || { id: remixId };
+        var shell = storeRemixShell(item);
         closeAllHomeMoreMenus();
-        /* studio.js [data-work-action=regenerate] completes Studio handoff */
+        var studio = shell.studio || studioRouteForType(shell.type || mediaTypeOf(item));
+        var loggedIn = !!(global.YooYCore && global.YooYCore.config && global.YooYCore.config.loggedIn);
+        if (!loggedIn && global.YooYStudio) loggedIn = !!global.YooYStudio.loggedIn;
+        if (!loggedIn) {
+          try { sessionStorage.setItem('yoy_pending_after_auth', 'remix'); } catch (eAuth) { /* ignore */ }
+          var modal = document.getElementById('yai-login-modal');
+          if (modal) modal.hidden = false;
+          return;
+        }
+        if (global.YooYStudioRoute) {
+          global.YooYStudioRoute(studio);
+        }
         return;
       }
 

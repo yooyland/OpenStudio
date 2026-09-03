@@ -7,17 +7,16 @@ if (!defined('ABSPATH')) exit;
 final class YooY_Public_Works_Feed {
 
     /** @var array<int, string> */
-    private const MIXED_CHAIN = ['user', 'community', 'marketplace', 'official', 'demo'];
+    private const MIXED_CHAIN = ['user', 'community', 'marketplace', 'official'];
 
-    /** @var array<int, string> */
-    private const GUEST_CHAIN = ['community', 'marketplace', 'official', 'demo'];
+    /** @var array<int, string> Guest discovery — real public works only (no demo pad). */
+    private const GUEST_CHAIN = ['community', 'marketplace'];
 
     public function ensure_seeds(): void {
         if (class_exists('YooY_Official_Showcase')) {
             YooY_Official_Showcase::instance()->seed_if_empty();
         }
-        $this->seed_platform_feed_if_empty('yoy_community_feed', 'community');
-        $this->seed_platform_feed_if_empty('yoy_marketplace_catalog', 'marketplace');
+        // Do not seed community/marketplace with placeholder showcase cards.
     }
 
     /**
@@ -30,9 +29,15 @@ final class YooY_Public_Works_Feed {
         $chain = $user_id > 0 ? self::MIXED_CHAIN : self::GUEST_CHAIN;
         $works = $this->fill_mixed($user_id, 12, $chain);
 
-        $showcase = $this->fill_mixed($user_id, 6, ['official', 'demo', 'community', 'marketplace']);
-        $marketplace = $this->fill_mixed($user_id, 6, ['marketplace', 'community', 'official', 'demo']);
-        $community = $this->fill_mixed($user_id, 6, ['community', 'marketplace', 'official', 'demo']);
+        if ($user_id > 0) {
+            $showcase = $this->fill_mixed($user_id, 6, ['official', 'community', 'marketplace']);
+            $marketplace = $this->fill_mixed($user_id, 6, ['marketplace', 'community']);
+            $community = $this->fill_mixed($user_id, 6, ['community', 'marketplace']);
+        } else {
+            $showcase = $this->fill_mixed(0, 6, self::GUEST_CHAIN);
+            $marketplace = $this->fill_mixed(0, 6, ['marketplace', 'community']);
+            $community = $this->fill_mixed(0, 6, ['community', 'marketplace']);
+        }
 
         $home_sections = [];
         if ($home_feed) {
@@ -88,6 +93,9 @@ final class YooY_Public_Works_Feed {
                     continue;
                 }
                 if (!$this->has_display_asset($item)) {
+                    continue;
+                }
+                if ($this->is_placeholder_or_demo($item)) {
                     continue;
                 }
                 $seen[$key] = true;
@@ -154,6 +162,9 @@ final class YooY_Public_Works_Feed {
 
         $out = [];
         foreach (array_slice($feed, 0, $limit) as $item) {
+            if ($this->is_placeholder_or_demo($item)) {
+                continue;
+            }
             $out[] = array_merge($item, [
                 'feed_source' => 'community',
                 'is_platform' => true,
@@ -172,6 +183,9 @@ final class YooY_Public_Works_Feed {
         $catalog = is_array($catalog) ? $catalog : [];
         $out = [];
         foreach (array_slice($catalog, 0, $limit) as $item) {
+            if ($this->is_placeholder_or_demo($item)) {
+                continue;
+            }
             $out[] = array_merge($item, [
                 'feed_source'   => 'marketplace',
                 'is_platform'   => true,
@@ -335,10 +349,34 @@ final class YooY_Public_Works_Feed {
         if ($url === '') {
             return false;
         }
-        if (strpos($url, 'placeholder.svg') !== false && empty($item['is_platform']) && empty($item['is_demo'])) {
+        if ($this->is_placeholder_url($url)) {
             return false;
         }
         return true;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function is_placeholder_or_demo(array $item): bool {
+        if (!empty($item['is_demo'])) {
+            return true;
+        }
+        $source = (string) ($item['feed_source'] ?? $item['source'] ?? '');
+        if ($source === 'demo') {
+            return true;
+        }
+        $url = (string) ($item['thumbnail_url'] ?? $item['display_url'] ?? $item['large_url'] ?? $item['image_url'] ?? '');
+        return $this->is_placeholder_url($url);
+    }
+
+    private function is_placeholder_url(string $url): bool {
+        if ($url === '') {
+            return true;
+        }
+        return strpos($url, 'placeholder.svg') !== false
+            || strpos($url, 'placehold.co') !== false
+            || strpos($url, 'official-showcase/thumbs/placeholder') !== false;
     }
 
     /**

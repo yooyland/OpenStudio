@@ -259,27 +259,27 @@ final class YooY_Home_Sections_Service {
         }
 
         if ($type === 'official') {
-            return $this->fill_to_limit([], $section, $user_id, $limit, ['official', 'demo']);
+            return $this->fill_to_limit([], $section, $user_id, $limit, ['official', 'community', 'marketplace']);
         }
 
         if ($source === 'community') {
-            return $this->fill_to_limit([], $section, $user_id, $limit, ['community', 'marketplace', 'official', 'demo']);
+            return $this->fill_to_limit([], $section, $user_id, $limit, ['community', 'marketplace']);
         }
 
         if ($source === 'marketplace') {
-            return $this->fill_to_limit([], $section, $user_id, $limit, ['marketplace', 'community', 'official', 'demo']);
+            return $this->fill_to_limit([], $section, $user_id, $limit, ['marketplace', 'community']);
         }
 
         if ($source === 'official') {
-            return $this->fill_to_limit([], $section, $user_id, $limit, ['official', 'demo', 'community', 'marketplace']);
+            return $this->fill_to_limit([], $section, $user_id, $limit, ['official', 'community', 'marketplace']);
         }
 
         if ($source === 'demo') {
-            return $this->fill_to_limit([], $section, $user_id, $limit, ['demo', 'official', 'community', 'marketplace']);
+            return $this->fill_to_limit([], $section, $user_id, $limit, ['community', 'marketplace']);
         }
 
         if ($source === 'mixed' || $type === 'mixed') {
-            return $this->fill_to_limit([], $section, $user_id, $limit, ['user', 'community', 'marketplace', 'official', 'demo']);
+            return $this->fill_to_limit([], $section, $user_id, $limit, ['user', 'community', 'marketplace', 'official']);
         }
 
         $primary = $this->resolve_primary_by_type($type, $section, $user_id, $limit);
@@ -288,7 +288,7 @@ final class YooY_Home_Sections_Service {
             $section,
             $user_id,
             $limit,
-            ['user', 'project', 'community', 'marketplace', 'official', 'demo']
+            ['user', 'project', 'community', 'marketplace', 'official']
         );
     }
 
@@ -300,10 +300,18 @@ final class YooY_Home_Sections_Service {
     private function fill_to_limit(array $works, array $section, int $user_id, int $limit, array $chain): array {
         $seen = [];
         $filled = [];
+        if ($user_id <= 0) {
+            $chain = array_values(array_filter($chain, function ($source) {
+                return $source !== 'demo' && $source !== 'user' && $source !== 'project';
+            }));
+        }
 
         foreach ($works as $work) {
             $key = $this->work_dedupe_key($work);
             if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            if ($this->is_placeholder_or_demo_work($work)) {
                 continue;
             }
             if (!isset($work['feed_source'])) {
@@ -326,6 +334,9 @@ final class YooY_Home_Sections_Service {
                 if ($key === '' || isset($seen[$key])) {
                     continue;
                 }
+                if ($this->is_placeholder_or_demo_work($item)) {
+                    continue;
+                }
                 $item['feed_source'] = $source;
                 $filled[] = $item;
                 $seen[$key] = true;
@@ -339,23 +350,43 @@ final class YooY_Home_Sections_Service {
     }
 
     /**
+     * @param array<string, mixed> $item
+     */
+    private function is_placeholder_or_demo_work(array $item): bool {
+        if (!empty($item['is_demo'])) {
+            return true;
+        }
+        $source = (string) ($item['feed_source'] ?? $item['source'] ?? '');
+        if ($source === 'demo') {
+            return true;
+        }
+        $url = (string) ($item['thumbnail_url'] ?? $item['display_url'] ?? $item['large_url'] ?? $item['image_url'] ?? $item['cover'] ?? '');
+        if ($url === '') {
+            return true;
+        }
+        return strpos($url, 'placeholder.svg') !== false
+            || strpos($url, 'placehold.co') !== false
+            || strpos($url, 'official-showcase/thumbs/placeholder') !== false;
+    }
+
+    /**
      * @return array<int, string>
      */
     private function chain_for_source(string $source): array {
         switch ($source) {
             case 'community':
-                return ['community', 'marketplace', 'official', 'demo'];
+                return ['community', 'marketplace'];
             case 'marketplace':
-                return ['marketplace', 'community', 'official', 'demo'];
+                return ['marketplace', 'community'];
             case 'official':
-                return ['official', 'demo', 'community', 'marketplace'];
+                return ['official', 'community', 'marketplace'];
             case 'demo':
-                return ['demo', 'official', 'community', 'marketplace'];
+                return ['community', 'marketplace'];
             case 'mixed':
-                return ['user', 'community', 'marketplace', 'official', 'demo'];
+                return ['user', 'community', 'marketplace', 'official'];
             case 'user':
             default:
-                return ['user', 'project', 'community', 'marketplace', 'official', 'demo'];
+                return ['user', 'project', 'community', 'marketplace', 'official'];
         }
     }
 

@@ -848,13 +848,21 @@
     try {
       pendingHandoff = !!(sessionStorage.getItem('yoy_home_prompt') || sessionStorage.getItem('yoy_home_remix') || sessionStorage.getItem('yoy_home_attachment') || sessionStorage.getItem('yoy_home_template'));
     } catch (eHandoff) { pendingHandoff = false; }
-    if (pendingHandoff && studioRoutesHydrate.indexOf(name) >= 0) {
+      if (pendingHandoff && studioRoutesHydrate.indexOf(name) >= 0) {
       loaded[name] = false;
-      var remountEl = document.getElementById(name === 'writing' ? 'yai-gen-writing' : 'yai-' + name + '-studio');
-      if (remountEl && name !== 'writing') {
-        remountEl.dataset.mounted = '0';
-        remountEl.removeAttribute('data-mounted');
-        remountEl.innerHTML = '';
+      if (name === 'writing') {
+        var writingEl = document.getElementById('yai-gen-writing');
+        if (writingEl) {
+          writingEl.dataset.ready = '0';
+          writingEl.innerHTML = '';
+        }
+      } else {
+        var remountEl = document.getElementById('yai-' + name + '-studio');
+        if (remountEl) {
+          remountEl.dataset.mounted = '0';
+          remountEl.removeAttribute('data-mounted');
+          remountEl.innerHTML = '';
+        }
       }
     }
     if (loaded[name]) return;
@@ -935,7 +943,10 @@
     if (!w) return false;
     var url = w.thumbnail_url || w.display_url || w.large_url || w.full_url || '';
     if (!url) return false;
-    if (url.indexOf('placeholder.svg') !== -1 && !w.is_platform && w.feed_source !== 'official' && w.feed_source !== 'demo') {
+    if (url.indexOf('placeholder.svg') !== -1 || url.indexOf('placehold.co') !== -1) {
+      return false;
+    }
+    if (w.is_demo || w.feed_source === 'demo') {
       return false;
     }
     return true;
@@ -975,10 +986,6 @@
       setText('yai-stat-likes', '—');
       setText('yai-top-credits', '무료로 시작하기');
       renderUsageWidget({ used: 0, limit: 0, percent: 0 });
-      var greet = document.getElementById('yai-hd-greeting-title');
-      if (greet) greet.textContent = 'AI Creator Platform에 오신 것을 환영합니다 👋';
-      var sub = document.querySelector('.yai-hero-sub');
-      if (sub) sub.textContent = '다른 크리에이터의 작품을 둘러보고, 가입 후 나만의 작품을 만들어 보세요.';
     }
 
     var works = filterFeedWorks(d.works || []);
@@ -1888,16 +1895,31 @@
       return;
     }
 
-    if (['regenerate', 'download', 'share', 'delete', 'project', 'project-remove', 'project-cover'].indexOf(action) !== -1 && !requireLogin()) {
-      return;
-    }
-
-    if (!Core.gallery || typeof Core.gallery.remove !== 'function') {
-      showToast('갤러리 API를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
-      return;
-    }
-
     if (action === 'regenerate') {
+      try {
+        var preShell = sessionStorage.getItem('yoy_home_remix');
+        if (preShell) {
+          var parsedShell = JSON.parse(preShell);
+          if (parsedShell && String(parsedShell.gallery_id || parsedShell.id) === String(workId)) {
+            sessionStorage.setItem('yoy_regenerate', preShell);
+            if (!isLoggedIn()) {
+              try {
+                sessionStorage.setItem('yoy_pending_after_auth', 'remix');
+              } catch (pendErr) { /* ignore */ }
+              requireLogin();
+              return;
+            }
+            routeToStudioFromWork(parsedShell, parsedShell.studio || parsedShell.type || 'image');
+            showToast('선택한 작품 컨텍스트로 Studio를 엽니다.');
+            return;
+          }
+        }
+      } catch (preErr) { /* fall through */ }
+      if (!requireLogin()) return;
+      if (!Core.gallery || typeof Core.gallery.regenerate !== 'function') {
+        showToast('갤러리 API를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
+        return;
+      }
       Core.gallery.regenerate(workId).then(function (res) {
         var payload = res.data || {};
         try {
@@ -1954,6 +1976,16 @@
       });
       return;
     }
+
+    if (['download', 'share', 'delete', 'project', 'project-remove', 'project-cover'].indexOf(action) !== -1 && !requireLogin()) {
+      return;
+    }
+
+    if (!Core.gallery || typeof Core.gallery.remove !== 'function') {
+      showToast('갤러리 API를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
+      return;
+    }
+
     if (action === 'download') {
       Core.gallery.download(workId).then(function (res) {
         var info = res.data || {};

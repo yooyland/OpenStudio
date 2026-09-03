@@ -566,7 +566,53 @@ body.yoy-creator-os-active #content {
 .yai-work-menu button:hover { color: #ffd76a; }
 .yai-project-actions { display: flex; gap: 8px; margin-top: 12px; }
 
-.yai-profile-info { min-width: 0; }
+.yai-profile--guest {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.yai-profile--guest .yai-profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.yai-profile--guest .yai-register-link,
+.yai-profile--guest .yai-login-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  white-space: nowrap !important;
+  overflow: visible;
+  text-overflow: clip;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.yai-app a.yai-btn--gold,
+.yai-app button.yai-btn--gold,
+.yai-app .yai-btn--gold,
+.yai-app .yai-btn.yai-btn--gold,
+.yai-app .yai-btn-gold-primary,
+.yai-app .yoy-project-dialog__btn--gold {
+  color: var(--accent-gold-text, #111111) !important;
+}
+
+.yai-app a.yai-btn--gold:hover,
+.yai-app button.yai-btn--gold:hover,
+.yai-app .yai-btn--gold:hover,
+.yai-app .yai-btn-gold-primary:hover {
+  color: var(--accent-gold-text, #111111) !important;
+}
 .yai-profile-info strong {
   color: #ffffff;
   display: block;
