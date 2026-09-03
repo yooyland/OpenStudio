@@ -97,14 +97,59 @@ final class YooY_Gallery_Store {
             if (($existing['id'] ?? '') === $entry['id']) {
                 $items[$idx] = array_merge($existing, $entry);
                 update_user_meta($user_id, self::META_KEY, $items);
-                return $this->enrich_item($items[$idx]);
+                $saved = $this->enrich_item($items[$idx]);
+                $this->maybe_link_project($user_id, $saved);
+                return $saved;
             }
         }
 
         array_unshift($items, $entry);
         $items = array_slice($items, 0, 500);
         update_user_meta($user_id, self::META_KEY, $items);
-        return $this->enrich_item($entry);
+        $saved = $this->enrich_item($entry);
+        $this->maybe_link_project($user_id, $saved);
+        return $saved;
+    }
+
+    /**
+     * When a Gallery item carries project_id, ensure Project.assets references it
+     * (no asset duplication — gallery_id only).
+     */
+    private function maybe_link_project(int $user_id, array $item): void {
+        $pid = (string) ($item['project_id'] ?? '');
+        if ($pid === '') {
+            $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+            $pid = (string) ($meta['project_id'] ?? '');
+        }
+        $gid = (string) ($item['id'] ?? '');
+        if ($pid === '' || $gid === '') {
+            return;
+        }
+
+        if (!class_exists('YooY_Project_Store')) {
+            if (defined('YOY_AI_STUDIO_MODULES_DIR')) {
+                $path = YOY_AI_STUDIO_MODULES_DIR . 'projects/includes/class-project-store.php';
+                if (file_exists($path)) {
+                    require_once $path;
+                }
+            }
+        }
+        if (!class_exists('YooY_Project_Store')) {
+            return;
+        }
+
+        $projects = new YooY_Project_Store();
+        $project = $projects->get($user_id, $pid);
+        if (!$project) {
+            return;
+        }
+        $assets = is_array($project['assets'] ?? null) ? $project['assets'] : [];
+        foreach ($assets as $asset) {
+            if (($asset['gallery_id'] ?? '') === $gid) {
+                return;
+            }
+        }
+        $projects->link_gallery_item($user_id, $pid, $item);
     }
 
     public function update(int $user_id, string $id, array $data): ?array {
@@ -425,10 +470,16 @@ final class YooY_Gallery_Store {
     }
 
     private function has_valid_asset(array $entry): bool {
-        // Translation works are text-only — no HTTP media URL required.
-        if (($entry['type'] ?? '') === 'translation') {
+        // Translation / Writing are text-only — no HTTP media URL required.
+        if (($entry['type'] ?? '') === 'translation' || ($entry['type'] ?? '') === 'writing') {
             $meta = is_array($entry['meta'] ?? null) ? $entry['meta'] : [];
-            $text = trim((string) ($meta['translated_text'] ?? $entry['prompt'] ?? ''));
+            $text = trim((string) (
+                $meta['translated_text']
+                ?? $meta['content']
+                ?? $meta['body']
+                ?? $entry['prompt']
+                ?? ''
+            ));
             return $text !== '';
         }
         if (!empty($entry['attachment_id'])) {

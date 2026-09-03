@@ -38,6 +38,10 @@ final class YooY_AI_Router_Dispatcher {
             return $this->dispatch_music($user_id, $payload);
         }
 
+        if ($type === 'writing') {
+            return $this->dispatch_writing($user_id, $payload);
+        }
+
         $result = apply_filters('yoy_ai_studio_generate', null, array_merge($payload, [
             'user_id' => $user_id,
             'type'    => $type,
@@ -99,13 +103,103 @@ final class YooY_AI_Router_Dispatcher {
             throw new Exception('Image Studio module unavailable.');
         }
 
-        $result = $module->run_generate($user_id, [
-            'prompt'   => $payload['prompt'] ?? '',
-            'provider' => $payload['provider'] ?? 'auto',
-            'auto_save'=> true,
-        ]);
+        $result = $module->run_generate($user_id, array_merge($payload, [
+            'prompt'     => $payload['prompt'] ?? '',
+            'provider'   => $payload['provider'] ?? 'auto',
+            'auto_save'  => true,
+            'project_id' => sanitize_text_field((string) ($payload['project_id'] ?? '')),
+        ]));
 
         return $this->finalize($user_id, 'image', 'image-studio', $result);
+    }
+
+    private function dispatch_writing(int $user_id, array $payload): array {
+        $prompt = sanitize_textarea_field((string) ($payload['prompt'] ?? ''));
+        $job_id = sanitize_text_field((string) ($payload['job_id'] ?? ('job_' . wp_generate_uuid4())));
+        $project_id = sanitize_text_field((string) ($payload['project_id'] ?? ''));
+        $purpose = sanitize_text_field((string) ($payload['purpose'] ?? 'free'));
+        $tone = sanitize_text_field((string) ($payload['tone'] ?? 'friendly'));
+        $length = sanitize_text_field((string) ($payload['length'] ?? 'medium'));
+
+        $cost = 5;
+        if (!$this->credits->can_afford($user_id, $cost)) {
+            throw new Exception('크레딧이 부족합니다. Credits에서 충전 후 다시 시도해 주세요.');
+        }
+
+        $body = $this->compose_writing_draft($prompt, $purpose, $tone, $length);
+        $result = [
+            'job_id'       => $job_id,
+            'status'       => YooY_Job_Status::COMPLETED,
+            'type'         => 'writing',
+            'studio'       => 'writing-studio',
+            'provider'     => 'mock',
+            'model'        => 'writing-draft-1',
+            'prompt'       => $prompt,
+            'output'       => $body,
+            'text'         => $body,
+            'content'      => $body,
+            'credits_used' => $cost,
+            'created_at'   => gmdate('c'),
+            'project_id'   => $project_id,
+        ];
+
+        if (class_exists('YooY_Credits_Service')) {
+            $label = function_exists('mb_substr')
+                ? mb_substr($prompt, 0, 40)
+                : substr($prompt, 0, 40);
+            $credit_info = $this->credits->deduct($user_id, $cost, 'Writing: ' . $label, 'writing-studio');
+            $result['credits_used'] = (int) ($credit_info['deducted'] ?? $cost);
+            $result['credits'] = $credit_info;
+        }
+
+        if (!class_exists('YooY_Gallery_Store') && defined('YOY_AI_STUDIO_MODULES_DIR')) {
+            $gpath = YOY_AI_STUDIO_MODULES_DIR . 'gallery/includes/class-gallery-store.php';
+            if (file_exists($gpath)) {
+                require_once $gpath;
+            }
+        }
+        if (class_exists('YooY_Gallery_Store')) {
+            $gallery = new YooY_Gallery_Store();
+            $title = function_exists('mb_substr')
+                ? mb_substr(wp_strip_all_tags($prompt), 0, 48)
+                : substr(wp_strip_all_tags($prompt), 0, 48);
+            $saved = $gallery->save($user_id, [
+                'id'           => $job_id,
+                'type'         => 'writing',
+                'studio'       => 'writing-studio',
+                'title'        => $title,
+                'prompt'       => $prompt,
+                'user_prompt'  => $prompt,
+                'provider'     => 'mock',
+                'model'        => 'writing-draft-1',
+                'credits_used' => (int) ($result['credits_used'] ?? $cost),
+                'project_id'   => $project_id,
+                'created_at'   => gmdate('c'),
+                'meta'         => [
+                    'content'    => $body,
+                    'body'       => $body,
+                    'purpose'    => $purpose,
+                    'tone'       => $tone,
+                    'length'     => $length,
+                    'project_id' => $project_id,
+                ],
+            ]);
+            $result['gallery_id'] = $saved['id'] ?? $job_id;
+            $result['gallery_item_id'] = $saved['id'] ?? $job_id;
+        }
+
+        return $this->finalize($user_id, 'writing', 'writing-studio', $result);
+    }
+
+    private function compose_writing_draft(string $prompt, string $purpose, string $tone, string $length): string {
+        $lines = [];
+        $lines[] = '[초안] ' . ($purpose !== '' ? $purpose : 'writing') . ' · ' . $tone . ' · ' . $length;
+        $lines[] = '';
+        $lines[] = trim($prompt);
+        $lines[] = '';
+        $lines[] = '---';
+        $lines[] = '요청하신 주제를 바탕으로 초안을 정리했습니다. Studio에서 톤과 길이를 조정해 이어서 다듬을 수 있습니다.';
+        return implode("\n", $lines);
     }
 
     private function dispatch_video(int $user_id, array $payload): array {
@@ -115,9 +209,10 @@ final class YooY_AI_Router_Dispatcher {
         }
 
         $result = $module->run_generate($user_id, array_merge($payload, [
-            'prompt'   => $payload['prompt'] ?? '',
-            'provider' => $payload['provider'] ?? 'auto',
-            'auto_save'=> true,
+            'prompt'     => $payload['prompt'] ?? '',
+            'provider'   => $payload['provider'] ?? 'auto',
+            'auto_save'  => true,
+            'project_id' => sanitize_text_field((string) ($payload['project_id'] ?? '')),
         ]));
 
         return $this->finalize($user_id, 'video', 'video-studio', $result);
@@ -130,8 +225,9 @@ final class YooY_AI_Router_Dispatcher {
         }
 
         $result = $module->run_generate($user_id, array_merge($payload, [
-            'provider'  => $payload['provider'] ?? 'mock',
-            'auto_save' => true,
+            'provider'   => $payload['provider'] ?? 'mock',
+            'auto_save'  => true,
+            'project_id' => sanitize_text_field((string) ($payload['project_id'] ?? '')),
         ]));
 
         return $this->finalize($user_id, 'music', 'music-studio', $result);

@@ -49,12 +49,13 @@ final class YooY_Voice_Generator {
         $result = YooY_Job_Normalizer::ensure_output_or_fail($result);
         $result = YooY_Provider_Resolver::annotate($result, $resolution);
         $entry  = $this->history->add($user_id, array_merge($result, [
-            'type'     => 'voice',
-            'studio'   => 'voice-studio',
-            'emotion'  => $payload['emotion'],
-            'language' => $payload['language'],
-            'speed'    => $payload['speed'],
-            'pitch'    => $payload['pitch'],
+            'type'       => 'voice',
+            'studio'     => 'voice-studio',
+            'emotion'    => $payload['emotion'],
+            'language'   => $payload['language'],
+            'speed'      => $payload['speed'],
+            'pitch'      => $payload['pitch'],
+            'project_id' => sanitize_text_field((string) ($params['project_id'] ?? '')),
         ]));
 
         if (!empty($params['auto_save']) && ($entry['status'] ?? '') === YooY_Job_Status::COMPLETED

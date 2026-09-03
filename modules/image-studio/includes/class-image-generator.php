@@ -125,6 +125,7 @@ final class YooY_Image_Generator {
             'intent_domain'  => sanitize_key((string) ($payload['intent_domain'] ?? ($payload['composer_meta']['prompt_intelligence']['intent_domain'] ?? ''))),
             'prompt_version' => sanitize_text_field((string) ($payload['prompt_version'] ?? ($payload['composer_meta']['prompt_intelligence']['prompt_version'] ?? ''))),
             'composer_meta'  => is_array($payload['composer_meta'] ?? null) ? $payload['composer_meta'] : [],
+            'project_id'     => sanitize_text_field((string) ($payload['project_id'] ?? $params['project_id'] ?? '')),
         ]));
 
         if (($entry['status'] ?? '') === YooY_Job_Status::COMPLETED) {
@@ -490,6 +491,7 @@ final class YooY_Image_Generator {
             'intent_domain'  => sanitize_key((string) ($params['intent_domain'] ?? '')),
             'raw_user_request' => sanitize_textarea_field($params['raw_user_request'] ?? $params['user_prompt'] ?? $params['prompt'] ?? ''),
             'prompt_version' => sanitize_text_field((string) ($params['prompt_version'] ?? '')),
+            'project_id'     => sanitize_text_field((string) ($params['project_id'] ?? '')),
         ];
     }
 

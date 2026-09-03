@@ -60,6 +60,7 @@ final class YooY_Avatar_Generator {
             'scene_id'         => $payload['scene_id'],
             'lip_sync'         => $payload['lip_sync'],
             'subtitle_enabled' => $payload['subtitle_enabled'],
+            'project_id'       => sanitize_text_field((string) ($params['project_id'] ?? '')),
         ]));
 
         if (function_exists('yoy_gallery_capture')) {

@@ -87,6 +87,7 @@ final class YooY_Music_Generator {
             'language'        => $payload['language'],
             'negative_prompt' => $payload['negative_prompt'],
             'estimate'        => $estimate,
+            'project_id'      => sanitize_text_field((string) ($params['project_id'] ?? '')),
         ]));
 
         if (!empty($params['auto_save']) && ($entry['status'] ?? '') === YooY_Job_Status::COMPLETED

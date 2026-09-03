@@ -98,7 +98,9 @@ final class YooY_Image_Gallery {
                     'user_prompt'      => $result['user_prompt'] ?? '',
                     'reference_url'    => $result['reference_url'] ?? '',
                     'reference_assets' => $result['reference_assets'] ?? [],
+                    'project_id'       => sanitize_text_field((string) ($result['project_id'] ?? '')),
                 ],
+                'project_id'    => sanitize_text_field((string) ($result['project_id'] ?? '')),
             ]);
             if (!empty($saved['id'])) {
                 $saved_ids[] = (string) $saved['id'];

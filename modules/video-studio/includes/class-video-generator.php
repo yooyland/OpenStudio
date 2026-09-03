@@ -78,6 +78,7 @@ final class YooY_Video_Generator {
             'camera_motion'=> $payload['camera_motion'],
             'mode'         => $payload['mode'],
             'estimate'     => $estimate,
+            'project_id'   => sanitize_text_field((string) ($params['project_id'] ?? '')),
         ]));
 
         if (!empty($params['auto_save']) && ($entry['status'] ?? '') === YooY_Job_Status::COMPLETED

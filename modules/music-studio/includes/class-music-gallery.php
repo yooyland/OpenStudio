@@ -38,10 +38,12 @@ final class YooY_Music_Gallery {
             'output_url'   => $output['audio_url'] ?? $output['primary'] ?? '',
             'created_at'   => $result['created_at'] ?? gmdate('c'),
             'meta'         => [
-                'genre'    => $result['genre'] ?? '',
-                'mood'     => $result['mood'] ?? '',
-                'duration' => $result['duration'] ?? 0,
+                'genre'      => $result['genre'] ?? '',
+                'mood'       => $result['mood'] ?? '',
+                'duration'   => $result['duration'] ?? 0,
+                'project_id' => sanitize_text_field((string) ($result['project_id'] ?? '')),
             ],
+            'project_id'   => sanitize_text_field((string) ($result['project_id'] ?? '')),
         ]);
     }
 

@@ -37,10 +37,12 @@ final class YooY_Voice_Gallery {
             'output_url'   => $output['audio_url'] ?? $output['primary'] ?? '',
             'created_at'   => $result['created_at'] ?? gmdate('c'),
             'meta'         => [
-                'voice_id' => $result['voice_id'] ?? '',
-                'emotion'  => $result['emotion'] ?? '',
-                'language' => $result['language'] ?? 'ko',
+                'voice_id'   => $result['voice_id'] ?? '',
+                'emotion'    => $result['emotion'] ?? '',
+                'language'   => $result['language'] ?? 'ko',
+                'project_id' => sanitize_text_field((string) ($result['project_id'] ?? '')),
             ],
+            'project_id'   => sanitize_text_field((string) ($result['project_id'] ?? '')),
         ]);
     }
 

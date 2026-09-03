@@ -678,6 +678,46 @@
     return false;
   }
 
+  /**
+   * After WP login redirect back to Studio, resume remix/template/prompt
+   * that guest started before auth (sessionStorage survives same-origin return).
+   * @return {boolean} true when a studio resume was scheduled
+   */
+  function resumePendingAfterAuth() {
+    if (!isLoggedIn()) return false;
+    var pending = '';
+    try {
+      pending = sessionStorage.getItem('yoy_pending_after_auth') || '';
+      sessionStorage.removeItem('yoy_pending_after_auth');
+    } catch (e) { return false; }
+    if (!pending) return false;
+
+    var studio = 'image';
+    try {
+      studio = sessionStorage.getItem('yoy_home_studio') || 'image';
+      var remix = sessionStorage.getItem('yoy_home_remix');
+      if (remix) {
+        var shell = JSON.parse(remix);
+        if (shell && (shell.studio || shell.type)) {
+          studio = (typeof STUDIO_ROUTE_MAP !== 'undefined' && STUDIO_ROUTE_MAP[shell.studio])
+            ? STUDIO_ROUTE_MAP[shell.studio]
+            : (shell.studio || shell.type || studio);
+          if (String(studio).indexOf('-studio') !== -1) {
+            studio = String(studio).replace(/-studio$/, '');
+          }
+        }
+      }
+    } catch (e2) { /* ignore */ }
+
+    var known = ['image', 'video', 'writing', 'music', 'voice', 'avatar', 'translator'];
+    if (known.indexOf(studio) < 0) studio = 'image';
+    setTimeout(function () {
+      route(studio);
+      showToast('이어서 작업을 이어갑니다.');
+    }, 80);
+    return true;
+  }
+
   function openPanel(name) {
     var panel = document.getElementById('yai-panel-' + name);
     if (panel) panel.hidden = false;
@@ -1406,7 +1446,6 @@
   }
 
   function launchFromHome() {
-    if (!requireLogin()) return;
     var promptEl = document.getElementById('yai-home-prompt');
     var prompt = (promptEl && promptEl.value || '').trim();
     var composer = window.YooYHomeBottomComposer;
@@ -1416,6 +1455,16 @@
       else showToast('만들고 싶은 것을 입력하거나 첨부해 주세요.', true);
       return;
     }
+    try {
+      if (prompt) sessionStorage.setItem('yoy_home_prompt', prompt);
+      sessionStorage.setItem('yoy_home_original_prompt', prompt);
+      if (attachment && (attachment.url || attachment.preview || attachment.type)) {
+        sessionStorage.setItem('yoy_home_attachment', JSON.stringify(attachment));
+      }
+      sessionStorage.setItem('yoy_pending_after_auth', 'generate');
+    } catch (preAuth) { /* ignore */ }
+    if (!requireLogin()) return;
+    try { sessionStorage.removeItem('yoy_pending_after_auth'); } catch (clr) { /* ignore */ }
     var presetCtx = '';
     var presetStudio = null;
     if (homePresetId) {
@@ -1514,7 +1563,7 @@
     var el = document.getElementById('yai-home-projects');
     if (!el) return;
     if (!items.length) {
-      el.innerHTML = emptyBlock('📁', 'No projects yet', 'Create your first project to organize AI work.', 'Start Project', 'projects', true);
+      el.innerHTML = emptyBlock('📁', '아직 프로젝트가 없습니다', '작품을 묶어 이어서 작업할 프로젝트를 만들어 보세요.', '프로젝트 만들기', 'projects', true);
       return;
     }
     el.innerHTML = items.map(projectChipHtml).join('');
@@ -1818,7 +1867,7 @@
           '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-yai-free-start>무료로 시작하기</button></div>';
         return;
       }
-      el.innerHTML = emptyBlock('🖼', 'No works yet', 'Generate or import your first asset to fill the gallery.', 'Open Image Studio', 'image');
+      el.innerHTML = emptyBlock('🖼', '아직 작품이 없습니다', '만들거나 가져온 작품이 Gallery에 모입니다.', '이미지 생성하기', 'image');
       return;
     }
     el.innerHTML = items.slice(0, 12).map(function (w) {
@@ -2335,7 +2384,7 @@
     if (!el) return;
     homeActivityCache = (items || []).slice(0, 7);
     if (!homeActivityCache.length) {
-      el.innerHTML = emptyBlock('⚡', 'No activity yet', '생성 기록이 여기에 표시됩니다.', 'Create Now', 'image');
+      el.innerHTML = emptyBlock('⚡', '아직 활동이 없습니다', '생성 기록이 여기에 표시됩니다.', '이미지 생성하기', 'image');
       return;
     }
     el.innerHTML = homeActivityCache.map(function (j) {
@@ -2711,7 +2760,7 @@
         del.addEventListener('click', function () {
           if (!window.confirm('Delete this project? Gallery assets are not deleted — only the project link is removed.')) return;
           Core.projects.delete(currentProjectId).then(function () {
-            showToast('Project deleted.');
+            showToast('프로젝트를 삭제했습니다.');
             if (Y.YooYActiveProject) Y.YooYActiveProject.clear();
             currentProjectId = '';
             route('projects');
@@ -2787,7 +2836,7 @@
       }
       paintWorkspacePanel();
     }).catch(function (err) {
-      panel.innerHTML = emptyBlock('', 'Could not load workspace', err.message || 'Request failed.', 'Back', 'projects');
+      panel.innerHTML = emptyBlock('', '프로젝트를 불러오지 못했습니다', err.message || '잠시 후 다시 시도해 주세요.', '프로젝트 목록', 'projects');
     });
   }
 
@@ -2938,7 +2987,7 @@
               '<div class="yai-project-actions yai-recent-work-actions">' +
                 '<button type="button" class="yai-btn--outline yai-btn--sm" data-recent-action="open" data-work-id="' + esc(w.id) + '">Open</button>' +
                 '<button type="button" class="yai-btn--outline yai-btn--sm" data-recent-action="preview" data-work-id="' + esc(w.id) + '">Preview</button>' +
-                '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-recent-action="add" data-work-id="' + esc(w.id) + '">Add to Project</button>' +
+                '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-recent-action="add" data-work-id="' + esc(w.id) + '">프로젝트에 추가</button>' +
               '</div>' +
             '</div>';
           }).join('') +
@@ -3027,7 +3076,7 @@
     var el = document.getElementById('yai-projects-list');
     if (!el) return;
     if (!isLoggedIn()) {
-      el.innerHTML = emptyBlock('', 'Login required', '로그인 후 프로젝트를 관리할 수 있습니다.', 'Home', 'home');
+      el.innerHTML = emptyBlock('', '로그인이 필요합니다', '로그인 후 프로젝트를 관리할 수 있습니다.', '홈으로', 'home');
       return;
     }
     el.innerHTML = '<div class="yai-empty"><p>Loading projects…</p></div>';
@@ -3130,7 +3179,7 @@
         return String(b.created_at || '').localeCompare(String(a.created_at || ''));
       });
       if (!works.length) {
-        el.innerHTML = emptyBlock('', 'History empty', '생성·저장된 Gallery 작업이 여기에 시간순으로 표시됩니다.', 'Create', 'image');
+        el.innerHTML = emptyBlock('', '아직 기록이 없습니다', '생성·저장된 Gallery 작업이 여기에 시간순으로 표시됩니다.', '이미지 생성하기', 'image');
         return;
       }
       el.innerHTML = '<ul class="yai-workspace-history-list">' + works.map(function (w) {
@@ -3486,6 +3535,9 @@
         tone: tone,
         length: length
       };
+      if (window.YooYActiveProject && typeof window.YooYActiveProject.applyToPayload === 'function') {
+        payload = window.YooYActiveProject.applyToPayload(payload);
+      }
       if (window.YooYReferenceAssetsPanel && refPanel) {
         payload = window.YooYReferenceAssetsPanel.applyToSettings(payload, refPanel.getAssets());
       } else if (refAssets.length) {
@@ -3497,13 +3549,41 @@
         if (typeof text === 'object' && text !== null) {
           text = text.text || text.content || JSON.stringify(text);
         }
+        var galleryId = data.gallery_id || data.gallery_item_id || data.job_id || '';
         result.innerHTML = '<div class="yai-card"><strong>작성 완료</strong>' +
           (text ? '<div class="yai-writing-output" style="white-space:pre-wrap;margin-top:8px">' + esc(String(text)) + '</div>' : '') +
           '<p style="margin-top:8px;opacity:.7">Credits: ' + esc(String(data.credits_used != null ? data.credits_used : '—')) + '</p>' +
-          '<button type="button" class="yai-btn-secondary" id="yai-writing-again">다시 만들기</button></div>';
+          '<div class="yai-writing-result-actions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">' +
+            '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" id="yai-writing-again">다시 만들기</button>' +
+            (galleryId ? '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" id="yai-writing-project" data-gallery-id="' + esc(galleryId) + '">프로젝트에 추가</button>' : '') +
+            (galleryId ? '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" id="yai-writing-gallery" data-gallery-id="' + esc(galleryId) + '">Gallery에서 보기</button>' : '') +
+          '</div></div>';
         var again = result.querySelector('#yai-writing-again');
         if (again) again.addEventListener('click', function () { btn.click(); });
-      }).catch(function (err) { result.innerHTML = '<p class="yai-error">' + esc(err.message) + '</p>'; })
+        var addProj = result.querySelector('#yai-writing-project');
+        if (addProj && window.YooYStudioPickProject) {
+          addProj.addEventListener('click', function () {
+            window.YooYStudioPickProject(addProj.getAttribute('data-gallery-id'));
+          });
+        }
+        var openGal = result.querySelector('#yai-writing-gallery');
+        if (openGal) {
+          openGal.addEventListener('click', function () {
+            var gid = openGal.getAttribute('data-gallery-id');
+            if (window.YooYStudioRoute) window.YooYStudioRoute('works');
+            if (window.YooYGallery && typeof window.YooYGallery.openDetail === 'function') {
+              window.YooYGallery.openDetail(gid);
+            }
+          });
+        }
+        if (Core.notifyGalleryUpdated) Core.notifyGalleryUpdated();
+      }).catch(function (err) {
+        var msg = err.message || '글 만들기에 실패했습니다.';
+        if (msg.indexOf('No provider route') !== -1) {
+          msg = '글 만들기 경로를 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+        }
+        result.innerHTML = '<p class="yai-error">' + esc(msg) + '</p>';
+      })
         .finally(function () { btn.disabled = false; btn.textContent = '글 만들기'; });
     });
     el.dataset.ready = '1';
@@ -3860,7 +3940,7 @@
       Core.projects.delete(deleteBtn.getAttribute('data-id')).then(function () {
         loadProjects();
         loadHome();
-        showToast('Project deleted.');
+        showToast('프로젝트를 삭제했습니다.');
       }).catch(function (err) { showToast(err.message, true); });
       return;
     }
@@ -3954,7 +4034,7 @@
       if (!currentProjectId || !requireLogin()) return;
       if (!window.confirm('Delete this project? Gallery assets are not deleted — only the project link is removed.')) return;
       Core.projects.delete(currentProjectId).then(function () {
-        showToast('Project deleted.');
+        showToast('프로젝트를 삭제했습니다.');
         if (Y.YooYActiveProject) Y.YooYActiveProject.clear();
         currentProjectId = '';
         route('projects');
@@ -3967,7 +4047,9 @@
     loadProfile();
     watchBillingReturn();
     ensureProjectModal();
-    route('home');
+    if (!resumePendingAfterAuth()) {
+      route('home');
+    }
   } catch (bootUiErr) {
     if (window.console && window.console.error) {
       window.console.error('[YooYStudio] UI boot failed', bootUiErr);

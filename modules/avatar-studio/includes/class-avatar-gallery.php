@@ -38,9 +38,11 @@ final class YooY_Avatar_Gallery {
             'output_url'   => $output['video_url'] ?? $output['primary'] ?? '',
             'created_at'   => $result['created_at'] ?? gmdate('c'),
             'meta'         => [
-                'avatar_id' => $result['avatar'] ?? $result['avatar_id'] ?? '',
-                'scene_id'  => $result['scene'] ?? $result['scene_id'] ?? '',
+                'avatar_id'  => $result['avatar'] ?? $result['avatar_id'] ?? '',
+                'scene_id'   => $result['scene'] ?? $result['scene_id'] ?? '',
+                'project_id' => sanitize_text_field((string) ($result['project_id'] ?? '')),
             ],
+            'project_id'   => sanitize_text_field((string) ($result['project_id'] ?? '')),
         ]);
     }
 

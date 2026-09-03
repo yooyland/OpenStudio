@@ -41,7 +41,9 @@ final class YooY_Video_Gallery {
             'meta'         => [
                 'aspect_ratio' => $entry['aspect_ratio'] ?? '16:9',
                 'duration'     => $entry['duration'] ?? 5,
+                'project_id'   => sanitize_text_field((string) ($entry['project_id'] ?? '')),
             ],
+            'project_id'   => sanitize_text_field((string) ($entry['project_id'] ?? '')),
         ]);
     }
 

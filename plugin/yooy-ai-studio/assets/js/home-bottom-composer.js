@@ -166,6 +166,14 @@
   }
 
   function uploadFiles(fileList, kind) {
+    var cfg = global.YooYStudio || {};
+    if (!cfg.loggedIn) {
+      try { sessionStorage.setItem('yoy_pending_after_auth', 'upload'); } catch (eAuth) { /* ignore */ }
+      var modal = document.getElementById('yai-login-modal');
+      if (modal) modal.hidden = false;
+      else toast('로그인이 필요합니다.');
+      return;
+    }
     var api = Core();
     if (!api || !api.importEngine || typeof api.importEngine.uploadFiles !== 'function') {
       toast('업로드를 사용할 수 없습니다.');
@@ -203,6 +211,14 @@
     var url = String(rawUrl || '').trim();
     if (!url || !/^https?:\/\//i.test(url)) {
       toast('URL 내용을 가져오지 못했습니다.');
+      return;
+    }
+    var cfg = global.YooYStudio || {};
+    if (!cfg.loggedIn) {
+      try { sessionStorage.setItem('yoy_pending_after_auth', 'upload'); } catch (eAuth) { /* ignore */ }
+      var modal = document.getElementById('yai-login-modal');
+      if (modal) modal.hidden = false;
+      else toast('로그인이 필요합니다.');
       return;
     }
     var api = Core();

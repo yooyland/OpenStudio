@@ -40,7 +40,9 @@
   function requireLogin() {
     var cfg = global.YooYStudio || {};
     if (cfg.loggedIn) return true;
-    toast('로그인이 필요합니다.');
+    var modal = document.getElementById('yai-login-modal');
+    if (modal) modal.hidden = false;
+    else toast('로그인이 필요합니다.');
     return false;
   }
 
@@ -243,7 +245,6 @@
 
   function submitSheet() {
     if (!pendingTpl) return;
-    if (!requireLogin()) return;
     var tpl = pendingTpl;
     var values = collectValues(tpl);
     var fields = tpl.fields || [];
@@ -271,8 +272,32 @@
     }
 
     var go = function () {
+      try { sessionStorage.removeItem('yoy_pending_after_auth'); } catch (eClr) { /* ignore */ }
       startHandoff(tpl, values, pendingAttach);
     };
+
+    // Persist template context before auth gate so login redirect can resume.
+    try {
+      var cat = catalog();
+      var prompt = cat.fillPrompt(tpl, values);
+      sessionStorage.setItem('yoy_home_template', JSON.stringify({
+        template_id: tpl.id,
+        title: tpl.title,
+        studio: tpl.studio,
+        aspect_ratio: tpl.aspect || '',
+        duration: tpl.duration || '',
+        style: values.style_hint || '',
+        values: values
+      }));
+      sessionStorage.setItem('yoy_home_prompt', prompt);
+      sessionStorage.setItem('yoy_home_original_prompt', prompt);
+      sessionStorage.setItem('yoy_home_studio', tpl.studio);
+      sessionStorage.setItem('yoy_pending_after_auth', 'template');
+      if (pendingAttach) sessionStorage.setItem('yoy_home_attachment', JSON.stringify(pendingAttach));
+    } catch (ePre) { /* ignore */ }
+
+    if (!requireLogin()) return;
+
     var urlField = fields.filter(function (x) { return x.type === 'url'; })[0];
     if (urlField && values[urlField.id]) {
       setStatus('자료 가져오는 중...');
