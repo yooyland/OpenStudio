@@ -3306,18 +3306,83 @@
   function loadWriting() {
     var el = document.getElementById('yai-gen-writing');
     if (!el) return;
+    var SM = window.YooYStudioSimpleMode;
+    var purposes = [
+      { id: 'blog', label: '블로그' },
+      { id: 'product', label: '제품 소개' },
+      { id: 'ad', label: '광고 카피' },
+      { id: 'company', label: '회사 소개' },
+      { id: 'sns', label: 'SNS 글' },
+      { id: 'free', label: '자유 작성' }
+    ];
+    var tones = [
+      { id: 'friendly', label: '친근하게' },
+      { id: 'professional', label: '전문적으로' },
+      { id: 'persuasive', label: '설득력 있게' },
+      { id: 'concise', label: '간결하게' }
+    ];
+    var lengths = [
+      { id: 'short', label: '짧게' },
+      { id: 'medium', label: '보통' },
+      { id: 'long', label: '길게' }
+    ];
+    var purpose = 'free';
+    var tone = 'friendly';
+    var length = 'medium';
+
     el.innerHTML =
       (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('writing') : '') +
-      '<div class="yai-writing-layout">' +
-        '<textarea class="yai-prompt-input" placeholder="블로그, 광고 카피, 스크립트 프롬프트를 입력하세요…"></textarea>' +
-        '<aside id="yai-writing-ref-host"></aside>' +
-      '</div>' +
-      '<button class="yai-generate-btn" type="button">Generate</button><div class="yai-result"></div>';
-    var input = el.querySelector('.yai-prompt-input');
-    var btn = el.querySelector('.yai-generate-btn');
-    var result = el.querySelector('.yai-result');
+      (SM ? SM.headerHtml('Writing Studio', '생각을 글과 카피로 정리해보세요.') : '<h2>Writing Studio</h2><p>생각을 글과 카피로 정리해보세요.</p>') +
+      '<div class="yai-writing-simple">' +
+        '<div class="yai-writing-field">' +
+          '<label for="yai-writing-prompt">무엇을 작성할까요?</label>' +
+          '<textarea id="yai-writing-prompt" class="yai-prompt-input" placeholder="주제나 핵심 메시지를 적어 주세요…"></textarea>' +
+          '<p class="yai-field-error" id="yai-writing-error" hidden>무엇을 작성할지 입력해 주세요.</p>' +
+        '</div>' +
+        '<div class="yai-writing-field"><label>글 종류</label><div class="yai-studio-simple-row" id="yai-writing-purpose">' +
+          purposes.map(function (it) {
+            return '<button type="button" class="yai-studio-chip' + (purpose === it.id ? ' is-on' : '') + '" data-w-purpose="' + it.id + '">' + it.label + '</button>';
+          }).join('') + '</div></div>' +
+        '<div class="yai-writing-field"><label>톤</label><div class="yai-studio-simple-row" id="yai-writing-tone">' +
+          tones.map(function (it) {
+            return '<button type="button" class="yai-studio-chip' + (tone === it.id ? ' is-on' : '') + '" data-w-tone="' + it.id + '">' + it.label + '</button>';
+          }).join('') + '</div></div>' +
+        '<div class="yai-writing-field"><label>길이</label><div class="yai-studio-simple-row" id="yai-writing-length">' +
+          lengths.map(function (it) {
+            return '<button type="button" class="yai-studio-chip' + (length === it.id ? ' is-on' : '') + '" data-w-length="' + it.id + '">' + it.label + '</button>';
+          }).join('') + '</div></div>' +
+        '<div class="yai-writing-layout"><aside id="yai-writing-ref-host"></aside></div>' +
+        '<button class="yai-generate-btn yai-btn-gold-primary" type="button" id="yai-writing-generate">글 만들기</button>' +
+        (SM ? SM.detailsHtml('writing', '<div class="yai-writing-field"><label>엔진</label><select id="yai-writing-provider"><option value="auto">YooY 추천</option></select><p class="yai-muted" style="font-size:12px;opacity:.6">모델은 YooY가 자동으로 선택합니다.</p></div>') : '') +
+        '<div class="yai-result" id="yai-writing-result"></div>' +
+      '</div>';
+
+    var input = el.querySelector('#yai-writing-prompt');
+    var btn = el.querySelector('#yai-writing-generate');
+    var result = el.querySelector('#yai-writing-result');
+    var errEl = el.querySelector('#yai-writing-error');
     var refPanel = null;
     var refAssets = [];
+
+    if (SM) SM.bind(el);
+
+    el.addEventListener('click', function (e) {
+      var p = e.target.closest('[data-w-purpose]');
+      var t = e.target.closest('[data-w-tone]');
+      var l = e.target.closest('[data-w-length]');
+      if (p) {
+        purpose = p.getAttribute('data-w-purpose');
+        el.querySelectorAll('[data-w-purpose]').forEach(function (b) { b.classList.toggle('is-on', b === p); });
+      }
+      if (t) {
+        tone = t.getAttribute('data-w-tone');
+        el.querySelectorAll('[data-w-tone]').forEach(function (b) { b.classList.toggle('is-on', b === t); });
+      }
+      if (l) {
+        length = l.getAttribute('data-w-length');
+        el.querySelectorAll('[data-w-length]').forEach(function (b) { b.classList.toggle('is-on', b === l); });
+      }
+    });
 
     if (window.YooYReferenceAssetsPanel) {
       refPanel = window.YooYReferenceAssetsPanel.mount(el.querySelector('#yai-writing-ref-host'), {
@@ -3341,9 +3406,26 @@
     btn.addEventListener('click', function () {
       if (!requireLogin()) return;
       var prompt = input.value.trim();
-      if (!prompt) return;
+      if (!prompt) {
+        if (errEl) errEl.hidden = false;
+        return;
+      }
+      if (errEl) errEl.hidden = true;
       btn.disabled = true;
-      var payload = { type: 'writing', prompt: prompt, provider: 'auto' };
+      btn.textContent = '글 작성 중…';
+      var purposeLabel = (purposes.find(function (x) { return x.id === purpose; }) || {}).label || purpose;
+      var toneLabel = (tones.find(function (x) { return x.id === tone; }) || {}).label || tone;
+      var lengthLabel = (lengths.find(function (x) { return x.id === length; }) || {}).label || length;
+      var composed = '[' + purposeLabel + ' / ' + toneLabel + ' / ' + lengthLabel + ']\n' + prompt;
+      var providerEl = el.querySelector('#yai-writing-provider');
+      var payload = {
+        type: 'writing',
+        prompt: composed,
+        provider: (providerEl && providerEl.value) || 'auto',
+        purpose: purpose,
+        tone: tone,
+        length: length
+      };
       if (window.YooYReferenceAssetsPanel && refPanel) {
         payload = window.YooYReferenceAssetsPanel.applyToSettings(payload, refPanel.getAssets());
       } else if (refAssets.length) {
@@ -3351,9 +3433,18 @@
       }
       Core.router.generate(payload).then(function (res) {
         var data = res.data || {};
-        result.innerHTML = '<div class="yai-card"><strong>Done</strong><p>Credits: ' + esc(String(data.credits_used)) + '</p></div>';
+        var text = data.output || data.text || data.content || '';
+        if (typeof text === 'object' && text !== null) {
+          text = text.text || text.content || JSON.stringify(text);
+        }
+        result.innerHTML = '<div class="yai-card"><strong>작성 완료</strong>' +
+          (text ? '<div class="yai-writing-output" style="white-space:pre-wrap;margin-top:8px">' + esc(String(text)) + '</div>' : '') +
+          '<p style="margin-top:8px;opacity:.7">Credits: ' + esc(String(data.credits_used != null ? data.credits_used : '—')) + '</p>' +
+          '<button type="button" class="yai-btn-secondary" id="yai-writing-again">다시 만들기</button></div>';
+        var again = result.querySelector('#yai-writing-again');
+        if (again) again.addEventListener('click', function () { btn.click(); });
       }).catch(function (err) { result.innerHTML = '<p class="yai-error">' + esc(err.message) + '</p>'; })
-        .finally(function () { btn.disabled = false; });
+        .finally(function () { btn.disabled = false; btn.textContent = '글 만들기'; });
     });
     el.dataset.ready = '1';
   }

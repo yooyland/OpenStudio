@@ -534,12 +534,12 @@
 
   function modeToggleHtml() {
     var smartOn = state.studioMode !== 'custom';
-    return '<div class="yis-mode-toggle" role="radiogroup" aria-label="Studio mode">' +
+    return '<div class="yis-mode-toggle" role="radiogroup" aria-label="설정 방식">' +
       '<button type="button" class="yis-mode-opt' + (smartOn ? ' is-active' : '') + '" data-yis-mode="smart" aria-pressed="' + smartOn + '">' +
-        '<span class="yis-mode-dot" aria-hidden="true"></span>Smart Auto</button>' +
+        '<span class="yis-mode-dot" aria-hidden="true"></span>추천 설정</button>' +
       '<button type="button" class="yis-mode-opt' + (!smartOn ? ' is-active' : '') + '" data-yis-mode="custom" aria-pressed="' + !smartOn + '">' +
-        '<span class="yis-mode-dot" aria-hidden="true"></span>Custom</button>' +
-      '<p class="yis-mode-hint">' + (smartOn ? 'AI가 대부분의 설정을 자동 결정합니다. 필요한 항목만 Advanced에서 Manual로 전환하세요.' : '전문가 모드 — Advanced에서 원하는 항목만 직접 수정하세요.') + '</p>' +
+        '<span class="yis-mode-dot" aria-hidden="true"></span>직접 설정</button>' +
+      '<p class="yis-mode-hint">' + (smartOn ? 'YooY가 기본 설정을 알아서 맞춥니다. 필요할 때만 고급 설정을 열어 주세요.' : '원하는 항목을 고급 설정에서 직접 조절합니다.') + '</p>' +
     '</div>';
   }
 
@@ -777,10 +777,21 @@
   }
 
   function advancedSectionHtml() {
-    var chevron = state.advancedOpen ? '▲' : '▼';
-    return '<details class="yis-advanced" id="yis-advanced"' + (state.advancedOpen ? ' open' : '') + '>' +
-      '<summary class="yis-advanced__summary">' + chevron + ' Advanced Settings</summary>' +
-      '<div class="yis-advanced-body"><div class="yis-advanced-inner" id="yis-advanced-inner">' + advancedFieldsInnerHtml() + '</div></div>' +
+    var open = false;
+    if (window.YooYStudioSimpleMode && typeof window.YooYStudioSimpleMode.isOpen === 'function') {
+      open = window.YooYStudioSimpleMode.isOpen('image') || !!state.advancedOpen;
+    } else {
+      open = !!state.advancedOpen;
+    }
+    state.advancedOpen = open;
+    var label = open ? '고급 설정 ▴' : '고급 설정 ▾';
+    return '<details class="yis-advanced yai-studio-adv" id="yis-advanced" data-studio-adv="image"' + (open ? ' open' : '') + '>' +
+      '<summary class="yis-advanced__summary yai-studio-adv__summary">' + label + '</summary>' +
+      '<div class="yis-advanced-body yai-studio-adv__body"><div class="yis-advanced-inner" id="yis-advanced-inner">' +
+        modeToggleHtml() +
+        aiEnginePanelHtml() +
+        advancedFieldsInnerHtml() +
+      '</div></div>' +
     '</details>';
   }
 
@@ -789,10 +800,12 @@
     var optimized = state.lastOptimizedPrompt || '';
     var transparentOn = (state.settings.background || '') === 'transparent';
     return advSection('AI', 'Provider, model, and reproducibility settings.', '<div class="yis-adv-section__grid">' +
-      lockedSelectField('default_provider', 'Provider', [{ id: 'auto', label: 'Auto (Best Available)' }].concat(
-        state.providers.filter(function (p) { return p.id !== 'auto'; }).map(function (p) { return { id: p.id, label: providerOptionLabel(p) }; })
+      lockedSelectField('default_provider', '엔진', [{ id: 'auto', label: (window.YooYStudioSimpleMode ? window.YooYStudioSimpleMode.providerOptionLabel('auto') : 'YooY 추천') }].concat(
+        state.providers.filter(function (p) { return p.id !== 'auto'; }).map(function (p) {
+          return { id: p.id, label: window.YooYStudioSimpleMode ? window.YooYStudioSimpleMode.providerOptionLabel(p.id, providerOptionLabel(p)) : providerOptionLabel(p) };
+        })
       )) +
-      lockedFieldHtml('default_model', 'Model', '<select data-yis-setting="default_model" id="yis-model-select"' + fieldDisabledAttr('default_model') + '>' + modelSelectHtml() + '</select>') +
+      lockedFieldHtml('default_model', '모델', '<select data-yis-setting="default_model" id="yis-model-select"' + fieldDisabledAttr('default_model') + '>' + modelSelectHtml() + '</select>') +
       '<div class="yis-provider-preflight" id="yis-provider-preflight" hidden></div>' +
       lockedFieldHtml('seed', 'Seed', '<div class="yis-seed-row"><input type="number" data-yis-setting="seed" value="' + esc(String(state.settings.seed != null ? state.settings.seed : -1)) + '"' + fieldDisabledAttr('seed') + '><button class="yis-btn-secondary" type="button" data-yis-action="seed-random"' + (isFieldAuto('seed') && state.smartAuto ? ' disabled' : '') + '>Random</button></div>') +
     '</div>') +
@@ -1573,21 +1586,21 @@
 
   function generationModeHtml() {
     var fast = state.generationMode !== 'premium';
-    return '<div class="yis-speed-toggle" role="radiogroup" aria-label="Generation speed">' +
-      '<button type="button" class="yis-speed-opt' + (fast ? ' is-active' : '') + '" data-yis-speed="fast">Fast</button>' +
-      '<button type="button" class="yis-speed-opt' + (!fast ? ' is-active' : '') + '" data-yis-speed="premium">Premium</button>' +
-      '<p class="yis-speed-hint">' + (fast ? '빠른 응답 우선 (standard, 1장)' : '품질 우선 (고급 프롬프트 최적화)') + '</p></div>';
+    return '<div class="yis-speed-toggle" role="radiogroup" aria-label="품질">' +
+      '<button type="button" class="yis-speed-opt' + (fast ? ' is-active' : '') + '" data-yis-speed="fast">빠르게</button>' +
+      '<button type="button" class="yis-speed-opt' + (!fast ? ' is-active' : '') + '" data-yis-speed="premium">고품질</button>' +
+      '<p class="yis-speed-hint">' + (fast ? '빠르게 결과를 확인합니다.' : '더 정교한 결과로 생성합니다.') + '</p></div>';
   }
 
   function generationStepLabel(step) {
     var labels = {
-      queued: 'Queued',
-      preparing: 'Preparing',
-      generating: 'Generating',
-      saving: 'Saving',
-      completed: 'Completed',
-      failed: 'Failed',
-      timeout: 'Timeout'
+      queued: '대기 중',
+      preparing: '생성 준비 중',
+      generating: '이미지 만드는 중',
+      saving: '저장 중',
+      completed: '완료',
+      failed: '실패',
+      timeout: '시간 초과'
     };
     return labels[step] || step;
   }
@@ -1664,28 +1677,35 @@
   function renderGenerate(ws, ctrl, root) {
     var promptVal = state.settings.last_prompt || '';
     ws.innerHTML =
-      '<div class="yis-header"><h2>Image Studio</h2><p class="yis-muted">Create · 추천 → Prompt → Generate → Gallery → Project</p></div>' +
-      modeToggleHtml() +
-      generationModeHtml() +
+      '<div class="yis-header">' +
+        (window.YooYStudioSimpleMode ? window.YooYStudioSimpleMode.headerHtml('Image Studio', '상상한 장면을 이미지로 만들어보세요.') : '<h2>Image Studio</h2><p class="yis-muted">상상한 장면을 이미지로 만들어보세요.</p>') +
+      '</div>' +
       resultBoardHtml() +
       '<div class="yis-prompt-area yis-generate-flow">' +
         '<div class="yai-create-ux__recs" id="yis-create-recs"></div>' +
-        '<label class="yis-prompt-label" for="yis-prompt">Prompt</label>' +
-        '<textarea id="yis-prompt" placeholder="예: 이재명 정치 광고, 제주 관광 포스터, 프리미엄 향수 광고...">' + esc(promptVal) + '</textarea>' +
+        '<label class="yis-prompt-label" for="yis-prompt">무엇을 만들까요?</label>' +
+        '<textarea id="yis-prompt" placeholder="예: 고급 화장품 광고 이미지, 제주 여행 포스터…">' + esc(promptVal) + '</textarea>' +
         '<div class="yis-create-ux-actions" style="display:flex;gap:0.5rem;justify-content:flex-end;margin:0.4rem 0 0.6rem">' +
-          '<button type="button" class="yis-btn-secondary" id="yis-prompt-coach">Prompt 보완</button>' +
+          '<button type="button" class="yis-btn-secondary" id="yis-prompt-coach">프롬프트 보완</button>' +
         '</div>' +
         promptIntelligencePanelHtml() +
         '<div class="yai-create-ux__coach" id="yis-coach-panel" hidden></div>' +
         '<div class="yis-ref-block">' +
-          '<label class="yis-prompt-label">Reference (Optional)</label>' +
+          '<label class="yis-prompt-label">참고 이미지</label>' +
           '<div id="yis-ref-panel-host"></div>' +
           refAnalysisCardHtml() +
         '</div>' +
-        field('Aspect Ratio', '<select class="yis-output-size" data-yis-setting="output_size" id="yis-output-size" aria-label="Aspect ratio">' +
-          outputSizeOptionsHtml() + '</select>') +
-        '<div class="yis-actions"><button class="yis-btn-primary" id="yis-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
-        (state.generating ? '생성 중…' : 'Generate') + ' · ' + creditLabel() + '</button>' +
+        generationModeHtml() +
+        '<div class="yai-studio-simple-row yis-simple-opts">' +
+          field('화면 비율', '<select class="yis-output-size" data-yis-setting="output_size" id="yis-output-size" aria-label="화면 비율">' +
+            outputSizeOptionsHtml() + '</select>') +
+          field('생성 수량', '<select data-yis-setting="image_count" id="yis-image-count" aria-label="생성 수량">' +
+            (state.schema.image_counts || [1, 2, 3, 4]).map(function (n) {
+              return '<option value="' + n + '"' + (String(state.settings.image_count || 1) === String(n) ? ' selected' : '') + '>' + n + '장</option>';
+            }).join('') + '</select>') +
+        '</div>' +
+        '<div class="yis-actions"><button class="yis-btn-primary yai-btn-gold-primary" id="yis-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
+        (state.generating ? '이미지 만드는 중…' : '이미지 생성하기') + ' · ' + creditLabel() + '</button>' +
         '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' + (state.generating ? generationProgressHtml() : '') + '</div>' +
         '<div class="yis-info" id="yis-generate-info" hidden></div></div>' +
         advancedSectionHtml() +
@@ -1696,6 +1716,7 @@
     bindPromptFields(root);
     bindGenerateButton(root);
     bindAdvancedPanel(root);
+    if (window.YooYStudioSimpleMode) window.YooYStudioSimpleMode.bind(ws);
     updateProviderUX(root);
     loadProviderHealth(root);
     bindCreateUx(root);
@@ -1792,8 +1813,7 @@
   }
 
   function sidePanelHtml() {
-    return aiEnginePanelHtml() +
-      autoSelectedCardHtml() +
+    return autoSelectedCardHtml() +
       '<div class="yis-credits-bar">' + creditLabel() + '</div>';
   }
 
@@ -1920,8 +1940,11 @@
     adv.dataset.bound = '1';
     adv.addEventListener('toggle', function () {
       state.advancedOpen = adv.open;
+      if (window.YooYStudioSimpleMode && typeof window.YooYStudioSimpleMode.setOpen === 'function') {
+        window.YooYStudioSimpleMode.setOpen('image', adv.open);
+      }
       var summary = adv.querySelector('.yis-advanced__summary');
-      if (summary) summary.textContent = (adv.open ? '▲' : '▼') + ' Advanced Settings';
+      if (summary) summary.textContent = adv.open ? '고급 설정 ▴' : '고급 설정 ▾';
       if (adv.open) {
         if (state.smartAuto) previewSmartAuto(root);
         refreshAdvancedInner(root);
@@ -2007,7 +2030,7 @@
         '<div class="yis-result-board__empty">' +
           '<div class="yis-result-board__empty-icon" aria-hidden="true">◇</div>' +
           '<h3>작품을 생성하세요</h3>' +
-          '<p>프롬프트를 입력하고 Generate를 누르면 이곳에 작품이 크게 표시됩니다.<br>YooY AI Studio는 작품 감상 및 후속 제작을 위한 스튜디오입니다.</p>' +
+          '<p>프롬프트를 입력하고 이미지 생성하기를 누르면 이곳에 작품이 크게 표시됩니다.</p>' +
         '</div>' +
       '</div></section>';
   }
@@ -2368,7 +2391,7 @@
     syncPromptFields(root);
     var prompt = ($('#yis-prompt', root) || {}).value || state.settings.last_prompt || '';
     if (!prompt.trim()) {
-      showGenerateError(root, 'Enter a prompt before generating.');
+      showGenerateError(root, '프롬프트를 입력해 주세요.');
       return;
     }
 

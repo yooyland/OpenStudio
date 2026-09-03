@@ -142,7 +142,7 @@ final class YooY_Module_Image_Studio extends YooY_Module_Base {
         wp_enqueue_style('yoy-image-studio', $base . 'image-studio.css', ['yoy-ai-studio'], $this->version());
         wp_enqueue_script('yoy-image-api', $base . 'image-api.js', ['yoy-ai-studio-core'], $this->version(), true);
         wp_enqueue_script('yoy-image-studio-smart-auto', $base . 'image-studio-smart-auto.js', [], $this->version(), true);
-        wp_enqueue_script('yoy-image-studio', $base . 'image-studio.js', ['yoy-image-api', 'yoy-image-studio-smart-auto'], $this->version(), true);
+        wp_enqueue_script('yoy-image-studio', $base . 'image-studio.js', ['yoy-image-api', 'yoy-image-studio-smart-auto', 'yoy-studio-simple-mode', 'yoy-studio-handoff'], $this->version(), true);
     }
 
     public function config(): WP_REST_Response {

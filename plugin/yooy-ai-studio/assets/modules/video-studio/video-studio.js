@@ -173,20 +173,28 @@
   }
 
   function renderGenerator(ws, ctrl, root) {
+    var SM = window.YooYStudioSimpleMode;
     ws.innerHTML =
       '<div class="yvs-header">' +
         (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('video') : '') +
-        '<h2>AI Video Generator</h2><span class="yvs-badge">Runway · Veo · Kling · Mock</span></div>' +
+        (SM ? SM.headerHtml('Video Studio', '아이디어를 움직이는 영상으로 완성해보세요.') : '<h2>Video Studio</h2><p class="yvs-muted">아이디어를 움직이는 영상으로 완성해보세요.</p>') +
+      '</div>' +
+      '<div class="yvs-ref-top"><label class="yvs-field-label">시작 / 참고 이미지</label><div id="yvs-ref-panel-host"></div></div>' +
       '<div class="yvs-canvas-area" id="yvs-preview" data-ratio="' + esc(state.settings.aspect_ratio || '16:9') + '">' +
         previewContent() +
       '</div>' +
-      '<div class="yvs-prompt-bar">' +
-        '<textarea id="yvs-prompt" placeholder="한국 화장품 광고, 스마트스토어 제품 영상, 유튜브 쇼츠 등 영상 프롬프트를 입력하세요.">' + esc(state.settings.last_prompt || '') + '</textarea>' +
-        '<button class="yvs-btn-primary" id="yvs-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Generating...' : 'Generate') + '</button>' +
+      '<div class="yvs-prompt-bar yvs-simple-flow">' +
+        '<label class="yvs-field-label" for="yvs-prompt">무엇을 만들까요?</label>' +
+        '<textarea id="yvs-prompt" placeholder="예: 화장품 광고 영상, 유튜브 쇼츠 오프닝…">' + esc(state.settings.last_prompt || '') + '</textarea>' +
+        '<p class="yvs-field-error" id="yvs-prompt-error" hidden>프롬프트를 입력해 주세요.</p>' +
+        '<button class="yvs-btn-primary yai-btn-gold-primary" id="yvs-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
+          (state.generating ? '영상 만드는 중…' : '영상 생성하기') +
+        '</button>' +
       '</div>' +
       resultActionsHtml();
-    ctrl.innerHTML = controlsPanel() + '<div id="yvs-ref-panel-host"></div>';
-    mountRefAssets($('#yvs-ref-panel-host', ctrl), 'video-studio');
+    ctrl.innerHTML = controlsPanel();
+    mountRefAssets($('#yvs-ref-panel-host', ws), 'video-studio');
+    if (SM) SM.bind(ctrl);
     updateCanvasRatio(root);
   }
 
@@ -287,37 +295,51 @@
       }
       return '<img class="yvs-preview-img" src="' + esc(url) + '" alt="preview">';
     }
-    return '<div class="yvs-canvas-placeholder"><strong>Video Preview</strong>프롬프트를 입력하고 Generate를 클릭하세요.</div>';
+    return '<div class="yvs-canvas-placeholder"><strong>영상 미리보기</strong>프롬프트를 입력하고 영상 생성하기를 눌러 주세요.</div>';
   }
 
   function controlsPanel() {
     var ratios = ['16:9', '9:16', '1:1', '4:5'];
     var durations = [3, 5, 10, 15, 30];
-    var qualities = ['draft', 'standard', 'pro'];
+    var qualities = [
+      { id: 'draft', label: '초안' },
+      { id: 'standard', label: '표준' },
+      { id: 'pro', label: '고화질' }
+    ];
     var motions = ['static', 'pan_left', 'pan_right', 'zoom_in', 'zoom_out', 'dolly_in', 'orbit'];
+    var SM = window.YooYStudioSimpleMode;
     var providerOpts = state.providers.map(function (p) {
       var sel = (state.settings.default_provider || 'auto') === p.id ? ' selected' : '';
-      return '<option value="' + esc(p.id) + '"' + sel + '>' + esc(p.name) + '</option>';
+      var label = SM ? SM.providerOptionLabel(p.id, p.name) : p.name;
+      return '<option value="' + esc(p.id) + '"' + sel + '>' + esc(label) + '</option>';
     }).join('');
 
-    return '<h3>Video Settings</h3>' +
-      field('Provider', '<select data-yvs-setting="default_provider">' + providerOpts + '</select>') +
-      field('Aspect Ratio', '<select data-yvs-setting="aspect_ratio">' + ratios.map(function (r) {
+    var essential =
+      '<h3>기본 설정</h3>' +
+      field('화면 비율', '<select data-yvs-setting="aspect_ratio">' + ratios.map(function (r) {
         return '<option value="' + r + '"' + ((state.settings.aspect_ratio || '16:9') === r ? ' selected' : '') + '>' + r + '</option>';
       }).join('') + '</select>') +
-      field('Duration', '<select data-yvs-setting="duration">' + durations.map(function (d) {
-        return '<option value="' + d + '"' + ((state.settings.duration || 5) == d ? ' selected' : '') + '>' + d + 's</option>';
+      field('길이', '<select data-yvs-setting="duration">' + durations.map(function (d) {
+        return '<option value="' + d + '"' + ((state.settings.duration || 5) == d ? ' selected' : '') + '>' + d + '초</option>';
       }).join('') + '</select>') +
-      field('Quality', '<select data-yvs-setting="quality">' + qualities.map(function (q) {
-        return '<option value="' + q + '"' + ((state.settings.quality || 'standard') === q ? ' selected' : '') + '>' + q + '</option>';
+      field('해상도', '<select data-yvs-setting="quality">' + qualities.map(function (q) {
+        return '<option value="' + q.id + '"' + ((state.settings.quality || 'standard') === q.id ? ' selected' : '') + '>' + q.label + '</option>';
       }).join('') + '</select>') +
-      field('Camera', '<select data-yvs-setting="camera_motion">' + motions.map(function (m) {
+      '<div class="yvs-credits-bar">' + creditLabel() + '</div>';
+
+    var advancedInner =
+      field('엔진', '<select data-yvs-setting="default_provider">' + providerOpts + '</select>') +
+      field('카메라 움직임', '<select data-yvs-setting="camera_motion">' + motions.map(function (m) {
         return '<option value="' + m + '"' + ((state.settings.camera_motion || 'static') === m ? ' selected' : '') + '>' + m + '</option>';
       }).join('') + '</select>') +
-      toggle('Korean Context', 'korean_context', state.settings.korean_context !== false) +
-      toggle('Auto Save', 'auto_save', state.settings.auto_save !== false) +
-      toggle('Subtitle Space', 'subtitle_space', state.settings.subtitle_space !== false) +
-      '<div class="yvs-credits-bar">' + creditLabel() + '</div>';
+      toggle('한국 맥락', 'korean_context', state.settings.korean_context !== false) +
+      toggle('자동 저장', 'auto_save', state.settings.auto_save !== false) +
+      toggle('자막 여백', 'subtitle_space', state.settings.subtitle_space !== false);
+
+    if (SM) {
+      return essential + SM.detailsHtml('video', advancedInner);
+    }
+    return essential + '<details class="yai-studio-adv" data-studio-adv="video"><summary class="yai-studio-adv__summary">고급 설정 ▾</summary><div class="yai-studio-adv__body">' + advancedInner + '</div></details>';
   }
 
   function field(label, input) {
@@ -343,7 +365,12 @@
 
   function doGenerate(root) {
     var prompt = ($('#yvs-prompt', root) || {}).value || '';
-    if (!prompt.trim()) return;
+    var errEl = $('#yvs-prompt-error', root);
+    if (!prompt.trim()) {
+      if (errEl) errEl.hidden = false;
+      return;
+    }
+    if (errEl) errEl.hidden = true;
 
     state.generating = true;
     state.lastPollJob = null;
@@ -364,13 +391,13 @@
 
   function stageLabelText(stage) {
     switch (stage) {
-      case 'queued': return 'Queued';
-      case 'processing': return 'Processing';
-      case 'rendering': return 'Rendering';
-      case 'running': return 'Running';
-      case 'completed': return 'Completed';
-      case 'failed': return 'Failed';
-      default: return 'Generating';
+      case 'queued': return '대기 중…';
+      case 'processing': return '영상 만드는 중…';
+      case 'rendering': return '영상 만드는 중…';
+      case 'running': return '영상 만드는 중…';
+      case 'completed': return '완료';
+      case 'failed': return '실패';
+      default: return '생성 준비 중…';
     }
   }
 

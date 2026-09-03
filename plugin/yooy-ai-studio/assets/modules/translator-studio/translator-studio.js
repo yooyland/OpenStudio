@@ -172,11 +172,10 @@
       '<div class="yts-studio" id="yts-root">' +
         '<header class="yts-head">' +
           '<div class="yts-head-text">' +
-            '<h1 class="yts-title">Translator</h1>' +
-            '<p class="yts-desc">문맥과 목적에 맞게 자연스럽게 번역합니다.</p>' +
+            '<h1 class="yts-title">Translator Studio</h1>' +
+            '<p class="yts-desc">원문을 원하는 언어로 자연스럽게 옮겨보세요.</p>' +
           '</div>' +
           '<div class="yts-head-meta">' +
-            '<span class="yts-pill yts-pill--provider" id="yts-provider-pill">Provider · ' + esc(state.providerName) + '</span>' +
             '<span class="yts-pill" id="yts-credits-pill">' + esc(state.creditsLabel) + '</span>' +
           '</div>' +
         '</header>' +
@@ -232,8 +231,14 @@
         '</div>' +
 
         '<div class="yts-footer" id="yts-footer">' +
-          '<p class="yts-hint" id="yts-hint">Auto Provider: OpenAI가 사용 가능하면 실제 번역을 수행하고, 실패 시 Mock으로 전환합니다.</p>' +
-          '<button type="button" class="yts-btn yts-btn--primary" id="yts-translate">번역하기</button>' +
+          '<button type="button" class="yts-btn yts-btn--primary yai-btn-gold-primary" id="yts-translate">번역하기</button>' +
+          '<details class="yai-studio-adv" data-studio-adv="translator" id="yts-advanced">' +
+            '<summary class="yai-studio-adv__summary">고급 설정 ▾</summary>' +
+            '<div class="yai-studio-adv__body">' +
+              '<p class="yts-hint" id="yts-hint">엔진은 기본적으로 YooY 추천을 사용합니다. 필요 시 아래에서 확인할 수 있습니다.</p>' +
+              '<span class="yts-pill yts-pill--provider" id="yts-provider-pill">엔진 · YooY 추천</span>' +
+            '</div>' +
+          '</details>' +
         '</div>' +
 
         '<section class="yts-history" aria-label="번역 기록">' +
@@ -588,15 +593,15 @@
 
   function providerPillText() {
     if (state.fallbackUsed) {
-      return 'Provider · Mock Fallback';
+      return '엔진 · Mock 대체';
     }
     if (state.providerId === 'openai') {
-      return 'Provider · OpenAI · ' + (state.lastModel || 'gpt-4o-mini');
+      return '엔진 · OpenAI · ' + (state.lastModel || 'gpt-4o-mini');
     }
     if (state.providerId === 'mock') {
-      return 'Provider · Mock Translator · ' + (state.lastModel || 'mock-translator-v1');
+      return '엔진 · Mock · ' + (state.lastModel || 'mock-translator-v1');
     }
-    return 'Provider · Auto' + (state.openaiReady ? ' · OpenAI preferred' : ' · Mock ready');
+    return '엔진 · YooY 추천';
   }
 
   function updateMeta(root) {
@@ -1079,6 +1084,15 @@
     container.innerHTML = shellHtml();
     var root = $('#yts-root', container) || container;
     bindEvents(root);
+    if (window.YooYStudioSimpleMode) {
+      var adv = root.querySelector('#yts-advanced');
+      if (adv && window.YooYStudioSimpleMode.isOpen('translator')) {
+        adv.open = true;
+        var sum = adv.querySelector('.yai-studio-adv__summary');
+        if (sum) sum.textContent = window.YooYStudioSimpleMode.summaryLabel(true);
+      }
+      window.YooYStudioSimpleMode.bind(root);
+    }
     setResult(root, '', false);
     updateMeta(root);
 

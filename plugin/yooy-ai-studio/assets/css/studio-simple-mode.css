@@ -1,0 +1,178 @@
+/* Shared Studio beginner layout + Advanced fold */
+
+.yai-studio-head {
+  margin: 0 0 16px;
+}
+
+.yai-studio-head__title {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.yai-studio-head__desc {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.45;
+}
+
+.yai-studio-adv {
+  margin-top: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.yai-studio-adv__summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffe8a3;
+  user-select: none;
+}
+
+.yai-studio-adv__summary::-webkit-details-marker {
+  display: none;
+}
+
+.yai-studio-adv__summary:focus-visible {
+  outline: 2px solid #ffe8a3;
+  outline-offset: -2px;
+}
+
+.yai-studio-adv__body {
+  padding: 0 14px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.yai-studio-simple-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.yai-studio-chip {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.yai-studio-chip.is-on {
+  border-color: rgba(201, 162, 39, 0.55);
+  color: #ffe8a3;
+  background: rgba(201, 162, 39, 0.12);
+}
+
+.yai-studio-chip:focus-visible {
+  outline: 2px solid #ffe8a3;
+  outline-offset: 2px;
+}
+
+.yai-writing-simple {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 920px;
+}
+
+.yai-writing-simple .yai-prompt-input {
+  min-height: 140px;
+  font-size: 16px;
+  line-height: 1.5;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #121212;
+  color: #f5f5f5;
+  padding: 14px;
+  width: 100%;
+}
+
+.yai-writing-simple .yai-generate-btn,
+.yai-btn-gold-primary {
+  height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #d4af37, #b8922a);
+  color: #111;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.yai-writing-simple .yai-generate-btn {
+  width: 100%;
+  max-width: 320px;
+}
+
+.yai-writing-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.yai-field-error,
+.yvs-field-error,
+.yms-field-error,
+.yas-field-error {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #ffb4b4;
+}
+
+.yvs-field-label,
+.yis-prompt-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.yvs-ref-top {
+  margin: 0 0 14px;
+}
+
+.yvs-simple-flow .yvs-btn-primary,
+.yms-btn-primary.yai-btn-gold-primary,
+.yas-btn-primary.yai-btn-gold-primary,
+.yis-btn-primary.yai-btn-gold-primary {
+  background: linear-gradient(180deg, #d4af37, #b8922a);
+  color: #111;
+  font-weight: 700;
+}
+
+@media (max-width: 800px) {
+  .yai-writing-simple .yai-generate-btn {
+    max-width: none;
+  }
+
+  .yvs-simple-flow .yvs-btn-primary,
+  .yms-btn-primary.yai-btn-gold-primary,
+  .yas-btn-primary.yai-btn-gold-primary,
+  .yis-actions .yis-btn-primary,
+  .yts-footer .yts-btn--primary {
+    width: 100%;
+  }
+
+  .yai-studio-simple-row {
+    flex-direction: column;
+  }
+
+  .yai-studio-chip {
+    width: 100%;
+  }
+}

@@ -64,7 +64,7 @@ final class YooY_Module_Avatar_Studio extends YooY_Module_Base {
         $base = YOY_AI_STUDIO_URL . 'assets/modules/avatar-studio/';
         wp_enqueue_style('yoy-avatar-studio', $base . 'avatar-studio.css', ['yoy-ai-studio'], $this->version());
         wp_enqueue_script('yoy-avatar-api', $base . 'avatar-api.js', ['yoy-ai-studio-core'], $this->version(), true);
-        wp_enqueue_script('yoy-avatar-studio', $base . 'avatar-studio.js', ['yoy-avatar-api'], $this->version(), true);
+        wp_enqueue_script('yoy-avatar-studio', $base . 'avatar-studio.js', ['yoy-avatar-api', 'yoy-studio-simple-mode', 'yoy-studio-handoff'], $this->version(), true);
     }
 
     public function config(): WP_REST_Response {

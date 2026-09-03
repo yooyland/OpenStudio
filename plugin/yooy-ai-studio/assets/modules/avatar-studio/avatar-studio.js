@@ -127,26 +127,32 @@
 
   function renderCreate(ws, ctrl, root) {
     var avatars = state.options.avatars || [];
+    var SM = window.YooYStudioSimpleMode;
     ws.innerHTML =
       '<div class="yas-header">' +
         (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('avatar') : '') +
-        '<h2>Avatar Studio</h2><span class="yas-badge">Vidu · HeyGen</span></div>' +
+        (SM ? SM.headerHtml('Avatar Studio', '캐릭터가 말하는 영상을 만들어보세요.') : '<h2>Avatar Studio</h2><p>캐릭터가 말하는 영상을 만들어보세요.</p>') +
+      '</div>' +
       '<div class="yas-preview" id="yas-preview">' + previewHtml() + '</div>' +
-      '<h3 style="color:#d8a63a;font-size:13px;margin:0 0 8px">AVATAR</h3>' +
+      '<div class="yas-field"><label>참고 인물 / 캐릭터</label></div>' +
       '<div class="yas-avatar-grid">' + avatars.map(function (a) {
         return '<div class="yas-avatar-card' + (state.settings.avatar_id === a.id ? ' is-selected' : '') + '" data-yas-avatar="' + esc(a.id) + '">' +
           '<img src="' + esc(a.preview) + '" alt=""><span>' + esc(a.name) + '</span></div>';
       }).join('') + '</div>' +
-      '<div class="yas-field"><label>Script</label><textarea id="yas-script" placeholder="아바타가 말할 대본을 입력하세요. 한국어 자막이 자동 생성됩니다.">' + esc(state.settings.script || '') + '</textarea></div>' +
+      '<div class="yas-field"><label for="yas-script">원하는 아바타 설명 / 대본</label><textarea id="yas-script" placeholder="아바타가 말할 내용을 적어 주세요.">' + esc(state.settings.script || '') + '</textarea></div>' +
+      '<p class="yas-field-error" id="yas-script-error" hidden>대본을 입력해 주세요.</p>' +
       '<div class="yas-subtitle-preview" id="yas-subtitle-preview"></div>' +
-      '<button class="yas-btn-primary" id="yas-generate" type="button" style="margin-top:16px"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Generating...' : 'Generate Avatar Video') + '</button>';
+      '<button class="yas-btn-primary yai-btn-gold-primary" id="yas-generate" type="button" style="margin-top:16px"' + (state.generating ? ' disabled' : '') + '>' +
+        (state.generating ? '아바타 만드는 중…' : '아바타 만들기') +
+      '</button>';
 
     ctrl.innerHTML = controlsHtml();
+    if (SM) SM.bind(ctrl);
     debounceSubtitle(root);
   }
 
   function previewHtml() {
-    if (state.generating) return '<div class="yas-loading">Generating avatar video...</div>';
+    if (state.generating) return '<div class="yas-loading">아바타 만드는 중…</div>';
     if (state.lastResult && state.lastResult.output) {
       var out = state.lastResult.output;
       if (out.video_url) {
@@ -171,23 +177,28 @@
         }).join('') + '</select></div>';
     }
 
-    var prov = state.providers.map(function (p) { return { id: p.id, label: p.name }; });
+    var SM = window.YooYStudioSimpleMode;
+    var prov = state.providers.map(function (p) {
+      return { id: p.id, label: SM ? SM.providerOptionLabel(p.id, p.name) : p.name };
+    });
 
-    return '<h3 style="color:#d8a63a;font-size:13px;margin:0">CONTROLS</h3>' +
-      sel('default_provider', 'Provider', prov, 'id', 'label') +
-      sel('voice_id', 'Voice', state.options.voices || [], 'id', 'name') +
-      '<div class="yas-field-row">' +
-        sel('expression', 'Expression', state.options.expressions || [], 'id', 'label') +
-        sel('gesture', 'Gesture', state.options.gestures || [], 'id', 'label') +
-      '</div>' +
-      '<div class="yas-field-row">' +
-        sel('camera', 'Camera', state.options.cameras || [], 'id', 'label') +
-        sel('emotion', 'Emotion', state.options.emotions || [], 'id', 'label') +
-      '</div>' +
-      sel('background', 'Background', state.options.backgrounds || [], 'id', 'label') +
-      toggle('lip_sync', 'Lip Sync', state.settings.lip_sync !== false) +
-      toggle('subtitle_enabled', 'Subtitle', state.settings.subtitle_enabled !== false) +
-      sel('duration', 'Duration', (state.options.durations || []).map(function (d) { return { id: d, label: d + 's' }; }), 'id', 'label');
+    var essential =
+      '<h3 style="color:#d8a63a;font-size:13px;margin:0">기본 설정</h3>' +
+      sel('expression', '스타일', state.options.expressions || [], 'id', 'label') +
+      sel('duration', '길이', (state.options.durations || []).map(function (d) { return { id: d, label: d + '초' }; }), 'id', 'label') +
+      sel('background', '배경', state.options.backgrounds || [], 'id', 'label') +
+      toggle('subtitle_enabled', '자막', state.settings.subtitle_enabled !== false);
+
+    var advancedInner =
+      sel('default_provider', '엔진', prov, 'id', 'label') +
+      sel('voice_id', '목소리', state.options.voices || [], 'id', 'name') +
+      sel('gesture', '제스처', state.options.gestures || [], 'id', 'label') +
+      sel('camera', '카메라', state.options.cameras || [], 'id', 'label') +
+      sel('emotion', '감정', state.options.emotions || [], 'id', 'label') +
+      toggle('lip_sync', '립싱크', state.settings.lip_sync !== false);
+
+    if (SM) return essential + SM.detailsHtml('avatar', advancedInner);
+    return essential + '<details class="yai-studio-adv" data-studio-adv="avatar"><summary class="yai-studio-adv__summary">고급 설정 ▾</summary><div class="yai-studio-adv__body">' + advancedInner + '</div></details>';
   }
 
   function toggle(key, label, on) {
@@ -195,7 +206,16 @@
   }
 
   function doGenerate(root) {
-    if (!(state.settings.script || '').trim()) return;
+    var errEl = $('#yas-script-error', root);
+    if (!(state.settings.script || '').trim()) {
+      var ta = $('#yas-script', root);
+      if (ta) state.settings.script = ta.value || '';
+    }
+    if (!(state.settings.script || '').trim()) {
+      if (errEl) errEl.hidden = false;
+      return;
+    }
+    if (errEl) errEl.hidden = true;
     state.generating = true;
     renderTab(root);
     Core.avatar.generate(state.settings).then(function (res) {

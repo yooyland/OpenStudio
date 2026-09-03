@@ -113,27 +113,29 @@
   }
 
   function renderTTS(ws, ctrl, root) {
+    var SM = window.YooYStudioSimpleMode;
     ws.innerHTML =
       '<div class="yvs-header">' +
         (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('voice') : '') +
-        '<h2>Text to Speech</h2><span class="yvs-badge">ElevenLabs</span></div>' +
+        (SM ? SM.headerHtml('Voice Studio', '텍스트를 자연스러운 목소리로 읽어보세요.') : '<h2>Voice Studio</h2><p>텍스트를 자연스러운 목소리로 읽어보세요.</p>') +
+      '</div>' +
       playerHtml() +
+      '<div class="yvs-field"><label>목소리</label></div>' +
       '<div class="yvs-voice-list">' + state.voices.map(function (v) {
         var icon = v.gender === 'male' ? '♂' : v.gender === 'female' ? '♀' : '◎';
         return '<div class="yvs-voice-item' + (state.settings.voice_id === v.id ? ' is-selected' : '') + '" data-yvs-voice="' + esc(v.id) + '">' +
           '<div class="yvs-voice-icon">' + icon + '</div><strong>' + esc(v.name) + '</strong>' +
           '<span>' + esc(v.language) + (v.category === 'cloned' ? ' · cloned' : '') + '</span></div>';
       }).join('') + '</div>' +
-      '<div class="yvs-pause-bar">' +
-        ['0.3', '0.5', '1', '2'].map(function (s) {
-          return '<button class="yvs-btn-secondary" data-yvs-pause="' + s + '" type="button">+' + s + 's</button>';
-        }).join('') +
-      '</div>' +
-      '<div class="yvs-field"><label>Text</label><textarea id="yvs-text" data-yvs-setting="text" placeholder="읽을 텍스트를 입력하세요. [pause:0.5s] 태그로 쉼을 넣을 수 있습니다.">' + esc(state.settings.text || '') + '</textarea></div>' +
-      '<button class="yvs-btn-primary" id="yvs-speak" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Generating...' : 'Generate Speech') + '</button>';
+      '<div class="yvs-field"><label for="yvs-text">읽을 텍스트</label><textarea id="yvs-text" data-yvs-setting="text" placeholder="읽을 텍스트를 입력하세요.">' + esc(state.settings.text || '') + '</textarea></div>' +
+      '<p class="yvs-field-error" id="yvs-text-error" hidden>읽을 텍스트를 입력해 주세요.</p>' +
+      '<button class="yvs-btn-primary yai-btn-gold-primary" id="yvs-speak" type="button"' + (state.generating ? ' disabled' : '') + '>' +
+        (state.generating ? '음성 생성 중…' : '음성 만들기') +
+      '</button>';
 
     ctrl.innerHTML = controlsHtml() + '<div id="yvs-ref-panel-host"></div>';
     mountRefAssets($('#yvs-ref-panel-host', ctrl), 'voice-studio');
+    if (SM) SM.bind(ctrl);
   }
 
   function mountRefAssets(host, studioKey) {
@@ -164,6 +166,7 @@
   }
 
   function controlsHtml() {
+    var SM = window.YooYStudioSimpleMode;
     function sel(key, label, items, vk, lk) {
       return '<div class="yvs-field"><label>' + label + '</label><select data-yvs-setting="' + key + '">' +
         items.map(function (it) {
@@ -173,12 +176,27 @@
         }).join('') + '</select></div>';
     }
 
-    return '<h3 style="color:#d8a63a;font-size:13px;margin:0 0 8px">VOICE</h3>' +
-      sel('default_provider', 'Provider', state.providers.map(function (p) { return { id: p.id, label: p.name }; }), 'id', 'label') +
-      sel('emotion', 'Emotion', state.options.emotions || [], 'id', 'label') +
-      sel('language', 'Language', state.options.languages || [], 'id', 'label') +
-      slider('speed', 'Speed', 0.5, 2, 0.05, state.settings.speed || 1) +
-      slider('pitch', 'Pitch', -20, 20, 1, state.settings.pitch || 0);
+    var providerItems = state.providers.map(function (p) {
+      return { id: p.id, label: SM ? SM.providerOptionLabel(p.id, p.name) : p.name };
+    });
+
+    var essential =
+      '<h3 style="color:#d8a63a;font-size:13px;margin:0 0 8px">기본 설정</h3>' +
+      sel('emotion', '말하기 스타일', state.options.emotions || [], 'id', 'label') +
+      sel('language', '언어', state.options.languages || [], 'id', 'label') +
+      slider('speed', '속도', 0.5, 2, 0.05, state.settings.speed || 1);
+
+    var advancedInner =
+      sel('default_provider', '엔진', providerItems, 'id', 'label') +
+      slider('pitch', '음높이', -20, 20, 1, state.settings.pitch || 0) +
+      '<div class="yvs-pause-bar"><span style="font-size:12px;color:#888">쉼 넣기</span>' +
+        ['0.3', '0.5', '1', '2'].map(function (s) {
+          return '<button class="yvs-btn-secondary" data-yvs-pause="' + s + '" type="button">+' + s + '초</button>';
+        }).join('') +
+      '</div>';
+
+    if (SM) return essential + SM.detailsHtml('voice', advancedInner);
+    return essential + '<details class="yai-studio-adv" data-studio-adv="voice"><summary class="yai-studio-adv__summary">고급 설정 ▾</summary><div class="yai-studio-adv__body">' + advancedInner + '</div></details>';
   }
 
   function slider(key, label, min, max, step, val) {
@@ -197,7 +215,12 @@
 
   function doSpeak(root) {
     var text = ($('#yvs-text', root) || {}).value || '';
-    if (!text.trim()) return;
+    var errEl = $('#yvs-text-error', root);
+    if (!text.trim()) {
+      if (errEl) errEl.hidden = false;
+      return;
+    }
+    if (errEl) errEl.hidden = true;
     state.generating = true;
     state.settings.text = text;
     renderTab(root);

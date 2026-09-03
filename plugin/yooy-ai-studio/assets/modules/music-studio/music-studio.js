@@ -6,7 +6,7 @@
 
   var state = {
     tab: 'create',
-    mode: 'custom',
+    mode: 'description',
     settings: {},
     schema: {},
     providers: [],
@@ -194,29 +194,31 @@
 
   function renderCreate(ws, ctrl, root) {
     var isCustom = state.mode === 'custom';
+    var SM = window.YooYStudioSimpleMode;
     ws.innerHTML = creditsBar() +
       '<div class="yms-header">' +
         (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('music') : '') +
-        '<h2>Music Studio</h2><span class="yms-badge">Suno Structure</span></div>' +
-      '<div class="yms-mode-toggle">' +
-        '<button class="yms-mode-btn' + (isCustom ? ' is-active' : '') + '" data-yms-mode="custom" type="button">Custom Mode</button>' +
-        '<button class="yms-mode-btn' + (!isCustom ? ' is-active' : '') + '" data-yms-mode="description" type="button">Simple Mode</button>' +
+        (SM ? SM.headerHtml('Music Studio', '분위기와 장르로 음악을 만들어보세요.') : '<h2>Music Studio</h2><p>분위기와 장르로 음악을 만들어보세요.</p>') +
       '</div>' +
       playerHtml() +
-      '<div class="yms-field"><label>Title</label><input data-yms-setting="title" value="' + esc(state.settings.title || '') + '" placeholder="트랙 제목"></div>' +
-      (isCustom
-        ? '<div class="yms-field"><label>Lyrics</label><div class="yms-structure-tags">' +
-            state.structures.map(function (s) {
-              return '<span class="yms-struct-tag" data-yms-structure="' + esc(s.id) + '">' + esc(s.label) + '</span>';
-            }).join('') +
-          '</div><textarea id="yms-lyrics" data-yms-setting="lyrics" placeholder="[Verse]&#10;가사를 입력하세요&#10;&#10;[Chorus]&#10;후렴 가사">' + esc(state.settings.lyrics || '') + '</textarea></div>'
-        : '<div class="yms-field"><label>Style Description</label><textarea id="yms-prompt" data-yms-setting="prompt" placeholder="K-pop, upbeat, female vocal, 128 BPM, synth">' + esc(state.settings.prompt || state.settings.style_prompt || '') + '</textarea></div>') +
-      '<div class="yms-field"><label>Negative Prompt</label><textarea data-yms-setting="negative_prompt" style="min-height:48px" placeholder="제외할 스타일">' + esc(state.settings.negative_prompt || '') + '</textarea></div>' +
-      '<button class="yms-btn-primary" id="yms-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' + (state.generating ? 'Creating...' : 'Create') + '</button>' +
+      '<div class="yms-field"><label for="yms-main-prompt">어떤 음악을 만들까요?</label>' +
+        (isCustom
+          ? '<div class="yms-structure-tags">' +
+              state.structures.map(function (s) {
+                return '<span class="yms-struct-tag" data-yms-structure="' + esc(s.id) + '">' + esc(s.label) + '</span>';
+              }).join('') +
+            '</div><textarea id="yms-lyrics" data-yms-setting="lyrics" placeholder="[Verse]&#10;가사를 입력하세요&#10;&#10;[Chorus]&#10;후렴 가사">' + esc(state.settings.lyrics || '') + '</textarea>'
+          : '<textarea id="yms-prompt" data-yms-setting="prompt" placeholder="예: 밝은 K-pop, 잔잔한 피아노, 여행 Vlog BGM…">' + esc(state.settings.prompt || state.settings.style_prompt || '') + '</textarea>') +
+      '</div>' +
+      '<p class="yms-field-error" id="yms-prompt-error" hidden>어떤 음악인지 설명해 주세요.</p>' +
+      '<button class="yms-btn-primary yai-btn-gold-primary" id="yms-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
+        (state.generating ? '음악 만드는 중…' : '음악 만들기') +
+      '</button>' +
       resultActionsHtml();
 
     ctrl.innerHTML = controlsHtml() + refHtml();
     mountRefAssets($('#yms-ref-panel-host', ctrl), 'music-studio');
+    if (SM) SM.bind(ctrl);
   }
 
   function mountRefAssets(host, studioKey) {
@@ -246,7 +248,7 @@
 
   function playerHtml() {
     if (state.generating) {
-      return '<div class="yms-player"><div class="yms-cover" style="display:flex;align-items:center;justify-content:center;color:#d8a63a">♪</div><div class="yms-player-info"><strong>Creating...</strong><span>음악을 생성 중입니다</span></div></div>';
+      return '<div class="yms-player"><div class="yms-cover" style="display:flex;align-items:center;justify-content:center;color:#d8a63a">♪</div><div class="yms-player-info"><strong>음악 만드는 중…</strong><span>잠시만 기다려 주세요</span></div></div>';
     }
     if (!state.lastResult || !state.lastResult.output) {
       return '<div class="yms-player"><div class="yms-cover" style="display:flex;align-items:center;justify-content:center;color:#555">♪</div><div class="yms-player-info"><strong>Preview</strong><span>음악을 생성하세요</span></div></div>';
@@ -263,9 +265,8 @@
 
   function controlsHtml() {
     var s = state.schema;
-    var prov = state.providers.map(function (p) {
-      return '<option value="' + esc(p.id) + '"' + ((state.settings.default_provider || 'auto') === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
-    }).join('');
+    var SM = window.YooYStudioSimpleMode;
+    var isCustom = state.mode === 'custom';
 
     function sel(key, label, items) {
       return '<div class="yms-field"><label>' + label + '</label><select data-yms-setting="' + key + '">' +
@@ -276,12 +277,31 @@
         }).join('') + '</select></div>';
     }
 
-    return '<h3 style="color:#d8a63a;font-size:13px;margin:0">MUSIC SETTINGS</h3>' +
-      sel('default_provider', 'Provider', state.providers.map(function (p) { return { id: p.id, label: p.name }; })) +
-      '<div class="yms-field-row">' + sel('genre', 'Genre', s.genres || []) + sel('mood', 'Mood', s.moods || []) + '</div>' +
-      '<div class="yms-field-row">' + sel('tempo', 'Tempo', s.tempos || []) + sel('instrument', 'Instrument', s.instruments || []) + '</div>' +
-      '<div class="yms-field-row">' + sel('vocal', 'Vocal', s.vocals || []) + sel('language', 'Language', s.languages || []) + '</div>' +
-      sel('duration', 'Duration', (s.durations || []).map(function (d) { return { id: d, label: d + 's' }; }));
+    var providerItems = state.providers.map(function (p) {
+      return { id: p.id, label: SM ? SM.providerOptionLabel(p.id, p.name) : p.name };
+    });
+
+    var essential =
+      '<h3 style="color:#d8a63a;font-size:13px;margin:0">기본 설정</h3>' +
+      sel('mood', '분위기', s.moods || []) +
+      sel('genre', '장르', s.genres || []) +
+      sel('duration', '길이', (s.durations || []).map(function (d) { return { id: d, label: d + '초' }; })) +
+      '<div class="yms-field"><label>가사</label><div class="yai-studio-simple-row">' +
+        '<button type="button" class="yai-studio-chip' + (!isCustom ? ' is-on' : '') + '" data-yms-mode="description">없음 (설명만)</button>' +
+        '<button type="button" class="yai-studio-chip' + (isCustom ? ' is-on' : '') + '" data-yms-mode="custom">있음 (가사 입력)</button>' +
+      '</div></div>';
+
+    var advancedInner =
+      sel('default_provider', '엔진', providerItems) +
+      '<div class="yms-field"><label>제목</label><input data-yms-setting="title" value="' + esc(state.settings.title || '') + '" placeholder="트랙 제목"></div>' +
+      sel('tempo', '템포', s.tempos || []) +
+      sel('instrument', '악기', s.instruments || []) +
+      sel('vocal', '보컬', s.vocals || []) +
+      sel('language', '언어', s.languages || []) +
+      '<div class="yms-field"><label>제외할 스타일</label><textarea data-yms-setting="negative_prompt" style="min-height:48px" placeholder="원하지 않는 분위기">' + esc(state.settings.negative_prompt || '') + '</textarea></div>';
+
+    if (SM) return essential + SM.detailsHtml('music', advancedInner);
+    return essential + '<details class="yai-studio-adv" data-studio-adv="music"><summary class="yai-studio-adv__summary">고급 설정 ▾</summary><div class="yai-studio-adv__body">' + advancedInner + '</div></details>';
   }
 
   function loadSkeleton(id, root) {
@@ -295,8 +315,16 @@
   function doGenerate(root) {
     var lyrics = ($('#yms-lyrics', root) || {}).value;
     var prompt = ($('#yms-prompt', root) || {}).value;
-    if (state.mode === 'custom' && !(lyrics || '').trim()) return;
-    if (state.mode === 'description' && !(prompt || '').trim()) return;
+    var errEl = $('#yms-prompt-error', root);
+    if (state.mode === 'custom' && !(lyrics || '').trim()) {
+      if (errEl) { errEl.hidden = false; errEl.textContent = '가사를 입력해 주세요.'; }
+      return;
+    }
+    if (state.mode === 'description' && !(prompt || '').trim()) {
+      if (errEl) { errEl.hidden = false; errEl.textContent = '어떤 음악인지 설명해 주세요.'; }
+      return;
+    }
+    if (errEl) errEl.hidden = true;
 
     state.generating = true;
     state.settings.mode = state.mode;

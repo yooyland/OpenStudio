@@ -132,7 +132,7 @@ final class YooY_Module_Translator_Studio extends YooY_Module_Base {
         wp_enqueue_script(
             'yoy-translator-studio',
             $base . 'translator-studio.js',
-            ['yoy-translator-api'],
+            ['yoy-translator-api', 'yoy-studio-simple-mode', 'yoy-studio-handoff'],
             file_exists($js) ? (string) filemtime($js) : $ver,
             true
         );
