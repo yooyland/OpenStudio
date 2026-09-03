@@ -102,6 +102,16 @@
     },
   ];
 
+  var STUDIO_RECOS = [
+    { id: 'image', route: 'image', title: '이미지 Studio', desc: '상상한 장면을 이미지로 만들어보세요.', art: 'image' },
+    { id: 'video', route: 'video', title: '영상 Studio', desc: '아이디어를 영상으로 완성해보세요.', art: 'video' },
+    { id: 'writing', route: 'writing', title: '글쓰기 Studio', desc: '블로그·카피·스크립트를 자연스럽게 쓰세요.', art: 'writing' },
+    { id: 'music', route: 'music', title: '음악 Studio', desc: '브랜드와 분위기에 맞는 BGM을 만드세요.', art: 'music' },
+    { id: 'voice', route: 'voice', title: '보이스 Studio', desc: '나레이션·TTS를 바로 들어보세요.', art: 'voice' },
+    { id: 'avatar', route: 'avatar', title: '아바타 Studio', desc: '캐릭터가 말하는 영상을 만들어보세요.', art: 'avatar' },
+    { id: 'translator', route: 'translator', title: '번역 Studio', desc: '문맥에 맞는 자연스러운 번역을 얻으세요.', art: 'translator' }
+  ];
+
   var HERO_CHIPS = [
     { label: '이미지 생성', studio: 'image', seed: '고품질 제품 사진을 만들어줘' },
     { label: '영상 만들기', studio: 'video', seed: '15초 광고 영상 스토리보드' },
@@ -113,12 +123,16 @@
   ];
 
   var QUICK_TOOLS = [
-    { label: 'AI 이미지 개선', studio: 'image', seed: '이미지 품질을 개선하고 선명하게' },
     { label: '배경 제거', studio: 'image', seed: '배경을 제거한 깔끔한 컷아웃' },
-    { label: '짧은 영상 만들기', studio: 'video', seed: '9:16 쇼츠 영상 10초' },
+    { label: 'AI 이미지 개선', studio: 'image', seed: '이미지 품질을 개선하고 선명하게' },
+    { label: '제품 광고 만들기', studio: 'image', seed: '프리미엄 제품 광고 포스터' },
+    { label: '사진을 영상으로', studio: 'video', seed: '사진을 기반으로 한 짧은 영상' },
+    { label: '쇼츠 만들기', studio: 'video', seed: '9:16 쇼츠 영상 10초' },
+    { label: 'SNS 포스터', studio: 'image', seed: '인스타그램용 SNS 포스터' },
     { label: '문서 요약', studio: 'writing', seed: '긴 문서를 3줄로 요약' },
     { label: '텍스트 번역', studio: 'translator', seed: '전문적인 톤으로 번역' },
-    { label: 'AI 음성 변환', studio: 'voice', seed: '텍스트를 자연스러운 음성으로' },
+    { label: '나레이션 만들기', studio: 'voice', seed: '텍스트를 자연스러운 나레이션으로' },
+    { label: '음악 커버 만들기', studio: 'music', seed: '브랜드용 밝은 커버 BGM' },
   ];
 
   function cloneDefaults() {
@@ -180,6 +194,7 @@
     DEFAULT_SECTIONS: DEFAULT_SECTIONS,
     HERO_CHIPS: HERO_CHIPS,
     QUICK_TOOLS: QUICK_TOOLS,
+    STUDIO_RECOS: STUDIO_RECOS,
     cloneDefaults: cloneDefaults,
     mapApiSection: mapApiSection,
     sectionsFromFeed: sectionsFromFeed,

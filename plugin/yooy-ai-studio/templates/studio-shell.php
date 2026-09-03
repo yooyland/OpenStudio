@@ -147,17 +147,15 @@ $studio_quick = [
         <div class="yai-sidebar-footer">
             <?php if ($is_logged_in) : ?>
                 <article class="yai-hd-credit-card" id="yai-sidebar-credit-card" aria-label="크레딧 현황">
-                    <h3>크레딧 현황</h3>
-                    <div class="yai-hd-credit-row">
-                        <span>전체 크레딧</span>
-                        <strong id="yai-credit-total">—</strong>
-                    </div>
-                    <div class="yai-hd-credit-row">
-                        <span>잔여 크레딧</span>
+                    <div class="yai-hd-credit-row yai-hd-credit-row--primary">
+                        <span>잔여</span>
                         <strong id="yai-credit-remaining">—</strong>
                     </div>
-                    <button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-route="credits">충전</button>
-                    <p class="yai-hd-credit-plan">현재 플랜: <strong id="yai-sidebar-plan-name"><?php echo esc_html($plan_label); ?></strong></p>
+                    <div class="yai-hd-credit-row yai-hd-credit-row--sub">
+                        <span>전체 <strong id="yai-credit-total">—</strong></span>
+                        <button type="button" class="yai-hd-credit-charge" data-route="credits">충전</button>
+                    </div>
+                    <span class="yai-sr-only" id="yai-sidebar-plan-name"><?php echo esc_html($plan_label); ?></span>
                 </article>
                 <nav class="yai-sidebar-util" aria-label="계정 메뉴">
                     <button type="button" data-route="settings"><?php echo YooY_UI_Icons::svg('settings', 16); ?> 설정</button>
@@ -214,59 +212,60 @@ $studio_quick = [
                 </div>
             </header>
 
-            <!-- HOME — YooY Studio Dashboard (config-driven) -->
+            <!-- HOME — Discovery + bottom composer (Phase 1) -->
             <section class="yai-view yai-view--home yai-hd-page" data-page="home">
-                <div class="yai-hd-layout<?php echo $is_admin ? '' : ' yai-hd-layout--full'; ?>">
+                <div class="yai-hd-layout yai-hd-layout--full">
                     <div class="yai-hd-main">
                         <header class="yai-hd-greeting">
                             <div>
                                 <h1 id="yai-hd-greeting-title">안녕하세요<?php echo $is_logged_in ? ', ' . esc_html($user->display_name ?: '크리에이터') . '님' : ''; ?>! 👋</h1>
-                                <p class="yai-hero-sub">오늘은 무엇을 만들어볼까요?</p>
+                                <p class="yai-hero-sub">상상한 것을 말하고, YooY가 Studio로 완성합니다.</p>
                             </div>
-                            <?php if ($is_logged_in) : ?>
-                            <div class="yai-hd-plan-wrap" id="yai-plan-dropdown-wrap">
-                                <button type="button" id="yai-pro-plan-btn" aria-haspopup="true" aria-expanded="false">Pro 플랜</button>
-                                <div class="yai-hd-plan-menu" id="yai-plan-dropdown-menu" role="menu" hidden>
-                                    <span class="yai-hd-plan-menu__label">현재 플랜</span>
-                                    <span class="yai-hd-plan-menu__current" id="yai-plan-dropdown-current"><?php echo esc_html($plan_label); ?></span>
-                                    <button type="button" role="menuitem" data-route="billing" data-plan-action="upgrade">업그레이드</button>
-                                    <button type="button" role="menuitem" data-route="billing" data-plan-action="downgrade">다운그레이드</button>
+                            <div class="yai-hd-greeting__actions">
+                                <?php if ($is_admin) : ?>
+                                <button type="button" class="yai-btn yai-btn--outline yai-btn--sm yai-hd-section-manage-btn" id="yai-section-manage-btn">섹션 관리</button>
+                                <?php endif; ?>
+                                <?php if ($is_logged_in) : ?>
+                                <div class="yai-hd-plan-wrap" id="yai-plan-dropdown-wrap">
+                                    <button type="button" id="yai-pro-plan-btn" aria-haspopup="true" aria-expanded="false">Pro 플랜 <span aria-hidden="true">▾</span></button>
+                                    <div class="yai-hd-plan-menu" id="yai-plan-dropdown-menu" role="menu" hidden>
+                                        <span class="yai-hd-plan-menu__label">현재 플랜</span>
+                                        <span class="yai-hd-plan-menu__current" id="yai-plan-dropdown-current"><?php echo esc_html($plan_label); ?></span>
+                                        <button type="button" role="menuitem" data-route="billing" data-plan-action="upgrade">업그레이드</button>
+                                        <button type="button" role="menuitem" data-route="billing" data-plan-action="downgrade">다운그레이드</button>
+                                    </div>
                                 </div>
+                                <?php endif; ?>
                             </div>
-                            <?php endif; ?>
                         </header>
 
-                        <section class="yai-hd-hero" aria-label="만들고 싶은 것을 입력하세요">
-                            <div class="yai-hd-hero__inner">
-                                <div class="yai-hd-hero__prompt">
-                                    <label for="yai-home-prompt">아이디어를 입력해 보세요</label>
-                                    <textarea id="yai-home-prompt" rows="3" placeholder="예: 여름 시즌 제품 포스터, 15초 쇼츠 영상, 블로그 소개 글…"></textarea>
-                                    <div class="yai-hd-hero__actions">
-                                        <button type="button" class="yai-btn yai-btn--outline" id="yai-home-coach">Prompt 보완</button>
-                                        <button type="button" class="yai-btn yai-btn--gold" id="yai-home-create"><?php echo YooY_UI_Icons::svg('spark', 16); ?> 빠른 시작</button>
-                                        <button type="button" class="yai-btn yai-btn--outline" data-route="assistant">AI Assistant</button>
-                                    </div>
-                                    <div class="yai-create-ux__coach" id="yai-home-coach-panel" hidden></div>
+                        <section class="yai-hd-studio-recos" aria-labelledby="yai-home-studio-recos-title">
+                            <header class="yai-hd-section__head">
+                                <div>
+                                    <h2 id="yai-home-studio-recos-title">추천 Studio</h2>
+                                    <p>원하는 결과를 고르면 됩니다. 모델·Provider를 몰라도 됩니다.</p>
                                 </div>
-                                <div class="yai-hd-hero__visual" aria-hidden="true">
-                                    <div class="yai-hd-hero__orb"></div>
-                                </div>
-                            </div>
-                            <div class="yai-hd-chips" id="yai-home-hero-chips" aria-label="추천 시작"></div>
+                            </header>
+                            <div class="yai-hd-studio-recos__row" id="yai-home-studio-recos"></div>
                         </section>
+
+                        <div id="yai-home-sections-root" aria-label="홈 섹션"></div>
 
                         <section class="yai-hd-quick-block" aria-label="빠른 도구">
                             <h2>빠른 도구</h2>
                             <div class="yai-hd-quick-row" id="yai-home-quick-tools"></div>
                         </section>
-
-                        <div id="yai-home-sections-root" aria-label="홈 섹션"></div>
                     </div>
-
-                    <aside class="yai-hd-aside" aria-label="섹션 관리"<?php echo $is_admin ? '' : ' hidden'; ?>>
-                        <div class="yai-hd-manager" id="yai-home-section-manager"></div>
-                    </aside>
                 </div>
+
+                <div class="yai-hd-drawer-overlay" id="yai-section-drawer-overlay" hidden></div>
+                <aside class="yai-hd-drawer" id="yai-section-drawer" aria-label="섹션 관리" hidden>
+                    <header class="yai-hd-drawer__head">
+                        <h3>섹션 관리</h3>
+                        <button type="button" class="yai-hd-drawer__close" id="yai-section-drawer-close" aria-label="닫기">×</button>
+                    </header>
+                    <div class="yai-hd-manager" id="yai-home-section-manager"></div>
+                </aside>
 
                 <!-- Legacy hooks for studio.js data loaders (hidden, non-visual) -->
                 <div class="yai-sr-only" aria-hidden="true">
@@ -279,6 +278,7 @@ $studio_quick = [
                     <div id="yai-home-community-trending"></div>
                     <div id="yai-home-announcements"></div>
                     <div id="yai-showcase"></div>
+                    <div id="yai-home-hero-chips"></div>
                     <strong id="yai-stat-credits"></strong>
                     <strong id="yai-stat-projects"></strong>
                     <strong id="yai-stat-works"></strong>
@@ -286,6 +286,31 @@ $studio_quick = [
                     <em id="yai-stat-credit-usage"></em>
                 </div>
             </section>
+
+            <!-- Fixed bottom creation composer (Home only) -->
+            <div class="yai-home-composer" id="yai-home-bottom-composer" hidden data-home-composer>
+                <div class="yai-home-composer__inner">
+                    <div class="yai-home-composer__plus-wrap">
+                        <button type="button" class="yai-home-composer__plus" id="yai-home-composer-plus" aria-label="첨부 메뉴" aria-expanded="false" aria-haspopup="true">+</button>
+                        <div class="yai-home-composer__plus-menu" id="yai-home-composer-plus-menu" role="menu" hidden>
+                            <button type="button" role="menuitem" data-home-attach="image">이미지 업로드</button>
+                            <button type="button" role="menuitem" data-home-attach="file">파일 업로드</button>
+                            <button type="button" role="menuitem" data-home-attach="url">URL 가져오기</button>
+                        </div>
+                    </div>
+                    <div class="yai-home-composer__field">
+                        <label class="yai-sr-only" for="yai-home-prompt">만들고 싶은 것</label>
+                        <textarea id="yai-home-prompt" rows="1" placeholder="무엇을 만들고 싶으신가요?"></textarea>
+                        <div class="yai-home-composer__pills">
+                            <button type="button" class="yai-home-composer__pill" id="yai-home-coach" aria-pressed="false">✨ 프롬프트 자동보완</button>
+                            <button type="button" class="yai-home-composer__pill is-on" id="yai-home-studio-auto" aria-pressed="true">◎ Studio 자동 선택</button>
+                        </div>
+                        <div class="yai-create-ux__coach" id="yai-home-coach-panel" hidden></div>
+                    </div>
+                    <button type="button" class="yai-home-composer__submit" id="yai-home-create">생성하기 →</button>
+                </div>
+                <p class="yai-home-composer__hint">예: 여름 바닷가 화장품 광고 이미지 만들어줘</p>
+            </div>
 
             <!-- PAGES -->
             <section class="yai-view" data-page="projects">

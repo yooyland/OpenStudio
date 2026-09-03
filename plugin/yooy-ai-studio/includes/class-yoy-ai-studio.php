@@ -110,6 +110,13 @@ final class YooY_AI_Studio {
             YOY_AI_STUDIO_VERSION
         );
 
+        wp_enqueue_style(
+            'yoy-home-bottom-composer',
+            YOY_AI_STUDIO_URL . 'assets/css/home-bottom-composer.css',
+            ['yoy-home-dashboard'],
+            YOY_AI_STUDIO_VERSION
+        );
+
         wp_enqueue_script(
             'yoy-home-dashboard-config',
             YOY_AI_STUDIO_URL . 'assets/js/home-dashboard-config.js',
@@ -122,6 +129,14 @@ final class YooY_AI_Studio {
             'yoy-home-dashboard',
             YOY_AI_STUDIO_URL . 'assets/js/home-dashboard.js',
             ['yoy-home-dashboard-config'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'yoy-home-bottom-composer',
+            YOY_AI_STUDIO_URL . 'assets/js/home-bottom-composer.js',
+            ['yoy-home-dashboard'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -205,7 +220,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-bottom-composer'],
             YOY_AI_STUDIO_VERSION,
             true
         );

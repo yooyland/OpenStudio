@@ -812,6 +812,9 @@
       window.YooYNavigation.setCurrent(name);
       window.YooYNavigation.bindChrome();
     }
+    if (window.YooYHomeBottomComposer && typeof window.YooYHomeBottomComposer.sync === 'function') {
+      window.YooYHomeBottomComposer.sync(name);
+    }
     hydrate(name);
     syncProjectContextBanner(name);
   }
@@ -1396,6 +1399,14 @@
         presetStudio = preset;
       }
       var studio = resolveStudioFromPrompt(prompt, presetStudio);
+      try {
+        var storedStudio = sessionStorage.getItem('yoy_home_studio');
+        var autoOn = !(window.YooYHomeBottomComposer && typeof window.YooYHomeBottomComposer.isStudioAuto === 'function') ||
+          window.YooYHomeBottomComposer.isStudioAuto();
+        if (!autoOn && storedStudio) {
+          studio = storedStudio;
+        }
+      } catch (autoErr) { /* ignore */ }
       if (prompt) {
         var full = presetCtx ? (prompt + ' — ' + presetCtx) : prompt;
         try {

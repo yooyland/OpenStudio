@@ -12,6 +12,7 @@
     feed: {},
     account: {},
     planMenuOpen: false,
+    sectionDrawerOpen: false,
     serverConfigured: false,
   };
 
@@ -79,46 +80,109 @@
     return '';
   }
 
-  function thumbHtml(item) {
-    var url = item.thumbnail_url || item.display_url || item.large_url || item.cover || '';
-    if (url) {
-      return '<div class="yai-hd-thumb"><img src="' + esc(url) + '" alt="" loading="lazy"></div>';
-    }
-    return '<div class="yai-hd-thumb yai-hd-thumb--empty" aria-hidden="true">✦</div>';
+  function mediaTypeOf(item) {
+    var t = String(item.type || item.media_type || item.work_type || '').toLowerCase();
+    if (t.indexOf('video') >= 0) return 'video';
+    if (t.indexOf('audio') >= 0 || t.indexOf('music') >= 0 || t.indexOf('voice') >= 0) return 'audio';
+    if (t.indexOf('writ') >= 0 || t.indexOf('text') >= 0 || t.indexOf('blog') >= 0) return 'writing';
+    return 'image';
   }
 
-  function galleryCard(item) {
+  function typeBadgeLabel(type) {
+    var map = { video: '영상', audio: '오디오', writing: '글쓰기', image: '이미지' };
+    return map[type] || '작품';
+  }
+
+  function skeletonIcon(type) {
+    var map = {
+      video: '▶',
+      audio: '♪',
+      writing: '✎',
+      image: '◈',
+    };
+    return map[type] || '◈';
+  }
+
+  function thumbUrl(item) {
+    return item.thumbnail_url || item.display_url || item.large_url || item.cover || item.preview_url || '';
+  }
+
+  function thumbHtml(item, section) {
+    var type = mediaTypeOf(item);
+    var badge = '<span class="yai-hd-type-badge">' + esc(typeBadgeLabel(type)) + '</span>';
+    var url = thumbUrl(item);
+    var ratioCls = '';
+    var play = '';
+    if (section) {
+      var ratio = section.card_ratio || 'auto';
+      if (ratio === 'portrait' || ratio === '3/4') ratioCls = ' yai-hd-thumb--portrait';
+      else if (ratio === 'wide' || ratio === 'landscape' || ratio === '16/9') ratioCls = ' yai-hd-thumb--landscape';
+      else if (type === 'writing') ratioCls = ' yai-hd-thumb--writing';
+      else if (type === 'video' || type === 'audio') ratioCls = ' yai-hd-thumb--landscape';
+    }
+    if (type === 'video') {
+      play = '<span class="yai-hd-thumb__play" aria-hidden="true">▶</span>';
+      if (item.duration || item.duration_label) {
+        play += '<span class="yai-hd-thumb__duration">' + esc(String(item.duration_label || item.duration)) + '</span>';
+      }
+    }
+    if (url) {
+      return '<div class="yai-hd-thumb yai-hd-thumb--' + type + ratioCls + '">' +
+        '<img src="' + esc(url) + '" alt="" loading="lazy">' + play + badge + '</div>';
+    }
+    return '<div class="yai-hd-thumb yai-hd-thumb--skeleton yai-hd-thumb--' + type + ratioCls + '" aria-hidden="true">' +
+      '<span class="yai-hd-thumb__skeleton-icon">' + skeletonIcon(type) + '</span>' +
+      '<span class="yai-hd-thumb__shimmer"></span>' + play + badge + '</div>';
+  }
+
+  function galleryCard(item, section) {
     var title = item.title || item.name || '작품';
     var id = item.id || '';
-    return '<article class="yai-hd-card yai-hd-card--gallery" data-work-id="' + esc(id) + '" tabindex="0" role="button">' +
-      thumbHtml(item) +
-      '<div class="yai-hd-card__body"><strong>' + esc(title) + '</strong></div>' +
+    var type = mediaTypeOf(item);
+    var likes = item.likes != null ? item.likes : (item.like_count != null ? item.like_count : null);
+    var meta = '';
+    if (likes != null) {
+      meta = '<div class="yai-hd-card__meta"><span class="yai-hd-card__likes">♥ ' + esc(String(likes)) + '</span></div>';
+    }
+    return '<article class="yai-hd-card yai-hd-card--gallery yai-hd-card--' + type + '" data-work-id="' + esc(id) + '" tabindex="0" role="button">' +
+      thumbHtml(item, section) +
+      '<div class="yai-hd-card__body"><strong>' + esc(title) + '</strong>' + meta + '</div>' +
     '</article>';
   }
 
-  function projectCard(item) {
+  function projectCard(item, section) {
     var title = item.title || item.name || 'Project';
     var id = item.id || '';
     return '<article class="yai-hd-card yai-hd-card--gallery" data-project-open="' + esc(id) + '" tabindex="0" role="button">' +
-      thumbHtml(item) +
+      thumbHtml(item, section) +
       '<div class="yai-hd-card__body"><strong>' + esc(title) + '</strong><span>Project</span></div>' +
     '</article>';
   }
 
-  function templateCard(item) {
+  function templateCard(item, section) {
     var title = item.title || item.label || item.name || '템플릿';
     var seed = item.seed || item.seed_prompt || item.prompt || title;
-    return '<article class="yai-hd-card yai-hd-card--template" data-template-seed="' + esc(seed) + '" tabindex="0" role="button">' +
-      thumbHtml(item) +
+    return '<article class="yai-hd-card yai-hd-card--template yai-hd-card--' + mediaTypeOf(item) + '" data-template-seed="' + esc(seed) + '" tabindex="0" role="button">' +
+      thumbHtml(item, section) +
       '<div class="yai-hd-card__body"><strong>' + esc(title) + '</strong><span>바로 사용</span></div>' +
     '</article>';
+  }
+
+  function recentIcon(item) {
+    var type = mediaTypeOf(item);
+    var map = { video: '▶', audio: '♪', writing: '✎', image: '◈' };
+    return map[type] || '◈';
   }
 
   function recentRow(item) {
     var title = item.title || item.type_label || item.type || '작업';
     var status = item.status || 'active';
-    return '<article class="yai-hd-recent" data-job-id="' + esc(item.id || '') + '">' +
-      '<div class="yai-hd-recent__icon" aria-hidden="true">◆</div>' +
+    var thumb = thumbUrl(item);
+    var thumbBlock = thumb
+      ? '<div class="yai-hd-recent__thumb"><img src="' + esc(thumb) + '" alt="" loading="lazy"></div>'
+      : '<div class="yai-hd-recent__thumb yai-hd-recent__thumb--skeleton"><span>' + recentIcon(item) + '</span></div>';
+    return '<article class="yai-hd-recent yai-hd-recent--' + mediaTypeOf(item) + '" data-job-id="' + esc(item.id || '') + '">' +
+      thumbBlock +
       '<div class="yai-hd-recent__body"><strong>' + esc(title) + '</strong><span>' + esc(status) + '</span></div>' +
       '<button type="button" class="yai-text-btn" data-route="history">열기</button>' +
     '</article>';
@@ -126,9 +190,9 @@
 
   function guideBlock() {
     return '<div class="yai-hd-guide-grid">' +
-      '<article class="yai-hd-guide-card"><span>1</span><strong>아이디어 입력</strong><p>히어로 입력창에 만들고 싶은 것을 적어 보세요.</p></article>' +
-      '<article class="yai-hd-guide-card"><span>2</span><strong>스튜디오 선택</strong><p>추천 칩이나 빠른 도구로 Image·Video 등을 고르세요.</p></article>' +
-      '<article class="yai-hd-guide-card"><span>3</span><strong>결과 저장</strong><p>Gallery와 Project에 자동으로 정리됩니다.</p></article>' +
+      '<article class="yai-hd-guide-card"><span>1</span><strong>원하는 것을 말하세요</strong><p>하단 생성 바에 만들고 싶은 결과를 적어 보세요.</p></article>' +
+      '<article class="yai-hd-guide-card"><span>2</span><strong>Studio는 YooY가 고릅니다</strong><p>자동 선택으로 Studio에 연결하거나 추천 카드를 눌러 시작하세요.</p></article>' +
+      '<article class="yai-hd-guide-card"><span>3</span><strong>결과는 Gallery에</strong><p>작품은 Gallery와 Project에 정리됩니다.</p></article>' +
     '</div>';
   }
 
@@ -170,17 +234,17 @@
         ? section.projects
         : (feed && feed.projects) || [];
       body = projects.length
-        ? '<div class="' + layout + '">' + projects.slice(0, limit).map(projectCard).join('') + '</div>'
+        ? '<div class="' + layout + '">' + projects.slice(0, limit).map(function (p) { return projectCard(p, section); }).join('') + '</div>'
         : emptySectionCopy(section);
     } else if (dt === 'template') {
       var tpl = sectionWorks(section, feed).slice(0, limit);
       body = tpl.length
-        ? '<div class="' + layout + '">' + tpl.map(templateCard).join('') + '</div>'
+        ? '<div class="' + layout + '">' + tpl.map(function (t) { return templateCard(t, section); }).join('') + '</div>'
         : emptySectionCopy(section);
     } else {
       var works = sectionWorks(section, feed).slice(0, limit);
       body = works.length
-        ? '<div class="' + layout + '">' + works.map(galleryCard).join('') + '</div>'
+        ? '<div class="' + layout + '">' + works.map(function (w) { return galleryCard(w, section); }).join('') + '</div>'
         : emptySectionCopy(section);
     }
 
@@ -215,18 +279,18 @@
   }
 
   function renderSectionManager() {
-    var aside = document.querySelector('.yai-hd-aside');
     var panel = document.getElementById('yai-home-section-manager');
+    var manageBtn = document.getElementById('yai-section-manage-btn');
     if (!panel) return;
 
     if (!isAdmin()) {
-      if (aside) aside.hidden = true;
-      var layout = document.querySelector('.yai-hd-layout');
-      if (layout) layout.classList.add('yai-hd-layout--full');
+      if (manageBtn) manageBtn.hidden = true;
+      closeSectionDrawer();
       return;
     }
 
-    if (aside) aside.hidden = false;
+    if (manageBtn) manageBtn.hidden = false;
+
     var sorted = sortedVisibleSections().concat(
       (state.sections || []).filter(function (s) { return s.visible === false; })
     ).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
@@ -236,7 +300,7 @@
       : '서버 설정 없음 — 기본 섹션 레이아웃을 사용 중입니다.';
 
     panel.innerHTML =
-      '<header class="yai-hd-manager__head"><h3>섹션 관리</h3><p class="yai-muted">' + esc(configNote) + '</p></header>' +
+      '<p class="yai-muted yai-hd-manager__note">' + esc(configNote) + '</p>' +
       '<div class="yai-hd-manager__list">' + sorted.map(function (s) {
         return '<div class="yai-hd-manager__row yai-hd-manager__row--readonly">' +
           '<span class="yai-hd-manager__title">' + esc(s.title) + '</span>' +
@@ -249,10 +313,87 @@
       '</footer>';
   }
 
+  function openSectionDrawer() {
+    if (!isAdmin()) return;
+    state.sectionDrawerOpen = true;
+    var drawer = document.getElementById('yai-section-drawer');
+    var overlay = document.getElementById('yai-section-drawer-overlay');
+    if (drawer) {
+      drawer.hidden = false;
+      requestAnimationFrame(function () { drawer.classList.add('is-open'); });
+    }
+    if (overlay) {
+      overlay.hidden = false;
+      requestAnimationFrame(function () { overlay.classList.add('is-visible'); });
+    }
+    document.body.classList.add('yai-hd-drawer-open');
+  }
+
+  function closeSectionDrawer() {
+    state.sectionDrawerOpen = false;
+    var drawer = document.getElementById('yai-section-drawer');
+    var overlay = document.getElementById('yai-section-drawer-overlay');
+    if (drawer) {
+      drawer.classList.remove('is-open');
+      setTimeout(function () {
+        if (!state.sectionDrawerOpen) drawer.hidden = true;
+      }, 280);
+    }
+    if (overlay) {
+      overlay.classList.remove('is-visible');
+      setTimeout(function () {
+        if (!state.sectionDrawerOpen) overlay.hidden = true;
+      }, 280);
+    }
+    document.body.classList.remove('yai-hd-drawer-open');
+  }
+
+  function bindSectionDrawer() {
+    var openBtn = document.getElementById('yai-section-manage-btn');
+    var closeBtn = document.getElementById('yai-section-drawer-close');
+    var overlay = document.getElementById('yai-section-drawer-overlay');
+
+    if (openBtn && openBtn.dataset.bound !== '1') {
+      openBtn.dataset.bound = '1';
+      openBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (state.sectionDrawerOpen) closeSectionDrawer();
+        else openSectionDrawer();
+      });
+    }
+    if (closeBtn && closeBtn.dataset.bound !== '1') {
+      closeBtn.dataset.bound = '1';
+      closeBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        closeSectionDrawer();
+      });
+    }
+    if (overlay && overlay.dataset.bound !== '1') {
+      overlay.dataset.bound = '1';
+      overlay.addEventListener('click', function () { closeSectionDrawer(); });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && state.sectionDrawerOpen) closeSectionDrawer();
+    });
+  }
+
+  function renderStudioRecos() {
+    var el = document.getElementById('yai-home-studio-recos');
+    if (!el || !CFG.STUDIO_RECOS) return;
+    el.innerHTML = CFG.STUDIO_RECOS.map(function (s) {
+      return '<button type="button" class="yai-hd-studio-card yai-hd-studio-card--' + esc(s.art || s.id) + '" data-studio-reco="' + esc(s.route) + '">' +
+        '<span class="yai-hd-studio-card__art" aria-hidden="true"></span>' +
+        '<span class="yai-hd-studio-card__body">' +
+          '<strong>' + esc(s.title) + '</strong>' +
+          '<span>' + esc(s.desc) + '</span>' +
+        '</span></button>';
+    }).join('');
+  }
+
   function renderHeroChips() {
     var el = document.getElementById('yai-home-hero-chips');
     if (!el) return;
-    el.innerHTML = CFG.HERO_CHIPS.map(function (chip) {
+    el.innerHTML = (CFG.HERO_CHIPS || []).map(function (chip) {
       return '<button type="button" class="yai-hd-chip" data-hero-chip data-studio="' + esc(chip.studio) + '" data-seed="' + esc(chip.seed) + '">' + esc(chip.label) + '</button>';
     }).join('');
   }
@@ -268,7 +409,10 @@
 
   function applySeedToHero(seed, studio) {
     var input = document.getElementById('yai-home-prompt');
-    if (input && seed) input.value = seed;
+    if (input && seed) {
+      input.value = seed;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
     try {
       if (seed) sessionStorage.setItem('yoy_home_prompt', seed);
       if (studio) sessionStorage.setItem('yoy_home_studio', studio);
@@ -277,6 +421,13 @@
 
   function bindHeroAndTools() {
     document.addEventListener('click', function (e) {
+      var reco = e.target.closest('[data-studio-reco]');
+      if (reco) {
+        e.preventDefault();
+        var routeName = reco.getAttribute('data-studio-reco');
+        if (global.YooYStudioRoute && routeName) global.YooYStudioRoute(routeName);
+        return;
+      }
       var chip = e.target.closest('[data-hero-chip]');
       if (chip) {
         e.preventDefault();
@@ -310,14 +461,8 @@
   function updatePlanDropdown(acc) {
     acc = acc || state.account || {};
     var planName = acc.plan_name || acc.tier || 'Free';
-    var planId = String(acc.plan || acc.tier || 'free').toLowerCase();
     var current = document.getElementById('yai-plan-dropdown-current');
     if (current) current.textContent = planName;
-
-    var btn = document.getElementById('yai-pro-plan-btn');
-    if (btn) {
-      btn.textContent = planId === 'free' ? 'Pro 플랜' : (planName + ' ▾');
-    }
 
     var sidebarPlan = document.getElementById('yai-sidebar-plan-name');
     if (sidebarPlan) sidebarPlan.textContent = planName;
@@ -392,12 +537,14 @@
   }
 
   function init() {
+    renderStudioRecos();
     renderHeroChips();
     renderQuickTools();
     renderSectionManager();
     renderSections();
     bindHeroAndTools();
     bindPlanDropdown();
+    bindSectionDrawer();
     updateGreeting();
   }
 
