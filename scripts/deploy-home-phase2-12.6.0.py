@@ -71,7 +71,7 @@ def main() -> int:
         ensure_dir(sftp, os.path.dirname(remote_path))
         sftp.put(str(local_path), remote_path)
         st = sftp.stat(remote_path)
-        uploaded.append((remote_rel, int(st.st_size), float(st.mtime)))
+        uploaded.append((remote_rel, int(st.st_size), float(st.st_mtime)))
 
     sftp.close()
     transport.close()
