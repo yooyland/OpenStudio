@@ -1828,10 +1828,53 @@
           if (payload.reference_assets && payload.reference_assets.length) {
             sessionStorage.setItem('yoy_reference_asset', JSON.stringify(payload.reference_assets[0]));
           }
+          var remixShell = {
+            source: 'home_remix',
+            gallery_id: workId,
+            id: workId,
+            type: payload.type || '',
+            studio: payload.studio || '',
+            prompt: payload.prompt || payload.source_prompt || '',
+            thumbnail_url: payload.thumbnail_url || '',
+            preview_url: payload.preview_url || payload.thumbnail_url || '',
+            aspect_ratio: payload.aspect_ratio || '',
+            style: payload.style || null,
+            provider: payload.provider || '',
+            model: payload.model || '',
+            project_id: payload.project_id || '',
+            reference_assets: payload.reference_assets || [],
+            content_type: payload.type || ''
+          };
+          try {
+            var existing = sessionStorage.getItem('yoy_home_remix');
+            if (existing) {
+              var prev = JSON.parse(existing);
+              if (prev && prev.gallery_id === workId) {
+                Object.keys(prev).forEach(function (k) {
+                  if (remixShell[k] == null || remixShell[k] === '') remixShell[k] = prev[k];
+                });
+              }
+            }
+          } catch (mergeErr) { /* ignore */ }
+          sessionStorage.setItem('yoy_home_remix', JSON.stringify(remixShell));
         } catch (e) { /* ignore */ }
         routeToStudioFromWork(payload, 'image');
-        showToast('프롬프트를 불러왔습니다.');
-      }).catch(function (err) { showToast(err.message || '재사용에 실패했습니다.', true); });
+        showToast('선택한 작품 컨텍스트로 Studio를 엽니다.');
+      }).catch(function (err) {
+        try {
+          var shellRaw = sessionStorage.getItem('yoy_home_remix');
+          if (shellRaw) {
+            var shell = JSON.parse(shellRaw);
+            if (shell && String(shell.gallery_id || shell.id) === String(workId)) {
+              sessionStorage.setItem('yoy_regenerate', shellRaw);
+              routeToStudioFromWork(shell, shell.studio || shell.type || 'image');
+              showToast('선택한 작품 컨텍스트로 Studio를 엽니다.');
+              return;
+            }
+          }
+        } catch (fallbackErr) { /* ignore */ }
+        showToast(err.message || '재사용에 실패했습니다.', true);
+      });
       return;
     }
     if (action === 'download') {

@@ -11,6 +11,7 @@
     sections: CFG.cloneDefaults(),
     feed: {},
     account: {},
+    workById: {},
     planMenuOpen: false,
     sectionDrawerOpen: false,
     serverConfigured: false,
@@ -81,30 +82,114 @@
   }
 
   function mediaTypeOf(item) {
-    var t = String(item.type || item.media_type || item.work_type || '').toLowerCase();
+    var t = String(item.type || item.media_type || item.work_type || item.asset_type || '').toLowerCase();
     if (t.indexOf('video') >= 0) return 'video';
-    if (t.indexOf('audio') >= 0 || t.indexOf('music') >= 0 || t.indexOf('voice') >= 0) return 'audio';
+    if (t.indexOf('avatar') >= 0) return 'avatar';
+    if (t.indexOf('voice') >= 0 || t.indexOf('tts') >= 0 || t.indexOf('speech') >= 0) return 'voice';
+    if (t.indexOf('music') >= 0 || t.indexOf('song') >= 0 || t.indexOf('bgm') >= 0) return 'music';
+    if (t.indexOf('audio') >= 0) return 'music';
+    if (t.indexOf('translat') >= 0 || t.indexOf('language') >= 0) return 'translator';
     if (t.indexOf('writ') >= 0 || t.indexOf('text') >= 0 || t.indexOf('blog') >= 0) return 'writing';
     return 'image';
   }
 
   function typeBadgeLabel(type) {
-    var map = { video: '영상', audio: '오디오', writing: '글쓰기', image: '이미지' };
+    var map = {
+      video: '영상',
+      music: '음악',
+      voice: '보이스',
+      avatar: '아바타',
+      writing: '글쓰기',
+      translator: '번역',
+      image: '이미지',
+      audio: '오디오'
+    };
     return map[type] || '작품';
   }
 
   function skeletonIcon(type) {
     var map = {
       video: '▶',
-      audio: '♪',
+      music: '♪',
+      voice: '◎',
+      avatar: '☺',
       writing: '✎',
+      translator: '文',
       image: '◈',
+      audio: '♪'
     };
     return map[type] || '◈';
   }
 
+  function primaryCtaLabel(type) {
+    switch (type) {
+      case 'video': return '이 영상처럼 만들기';
+      case 'music': return '이 스타일로 만들기';
+      case 'voice': return '이 스타일로 만들기';
+      case 'writing': return '이 형식으로 쓰기';
+      case 'translator': return '이 형식으로 번역하기';
+      case 'avatar': return '이 캐릭터로 만들기';
+      default: return '따라 만들기';
+    }
+  }
+
+  function studioRouteForType(type) {
+    switch (type) {
+      case 'video': return 'video';
+      case 'music': return 'music';
+      case 'voice': return 'voice';
+      case 'writing': return 'writing';
+      case 'translator': return 'translator';
+      case 'avatar': return 'avatar';
+      default: return 'image';
+    }
+  }
+
   function thumbUrl(item) {
-    return item.thumbnail_url || item.display_url || item.large_url || item.cover || item.preview_url || '';
+    return item.thumbnail_url || item.display_url || item.large_url || item.cover || item.preview_url || item.url || '';
+  }
+
+  function rememberWork(item) {
+    if (!item) return;
+    var id = item.id || item.gallery_id || '';
+    if (id) state.workById[id] = item;
+  }
+
+  function buildRemixShell(item) {
+    item = item || {};
+    var type = mediaTypeOf(item);
+    var id = item.id || item.gallery_id || '';
+    var preview = thumbUrl(item);
+    return {
+      source: 'home_remix',
+      gallery_id: id,
+      id: id,
+      type: type,
+      studio: studioRouteForType(type),
+      prompt: item.prompt || item.source_prompt || item.seed_prompt || item.title || '',
+      thumbnail_url: preview,
+      preview_url: item.preview_url || item.display_url || preview,
+      aspect_ratio: item.aspect_ratio || item.ratio || item.card_ratio || '',
+      style: item.style || item.style_meta || item.style_preset || null,
+      provider: item.provider || item.provider_id || '',
+      model: item.model || item.model_id || '',
+      project_id: item.project_id || '',
+      reference_assets: preview ? [{ gallery_id: id, url: preview, type: type }] : [],
+      content_type: type
+    };
+  }
+
+  function storeRemixShell(item) {
+    var shell = buildRemixShell(item);
+    try {
+      sessionStorage.setItem('yoy_home_remix', JSON.stringify(shell));
+      if (shell.prompt) sessionStorage.setItem('yoy_home_prompt', shell.prompt);
+      if (shell.studio) sessionStorage.setItem('yoy_home_studio', shell.studio);
+      if (shell.reference_assets && shell.reference_assets[0]) {
+        sessionStorage.setItem('yoy_reference_asset', JSON.stringify(shell.reference_assets[0]));
+      }
+    } catch (e) { /* noop */ }
+    return shell;
   }
 
   function thumbHtml(item, section) {
@@ -113,12 +198,13 @@
     var url = thumbUrl(item);
     var ratioCls = '';
     var play = '';
+    var wave = '';
     if (section) {
       var ratio = section.card_ratio || 'auto';
       if (ratio === 'portrait' || ratio === '3/4') ratioCls = ' yai-hd-thumb--portrait';
       else if (ratio === 'wide' || ratio === 'landscape' || ratio === '16/9') ratioCls = ' yai-hd-thumb--landscape';
-      else if (type === 'writing') ratioCls = ' yai-hd-thumb--writing';
-      else if (type === 'video' || type === 'audio') ratioCls = ' yai-hd-thumb--landscape';
+      else if (type === 'writing' || type === 'translator') ratioCls = ' yai-hd-thumb--writing';
+      else if (type === 'video' || type === 'music' || type === 'voice') ratioCls = ' yai-hd-thumb--landscape';
     }
     if (type === 'video') {
       play = '<span class="yai-hd-thumb__play" aria-hidden="true">▶</span>';
@@ -126,26 +212,52 @@
         play += '<span class="yai-hd-thumb__duration">' + esc(String(item.duration_label || item.duration)) + '</span>';
       }
     }
+    if (type === 'music' || type === 'voice') {
+      wave = '<span class="yai-hd-thumb__wave" aria-hidden="true"></span>';
+    }
     if (url) {
       return '<div class="yai-hd-thumb yai-hd-thumb--' + type + ratioCls + '">' +
-        '<img src="' + esc(url) + '" alt="" loading="lazy">' + play + badge + '</div>';
+        '<img src="' + esc(url) + '" alt="" loading="lazy">' + play + wave + badge + '</div>';
     }
     return '<div class="yai-hd-thumb yai-hd-thumb--skeleton yai-hd-thumb--' + type + ratioCls + '" aria-hidden="true">' +
       '<span class="yai-hd-thumb__skeleton-icon">' + skeletonIcon(type) + '</span>' +
-      '<span class="yai-hd-thumb__shimmer"></span>' + play + badge + '</div>';
+      '<span class="yai-hd-thumb__shimmer"></span>' + play + wave + badge + '</div>';
+  }
+
+  function cardOverlayHtml(item) {
+    var id = item.id || item.gallery_id || '';
+    var type = mediaTypeOf(item);
+    var cta = primaryCtaLabel(type);
+    return '<div class="yai-hd-card__overlay">' +
+      '<button type="button" class="yai-hd-card__cta" data-home-remix data-work-action="regenerate" data-work-id="' + esc(id) + '">' + esc(cta) + '</button>' +
+      '<div class="yai-hd-card__more-wrap">' +
+        '<button type="button" class="yai-hd-card__more" data-home-more aria-label="더보기" aria-expanded="false" aria-haspopup="true">⋯</button>' +
+        '<div class="yai-hd-card__more-menu" role="menu" hidden>' +
+          '<button type="button" role="menuitem" data-work-action="open" data-work-id="' + esc(id) + '">상세 보기</button>' +
+          '<button type="button" role="menuitem" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트에 추가</button>' +
+          '<button type="button" role="menuitem" data-work-action="download" data-work-id="' + esc(id) + '">다운로드</button>' +
+          '<button type="button" role="menuitem" data-work-action="regenerate" data-work-id="' + esc(id) + '" data-home-remix>복제</button>' +
+          '<button type="button" role="menuitem" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
   }
 
   function galleryCard(item, section) {
+    rememberWork(item);
     var title = item.title || item.name || '작품';
-    var id = item.id || '';
+    var id = item.id || item.gallery_id || '';
     var type = mediaTypeOf(item);
     var likes = item.likes != null ? item.likes : (item.like_count != null ? item.like_count : null);
     var meta = '';
     if (likes != null) {
       meta = '<div class="yai-hd-card__meta"><span class="yai-hd-card__likes">♥ ' + esc(String(likes)) + '</span></div>';
     }
-    return '<article class="yai-hd-card yai-hd-card--gallery yai-hd-card--' + type + '" data-work-id="' + esc(id) + '" tabindex="0" role="button">' +
-      thumbHtml(item, section) +
+    return '<article class="yai-hd-card yai-hd-card--gallery yai-hd-card--' + type + '" data-gallery-id="' + esc(id) + '">' +
+      '<div class="yai-hd-card__media">' +
+        thumbHtml(item, section) +
+        cardOverlayHtml(item) +
+      '</div>' +
       '<div class="yai-hd-card__body"><strong>' + esc(title) + '</strong>' + meta + '</div>' +
     '</article>';
   }
@@ -169,9 +281,7 @@
   }
 
   function recentIcon(item) {
-    var type = mediaTypeOf(item);
-    var map = { video: '▶', audio: '♪', writing: '✎', image: '◈' };
-    return map[type] || '◈';
+    return skeletonIcon(mediaTypeOf(item));
   }
 
   function recentRow(item) {
@@ -419,8 +529,57 @@
     } catch (e) { /* noop */ }
   }
 
+  function closeAllHomeMoreMenus(except) {
+    document.querySelectorAll('.yai-hd-card__more-menu').forEach(function (menu) {
+      if (except && menu === except) return;
+      menu.hidden = true;
+    });
+    document.querySelectorAll('.yai-hd-card__more[aria-expanded="true"]').forEach(function (btn) {
+      if (except && btn.nextElementSibling === except) return;
+      btn.setAttribute('aria-expanded', 'false');
+    });
+    document.querySelectorAll('.yai-hd-card.is-menu-open').forEach(function (card) {
+      if (except && card.contains(except)) return;
+      card.classList.remove('is-menu-open');
+    });
+  }
+
   function bindHeroAndTools() {
     document.addEventListener('click', function (e) {
+      var moreBtn = e.target.closest('[data-home-more]');
+      if (moreBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var wrap = moreBtn.closest('.yai-hd-card__more-wrap');
+        var menu = wrap ? wrap.querySelector('.yai-hd-card__more-menu') : null;
+        var card = moreBtn.closest('.yai-hd-card');
+        var open = menu && menu.hidden;
+        closeAllHomeMoreMenus(open ? menu : null);
+        if (!menu) return;
+        menu.hidden = !open;
+        moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (card) card.classList.toggle('is-menu-open', open);
+        return;
+      }
+
+      if (e.target.closest('[data-home-remix]')) {
+        var remixBtn = e.target.closest('[data-home-remix]');
+        var remixId = remixBtn.getAttribute('data-work-id') || '';
+        storeRemixShell(state.workById[remixId] || { id: remixId });
+        closeAllHomeMoreMenus();
+        /* studio.js [data-work-action=regenerate] completes Studio handoff */
+        return;
+      }
+
+      if (e.target.closest('.yai-hd-card__more-menu [data-work-action]')) {
+        closeAllHomeMoreMenus();
+        return;
+      }
+
+      if (!e.target.closest('.yai-hd-card__more-wrap')) {
+        closeAllHomeMoreMenus();
+      }
+
       var reco = e.target.closest('[data-studio-reco]');
       if (reco) {
         e.preventDefault();
@@ -448,12 +607,6 @@
         e.preventDefault();
         applySeedToHero(tpl.getAttribute('data-template-seed'), 'image');
         if (global.YooYStudioRoute) global.YooYStudioRoute('assistant');
-        return;
-      }
-      var work = e.target.closest('[data-work-id]');
-      if (work && work.getAttribute('data-work-id')) {
-        e.preventDefault();
-        if (global.YooYStudioRoute) global.YooYStudioRoute('works');
       }
     });
   }
@@ -530,6 +683,7 @@
   function onFeed(feed) {
     feed = feed || {};
     state.feed = feed;
+    state.workById = {};
     state.serverConfigured = CFG.hasServerSections(feed);
     state.sections = CFG.sectionsFromFeed(feed);
     renderSectionManager();
@@ -563,6 +717,7 @@
     onFeed: onFeed,
     updateCredits: updateCreditCard,
     getSections: function () { return state.sections.slice(); },
+    storeRemixShell: storeRemixShell,
   };
 
   if (document.readyState === 'loading') {

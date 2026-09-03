@@ -219,7 +219,7 @@ $studio_quick = [
                         <header class="yai-hd-greeting">
                             <div>
                                 <h1 id="yai-hd-greeting-title">안녕하세요<?php echo $is_logged_in ? ', ' . esc_html($user->display_name ?: '크리에이터') . '님' : ''; ?>! 👋</h1>
-                                <p class="yai-hero-sub">상상한 것을 말하고, YooY가 Studio로 완성합니다.</p>
+                                <p class="yai-hero-sub">상상한 모든 것을 YooY Studio에서 현실로 만들어보세요.</p>
                             </div>
                             <div class="yai-hd-greeting__actions">
                                 <?php if ($is_admin) : ?>

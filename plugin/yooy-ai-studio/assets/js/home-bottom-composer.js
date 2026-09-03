@@ -73,7 +73,7 @@
         if (!item) return;
         e.preventDefault();
         closePlusMenu();
-        toast('Input Adapter — Coming Soon (가짜 업로드 없음)');
+        toast('다음 단계에서 연결됩니다.');
       });
     }
 
