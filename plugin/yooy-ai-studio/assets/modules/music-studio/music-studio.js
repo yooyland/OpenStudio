@@ -46,7 +46,19 @@
       state.credits = Object.assign(state.credits, res[2].data || {});
       state.structures = (res[3].data && res[3].data.templates) || [];
       refreshCreditsEstimate();
+      applyIncomingHandoff(container);
       renderTab(container);
+    });
+  }
+
+  function applyIncomingHandoff(container) {
+    if (!window.YooYStudioHandoff || typeof window.YooYStudioHandoff.apply !== 'function') return;
+    window.YooYStudioHandoff.apply('music', container, function (ctx) {
+      if (ctx.prompt) {
+        state.settings.prompt = ctx.prompt;
+        state.settings.style_prompt = ctx.prompt;
+      }
+      if (window.YooYStudioHandoff.consumePromptKeys) window.YooYStudioHandoff.consumePromptKeys();
     });
   }
 
@@ -183,7 +195,9 @@
   function renderCreate(ws, ctrl, root) {
     var isCustom = state.mode === 'custom';
     ws.innerHTML = creditsBar() +
-      '<div class="yms-header"><h2>Music Studio</h2><span class="yms-badge">Suno Structure</span></div>' +
+      '<div class="yms-header">' +
+        (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('music') : '') +
+        '<h2>Music Studio</h2><span class="yms-badge">Suno Structure</span></div>' +
       '<div class="yms-mode-toggle">' +
         '<button class="yms-mode-btn' + (isCustom ? ' is-active' : '') + '" data-yms-mode="custom" type="button">Custom Mode</button>' +
         '<button class="yms-mode-btn' + (!isCustom ? ' is-active' : '') + '" data-yms-mode="description" type="button">Simple Mode</button>' +

@@ -28,8 +28,30 @@
     container.innerHTML = buildShell();
     bindEvents(container);
     loadConfig().then(function () {
+      applyIncomingHandoff(container);
       renderTab(container);
       loadSettings();
+    });
+  }
+
+  function applyIncomingHandoff(container) {
+    if (!window.YooYStudioHandoff || typeof window.YooYStudioHandoff.apply !== 'function') return;
+    window.YooYStudioHandoff.apply('video', container, function (ctx) {
+      if (ctx.prompt) {
+        state.settings.last_prompt = ctx.prompt;
+        state.settings.prompt = ctx.prompt;
+      }
+      if (ctx.reference && ctx.reference.url) {
+        state.settings.reference_assets = [{
+          url: ctx.reference.url,
+          title: ctx.reference.title || '',
+          gallery_id: ctx.reference.gallery_id || '',
+          source: ctx.reference.source || 'home'
+        }];
+        state.settings.reference_url = ctx.reference.url;
+      }
+      if (ctx.remix && ctx.remix.aspect_ratio) state.settings.aspect_ratio = ctx.remix.aspect_ratio;
+      if (window.YooYStudioHandoff.consumePromptKeys) window.YooYStudioHandoff.consumePromptKeys();
     });
   }
 
@@ -115,7 +137,19 @@
 
   function loadSettings() {
     Core.video.settings().then(function (res) {
+      var keepPrompt = state.settings.last_prompt;
+      var keepRefs = state.settings.reference_assets;
+      var keepRatio = state.settings.aspect_ratio;
       state.settings = (res.data && res.data.settings) || state.settings;
+      if (keepPrompt) {
+        state.settings.last_prompt = keepPrompt;
+        state.settings.prompt = keepPrompt;
+      }
+      if (keepRefs && keepRefs.length) {
+        state.settings.reference_assets = keepRefs;
+        state.settings.reference_url = keepRefs[0].url || state.settings.reference_url;
+      }
+      if (keepRatio) state.settings.aspect_ratio = keepRatio;
     });
   }
 
@@ -138,7 +172,9 @@
 
   function renderGenerator(ws, ctrl, root) {
     ws.innerHTML =
-      '<div class="yvs-header"><h2>AI Video Generator</h2><span class="yvs-badge">Runway · Veo · Kling · Mock</span></div>' +
+      '<div class="yvs-header">' +
+        (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('video') : '') +
+        '<h2>AI Video Generator</h2><span class="yvs-badge">Runway · Veo · Kling · Mock</span></div>' +
       '<div class="yvs-canvas-area" id="yvs-preview" data-ratio="' + esc(state.settings.aspect_ratio || '16:9') + '">' +
         previewContent() +
       '</div>' +

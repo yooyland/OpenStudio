@@ -188,6 +188,18 @@
       if (shell.reference_assets && shell.reference_assets[0]) {
         sessionStorage.setItem('yoy_reference_asset', JSON.stringify(shell.reference_assets[0]));
       }
+      sessionStorage.setItem('yoy_home_attachment', JSON.stringify({
+        type: shell.type || 'image',
+        source: 'gallery',
+        gallery_id: shell.gallery_id || shell.id || '',
+        url: shell.preview_url || shell.thumbnail_url || '',
+        preview: shell.thumbnail_url || shell.preview_url || '',
+        name: item.title || '',
+        title: item.title || ''
+      }));
+      if (shell.project_id && window.YooYActiveProject && typeof window.YooYActiveProject.set === 'function') {
+        window.YooYActiveProject.set({ id: shell.project_id, name: item.title || item.project_name || 'Project' });
+      }
     } catch (e) { /* noop */ }
     return shell;
   }

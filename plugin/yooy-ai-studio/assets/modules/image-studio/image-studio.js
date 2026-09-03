@@ -114,7 +114,24 @@
       if (state.settings.smart_auto === undefined) state.settings.smart_auto = true;
       initExtraSettings();
       consumeHomePrompt();
-      refreshEstimate().then(function () { renderTab(container); bindGenerateButton(container); updateProviderUX(container); });
+      if (window.YooYStudioHandoff && typeof window.YooYStudioHandoff.peek === 'function') {
+        var imgCtx = window.YooYStudioHandoff.peek();
+        if (imgCtx && imgCtx.prompt && !state.settings.last_prompt) {
+          state.settings.last_prompt = imgCtx.prompt;
+          state.settings.prompt = imgCtx.prompt;
+        }
+        if (imgCtx && imgCtx.remix && imgCtx.remix.aspect_ratio && !state.settings.aspect_ratio) {
+          state.settings.aspect_ratio = imgCtx.remix.aspect_ratio;
+        }
+      }
+      refreshEstimate().then(function () {
+        renderTab(container);
+        bindGenerateButton(container);
+        updateProviderUX(container);
+        if (window.YooYStudioHandoff && typeof window.YooYStudioHandoff.apply === 'function') {
+          window.YooYStudioHandoff.apply('image', container);
+        }
+      });
       global.YooYImageStudioReady = true;
       publicApi.ready = true;
       debugLog('mounted');

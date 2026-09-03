@@ -815,6 +815,10 @@
     if (window.YooYHomeBottomComposer && typeof window.YooYHomeBottomComposer.sync === 'function') {
       window.YooYHomeBottomComposer.sync(name);
     }
+    var studioRoutes = ['image', 'video', 'writing', 'music', 'voice', 'avatar', 'translator'];
+    if (studioRoutes.indexOf(name) >= 0) {
+      try { sessionStorage.setItem('yoy_home_studio', name); } catch (eStudio) { /* ignore */ }
+    }
     hydrate(name);
     syncProjectContextBanner(name);
   }
@@ -832,6 +836,20 @@
       return;
     }
     if (name === 'projects') { loadProjects(); return; }
+    var studioRoutesHydrate = ['image', 'video', 'writing', 'music', 'voice', 'avatar', 'translator'];
+    var pendingHandoff = false;
+    try {
+      pendingHandoff = !!(sessionStorage.getItem('yoy_home_prompt') || sessionStorage.getItem('yoy_home_remix') || sessionStorage.getItem('yoy_home_attachment'));
+    } catch (eHandoff) { pendingHandoff = false; }
+    if (pendingHandoff && studioRoutesHydrate.indexOf(name) >= 0) {
+      loaded[name] = false;
+      var remountEl = document.getElementById(name === 'writing' ? 'yai-gen-writing' : 'yai-' + name + '-studio');
+      if (remountEl && name !== 'writing') {
+        remountEl.dataset.mounted = '0';
+        remountEl.removeAttribute('data-mounted');
+        remountEl.innerHTML = '';
+      }
+    }
     if (loaded[name]) return;
     loaded[name] = true;
 
@@ -1330,19 +1348,24 @@
 
   var homePresetId = '';
 
-  function resolveStudioFromPrompt(prompt, preset) {
+  function resolveStudioFromPrompt(prompt, preset, attachment) {
     if (preset && preset.studio) return preset.studio;
     if (preset && preset.id) {
       var presetStudio = { kr_movie: 'video', kr_mv: 'video', kr_blog: 'writing' };
       if (presetStudio[preset.id]) return presetStudio[preset.id];
       if (String(preset.id).indexOf('kr_') === 0) return 'image';
     }
+    if (window.YooYHomeIntent && typeof window.YooYHomeIntent.resolve === 'function') {
+      var intent = window.YooYHomeIntent.resolve(prompt, attachment);
+      if (intent && intent.studio) return intent.studio;
+    }
     var t = String(prompt || '').toLowerCase();
+    if (/번역|translate|영어로/.test(t)) return 'translator';
     if (/영상|비디오|video|유튜브|youtube|릴스|reels|쇼츠|shorts|뮤직비디오|mv/.test(t)) return 'video';
     if (/음악|music|bgm|song|뮤직|멜로디/.test(t)) return 'music';
-    if (/음성|voice|tts|나레이션|더빙|보이스/.test(t)) return 'voice';
+    if (/음성|voice|tts|나레이션|더빙|보이스|읽어/.test(t)) return 'voice';
     if (/아바타|avatar|버추얼/.test(t)) return 'avatar';
-    if (/글|writing|블로그|blog|카피|copy|스크립트|script|원고/.test(t)) return 'writing';
+    if (/글쓰기|writing|블로그|blog|카피|copy|스크립트|script|원고|소개글|요약/.test(t)) return 'writing';
     return 'image';
   }
 
@@ -1384,6 +1407,13 @@
     if (!requireLogin()) return;
     var promptEl = document.getElementById('yai-home-prompt');
     var prompt = (promptEl && promptEl.value || '').trim();
+    var composer = window.YooYHomeBottomComposer;
+    var attachment = composer && typeof composer.getAttachment === 'function' ? composer.getAttachment() : null;
+    if (!prompt && !attachment) {
+      if (composer && typeof composer.toast === 'function') composer.toast('만들고 싶은 것을 입력하거나 첨부해 주세요.');
+      else showToast('만들고 싶은 것을 입력하거나 첨부해 주세요.', true);
+      return;
+    }
     var presetCtx = '';
     var presetStudio = null;
     if (homePresetId) {
@@ -1391,6 +1421,65 @@
         sessionStorage.setItem('yoy_home_preset', homePresetId);
       } catch (e) { /* ignore */ }
     }
+
+    function finishLaunch(studio, fullPrompt) {
+      var known = ['image', 'video', 'writing', 'music', 'voice', 'avatar', 'translator'];
+      if (known.indexOf(studio) < 0) {
+        if (composer && typeof composer.showIntentChoice === 'function') {
+          composer.showIntentChoice(['image', 'video', 'writing']);
+        }
+        if (window.YooYCore && typeof window.YooYCore.debugLog === 'function') {
+          window.YooYCore.debugLog('home auto-studio fallback', studio);
+        }
+        return;
+      }
+      try {
+        sessionStorage.setItem('yoy_home_original_prompt', prompt);
+        if (fullPrompt) sessionStorage.setItem('yoy_home_prompt', fullPrompt);
+        sessionStorage.setItem('yoy_home_studio', studio);
+        sessionStorage.removeItem('yoy_home_remix');
+        if (attachment && (attachment.url || attachment.preview)) {
+          sessionStorage.setItem('yoy_reference_asset', JSON.stringify({
+            url: attachment.url || attachment.preview,
+            title: attachment.title || attachment.name || '',
+            gallery_id: attachment.gallery_id || '',
+            source: attachment.source || 'home'
+          }));
+        }
+      } catch (err) { /* ignore */ }
+      if (composer && typeof composer.setStatus === 'function') composer.setStatus('작업 화면으로 이동 중...');
+      if (composer && typeof composer.hideIntentChoice === 'function') composer.hideIntentChoice();
+      route(studio);
+      setTimeout(function () {
+        if (composer && typeof composer.setStatus === 'function') composer.setStatus('');
+      }, 1200);
+    }
+
+    function resolveAndGo(preset) {
+      var pending = composer && typeof composer.takePendingStudio === 'function' ? composer.takePendingStudio() : '';
+      var autoOn = !(composer && typeof composer.isStudioAuto === 'function') || composer.isStudioAuto();
+      var intent = window.YooYHomeIntent && typeof window.YooYHomeIntent.resolve === 'function'
+        ? window.YooYHomeIntent.resolve(prompt, attachment)
+        : { studio: resolveStudioFromPrompt(prompt, preset, attachment), ambiguous: false, candidates: [] };
+      var studio = pending || resolveStudioFromPrompt(prompt, preset, attachment);
+      try {
+        var storedStudio = sessionStorage.getItem('yoy_home_studio');
+        if (!autoOn && storedStudio && !pending) studio = storedStudio;
+      } catch (autoErr) { /* ignore */ }
+      if (autoOn && !pending && intent && intent.ambiguous) {
+        if (composer && typeof composer.setStatus === 'function') composer.setStatus('');
+        if (composer && typeof composer.showIntentChoice === 'function') {
+          composer.showIntentChoice(intent.candidates);
+        }
+        return;
+      }
+      var full = prompt;
+      if (preset && presetCtx) full = prompt ? (prompt + ' — ' + presetCtx) : presetCtx;
+      if (!full && attachment && attachment.excerpt) full = String(attachment.excerpt).slice(0, 4000);
+      finishLaunch(studio || (intent && intent.studio) || 'image', full);
+    }
+
+    if (composer && typeof composer.setStatus === 'function') composer.setStatus('Studio 선택 중...');
     Core.prompts.presets().then(function (res) {
       var presets = (res.data && res.data.presets) || [];
       var preset = presets.find(function (p) { return p.id === homePresetId; });
@@ -1398,28 +1487,9 @@
         presetCtx = preset.context || '';
         presetStudio = preset;
       }
-      var studio = resolveStudioFromPrompt(prompt, presetStudio);
-      try {
-        var storedStudio = sessionStorage.getItem('yoy_home_studio');
-        var autoOn = !(window.YooYHomeBottomComposer && typeof window.YooYHomeBottomComposer.isStudioAuto === 'function') ||
-          window.YooYHomeBottomComposer.isStudioAuto();
-        if (!autoOn && storedStudio) {
-          studio = storedStudio;
-        }
-      } catch (autoErr) { /* ignore */ }
-      if (prompt) {
-        var full = presetCtx ? (prompt + ' — ' + presetCtx) : prompt;
-        try {
-          sessionStorage.setItem('yoy_home_prompt', full);
-          sessionStorage.setItem('yoy_home_studio', studio);
-        } catch (err) { /* ignore */ }
-      }
-      route(studio);
+      resolveAndGo(presetStudio);
     }).catch(function () {
-      if (prompt) {
-        try { sessionStorage.setItem('yoy_home_prompt', prompt); } catch (e) {}
-      }
-      route(resolveStudioFromPrompt(prompt, null));
+      resolveAndGo(null);
     });
   }
 
@@ -3250,10 +3320,17 @@
       });
     }
 
-    try {
-      var saved = sessionStorage.getItem('yoy_home_prompt');
-      if (saved) { input.value = saved; sessionStorage.removeItem('yoy_home_prompt'); }
-    } catch (e) {}
+    if (window.YooYStudioHandoff && typeof window.YooYStudioHandoff.apply === 'function') {
+      window.YooYStudioHandoff.apply('writing', el, function (ctx) {
+        if (ctx.prompt && input && !input.value) input.value = ctx.prompt;
+        if (window.YooYStudioHandoff.consumePromptKeys) window.YooYStudioHandoff.consumePromptKeys();
+      });
+    } else {
+      try {
+        var saved = sessionStorage.getItem('yoy_home_prompt');
+        if (saved) { input.value = saved; sessionStorage.removeItem('yoy_home_prompt'); }
+      } catch (e) {}
+    }
     btn.addEventListener('click', function () {
       if (!requireLogin()) return;
       var prompt = input.value.trim();

@@ -34,7 +34,16 @@
       state.options = (res[0].data && res[0].data.options) || {};
       state.providers = (res[0].data && res[0].data.providers) || [];
       state.settings = (res[1].data && res[1].data.settings) || {};
+      applyIncomingHandoff(container);
       renderTab(container);
+    });
+  }
+
+  function applyIncomingHandoff(container) {
+    if (!window.YooYStudioHandoff || typeof window.YooYStudioHandoff.apply !== 'function') return;
+    window.YooYStudioHandoff.apply('avatar', container, function (ctx) {
+      if (ctx.prompt) state.settings.script = ctx.prompt;
+      if (window.YooYStudioHandoff.consumePromptKeys) window.YooYStudioHandoff.consumePromptKeys();
     });
   }
 
@@ -119,7 +128,9 @@
   function renderCreate(ws, ctrl, root) {
     var avatars = state.options.avatars || [];
     ws.innerHTML =
-      '<div class="yas-header"><h2>Avatar Studio</h2><span class="yas-badge">Vidu · HeyGen</span></div>' +
+      '<div class="yas-header">' +
+        (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('avatar') : '') +
+        '<h2>Avatar Studio</h2><span class="yas-badge">Vidu · HeyGen</span></div>' +
       '<div class="yas-preview" id="yas-preview">' + previewHtml() + '</div>' +
       '<h3 style="color:#d8a63a;font-size:13px;margin:0 0 8px">AVATAR</h3>' +
       '<div class="yas-avatar-grid">' + avatars.map(function (a) {

@@ -39,7 +39,16 @@
       state.options = res[1].data || {};
       state.voices = state.options.voices || [];
       state.settings = (res[2].data && res[2].data.settings) || {};
+      applyIncomingHandoff(container);
       renderTab(container);
+    });
+  }
+
+  function applyIncomingHandoff(container) {
+    if (!window.YooYStudioHandoff || typeof window.YooYStudioHandoff.apply !== 'function') return;
+    window.YooYStudioHandoff.apply('voice', container, function (ctx) {
+      if (ctx.prompt) state.settings.text = ctx.prompt;
+      if (window.YooYStudioHandoff.consumePromptKeys) window.YooYStudioHandoff.consumePromptKeys();
     });
   }
 
@@ -105,7 +114,9 @@
 
   function renderTTS(ws, ctrl, root) {
     ws.innerHTML =
-      '<div class="yvs-header"><h2>Text to Speech</h2><span class="yvs-badge">ElevenLabs</span></div>' +
+      '<div class="yvs-header">' +
+        (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('voice') : '') +
+        '<h2>Text to Speech</h2><span class="yvs-badge">ElevenLabs</span></div>' +
       playerHtml() +
       '<div class="yvs-voice-list">' + state.voices.map(function (v) {
         var icon = v.gender === 'male' ? '♂' : v.gender === 'female' ? '♀' : '◎';

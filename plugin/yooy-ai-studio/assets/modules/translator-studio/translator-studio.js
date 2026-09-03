@@ -506,6 +506,18 @@
     });
   }
 
+  function consumeHomeHandoff(root, container) {
+    if (!window.YooYStudioHandoff || typeof window.YooYStudioHandoff.apply !== 'function') return;
+    window.YooYStudioHandoff.apply('translator', container || root, function (ctx) {
+      var text = ctx.prompt || '';
+      if (ctx.attachment && ctx.attachment.excerpt) text = ctx.attachment.excerpt;
+      if (text) {
+        applyReopenPayload(root, { source_text: text });
+      }
+      if (window.YooYStudioHandoff.consumePromptKeys) window.YooYStudioHandoff.consumePromptKeys();
+    });
+  }
+
   function consumeRegeneratePayload(root) {
     try {
       var raw = sessionStorage.getItem('yoy_regenerate');
@@ -1112,6 +1124,7 @@
       updateMeta(root);
       refreshEstimate(root);
       consumeRegeneratePayload(root);
+      consumeHomeHandoff(root, container);
     }).catch(function (e) {
       showStatus(root, 'error', (e && e.message) || 'Translator 설정을 불러오지 못했습니다.');
     });

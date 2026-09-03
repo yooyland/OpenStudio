@@ -299,8 +299,15 @@ $studio_quick = [
                         </div>
                     </div>
                     <div class="yai-home-composer__field">
+                        <div class="yai-home-composer__chip-row" id="yai-home-attach-chip" hidden></div>
                         <label class="yai-sr-only" for="yai-home-prompt">만들고 싶은 것</label>
                         <textarea id="yai-home-prompt" rows="1" placeholder="무엇을 만들고 싶으신가요?"></textarea>
+                        <div class="yai-home-url-row" id="yai-home-url-row" hidden>
+                            <input type="url" id="yai-home-url-input" placeholder="https://..." autocomplete="off">
+                            <button type="button" id="yai-home-url-go">가져오기</button>
+                        </div>
+                        <div class="yai-home-intent-choice" id="yai-home-intent-choice" hidden></div>
+                        <p class="yai-home-composer__status" id="yai-home-composer-status" hidden></p>
                         <div class="yai-home-composer__pills">
                             <button type="button" class="yai-home-composer__pill" id="yai-home-coach" aria-pressed="false">✨ 프롬프트 자동보완</button>
                             <button type="button" class="yai-home-composer__pill is-on" id="yai-home-studio-auto" aria-pressed="true">◎ Studio 자동 선택</button>
