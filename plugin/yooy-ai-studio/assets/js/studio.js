@@ -668,7 +668,7 @@
     home: 'Home', assistant: 'AI Assistant', projects: 'Projects', 'project-detail': 'Project Workspace', video: 'Video Studio', image: 'Image Studio',
     music: 'Music Studio', voice: 'Voice Studio', avatar: 'Avatar Studio', writing: 'Writing Studio', translator: 'Translator',
     import: 'Import', works: 'Gallery', history: 'History', community: 'Community', market: 'Marketplace',
-    credits: 'Credits', billing: 'Billing', settings: 'Settings', 'prompt-library': 'Prompt Library', 'admin-console': 'Admin Console'
+    credits: 'Credits', billing: 'Billing', settings: 'Settings', 'prompt-library': 'Prompt Library', templates: 'Templates', 'admin-console': 'Admin Console'
   };
 
   function isLoggedIn() { return !!Core.config.loggedIn; }
@@ -827,6 +827,13 @@
     if (name === 'works') { loaded[name] = false; loadWorks(); loaded[name] = true; return; }
     if (name === 'history') { loaded[name] = false; loadHistory(); loaded[name] = true; return; }
     if (name === 'home') { loaded[name] = false; loadHome(); loaded[name] = true; return; }
+    if (name === 'templates') {
+      loaded[name] = true;
+      if (window.YooYCreationTemplates && typeof window.YooYCreationTemplates.renderLibrary === 'function') {
+        window.YooYCreationTemplates.renderLibrary();
+      }
+      return;
+    }
     if (name === 'assistant') {
       mountStudio('assistant', 'YooYAIAssistant');
       if (window.YooYAIAssistant && typeof window.YooYAIAssistant.refresh === 'function') {
@@ -839,7 +846,7 @@
     var studioRoutesHydrate = ['image', 'video', 'writing', 'music', 'voice', 'avatar', 'translator'];
     var pendingHandoff = false;
     try {
-      pendingHandoff = !!(sessionStorage.getItem('yoy_home_prompt') || sessionStorage.getItem('yoy_home_remix') || sessionStorage.getItem('yoy_home_attachment'));
+      pendingHandoff = !!(sessionStorage.getItem('yoy_home_prompt') || sessionStorage.getItem('yoy_home_remix') || sessionStorage.getItem('yoy_home_attachment') || sessionStorage.getItem('yoy_home_template'));
     } catch (eHandoff) { pendingHandoff = false; }
     if (pendingHandoff && studioRoutesHydrate.indexOf(name) >= 0) {
       loaded[name] = false;

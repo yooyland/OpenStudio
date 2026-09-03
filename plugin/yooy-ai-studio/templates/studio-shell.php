@@ -41,6 +41,7 @@ $nav_sections = [
         'items' => [
             ['route' => 'home',      'label' => 'Home',         'icon' => 'home'],
             ['route' => 'assistant', 'label' => 'AI Assistant', 'icon' => 'spark'],
+            ['route' => 'templates', 'label' => 'Templates',    'icon' => 'image'],
             ['route' => 'projects',  'label' => 'Projects',     'icon' => 'projects'],
         ],
     ],
@@ -356,6 +357,9 @@ $studio_quick = [
             <section class="yai-view yai-view--studio" data-page="avatar"><div id="yai-avatar-studio"></div></section>
             <section class="yai-view" data-page="writing"><header class="yai-page-head"><h1>Writing Studio</h1><p>블로그, 광고 카피, 스크립트 — AI 글쓰기</p></header><div class="yai-generator" id="yai-gen-writing"></div></section>
             <section class="yai-view yai-view--studio" data-page="translator"><div id="yai-translator-studio"></div></section>
+            <section class="yai-view" data-page="templates">
+                <div id="yai-templates-root" class="yai-ct-lib"></div>
+            </section>
             <section class="yai-view" data-page="prompt-library"><header class="yai-page-head"><h1>Prompt Library</h1><p>저장된 프롬프트, 공식 템플릿, 한국 컨텍스트 프리셋.</p></header><div id="yai-prompts"></div></section>
             <section class="yai-view" data-page="import"><div id="yai-import-engine"></div></section>
             <section class="yai-view" data-page="market"><header class="yai-page-head"><h1>Marketplace</h1><p>판매·구매 공간 — Gallery와 분리된 Publish 영역입니다.</p></header><div id="yai-marketplace"></div></section>

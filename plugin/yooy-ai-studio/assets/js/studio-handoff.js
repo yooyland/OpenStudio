@@ -12,7 +12,8 @@
     remix: 'yoy_home_remix',
     attachment: 'yoy_home_attachment',
     reference: 'yoy_reference_asset',
-    regenerate: 'yoy_regenerate'
+    regenerate: 'yoy_regenerate',
+    template: 'yoy_home_template'
   };
 
   function readJson(key) {
@@ -46,6 +47,7 @@
         source: attachment.source || 'home'
       };
     }
+    var template = readJson(KEYS.template);
     if (!prompt && remix && remix.prompt) prompt = remix.prompt;
     if (!prompt && attachment && attachment.excerpt) prompt = attachment.excerpt;
     return {
@@ -53,7 +55,8 @@
       originalPrompt: original || prompt,
       remix: remix,
       attachment: attachment,
-      reference: reference
+      reference: reference,
+      template: template
     };
   }
 
@@ -68,6 +71,7 @@
     try {
       sessionStorage.removeItem(KEYS.remix);
       sessionStorage.removeItem(KEYS.attachment);
+      sessionStorage.removeItem(KEYS.template);
     } catch (e) { /* ignore */ }
   }
 
@@ -76,7 +80,8 @@
     var remix = ctx.remix;
     var att = ctx.attachment;
     var ref = ctx.reference;
-    if (!remix && !att && !ref) return;
+    var template = ctx.template;
+    if (!remix && !att && !ref && !template) return;
     var existing = container.querySelector('[data-studio-handoff]');
     if (existing) existing.parentNode.removeChild(existing);
 
@@ -87,6 +92,9 @@
       title = '이 작품을 참고하여 새 작품을 만듭니다.';
       sub = remix.prompt ? String(remix.prompt).slice(0, 80) : (remix.type || '');
       thumb = remix.thumbnail_url || remix.preview_url || '';
+    } else if (template) {
+      title = (template.title || '템플릿') + ' 템플릿으로 시작했습니다.';
+      sub = '설정을 바꾸며 이어서 만들 수 있습니다.';
     } else if (att && att.type === 'url') {
       title = '가져온 자료';
       sub = att.title || att.url || '';

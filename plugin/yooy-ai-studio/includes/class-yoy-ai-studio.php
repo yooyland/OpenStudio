@@ -117,6 +117,13 @@ final class YooY_AI_Studio {
             YOY_AI_STUDIO_VERSION
         );
 
+        wp_enqueue_style(
+            'yoy-creation-templates',
+            YOY_AI_STUDIO_URL . 'assets/css/creation-templates.css',
+            ['yoy-home-dashboard'],
+            YOY_AI_STUDIO_VERSION
+        );
+
         wp_enqueue_script(
             'yoy-home-dashboard-config',
             YOY_AI_STUDIO_URL . 'assets/js/home-dashboard-config.js',
@@ -126,9 +133,25 @@ final class YooY_AI_Studio {
         );
 
         wp_enqueue_script(
+            'yoy-creation-catalog',
+            YOY_AI_STUDIO_URL . 'assets/js/creation-catalog.js',
+            [],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'yoy-creation-templates',
+            YOY_AI_STUDIO_URL . 'assets/js/creation-templates.js',
+            ['yoy-creation-catalog'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'yoy-home-dashboard',
             YOY_AI_STUDIO_URL . 'assets/js/home-dashboard.js',
-            ['yoy-home-dashboard-config'],
+            ['yoy-home-dashboard-config', 'yoy-creation-catalog', 'yoy-creation-templates'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -236,7 +259,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-studio-handoff'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-studio-handoff', 'yoy-creation-templates'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -448,6 +471,7 @@ final class YooY_AI_Studio {
         $routes = [
             ['id' => 'home', 'label' => 'Home', 'module' => null],
             ['id' => 'assistant', 'label' => 'AI Assistant', 'module' => 'ai-assistant'],
+            ['id' => 'templates', 'label' => 'Templates', 'module' => null],
             ['id' => 'projects', 'label' => 'Projects', 'module' => 'projects'],
             ['id' => 'video', 'label' => 'Video', 'module' => 'video-studio'],
             ['id' => 'image', 'label' => 'Image', 'module' => 'image-studio'],

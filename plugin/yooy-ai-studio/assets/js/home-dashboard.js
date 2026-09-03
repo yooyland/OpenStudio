@@ -303,10 +303,10 @@
     var thumbBlock = thumb
       ? '<div class="yai-hd-recent__thumb"><img src="' + esc(thumb) + '" alt="" loading="lazy"></div>'
       : '<div class="yai-hd-recent__thumb yai-hd-recent__thumb--skeleton"><span>' + recentIcon(item) + '</span></div>';
-    return '<article class="yai-hd-recent yai-hd-recent--' + mediaTypeOf(item) + '" data-job-id="' + esc(item.id || '') + '">' +
+    return '<article class="yai-hd-recent yai-hd-recent--' + mediaTypeOf(item) + '" data-continue-work data-job-id="' + esc(item.id || item.gallery_id || '') + '">' +
       thumbBlock +
       '<div class="yai-hd-recent__body"><strong>' + esc(title) + '</strong><span>' + esc(status) + '</span></div>' +
-      '<button type="button" class="yai-text-btn" data-route="history">열기</button>' +
+      '<button type="button" class="yai-text-btn" data-continue-work>계속 작업하기</button>' +
     '</article>';
   }
 
@@ -330,7 +330,7 @@
     var src = section.data_source || '';
     if (dt === 'guide') return 'assistant';
     if (dt === 'recent') return 'history';
-    if (dt === 'template') return 'prompt-library';
+    if (dt === 'template') return 'templates';
     if (dt === 'projects') return 'projects';
     if (src === 'community') return 'community';
     if (src === 'marketplace') return 'market';
@@ -359,10 +359,15 @@
         ? '<div class="' + layout + '">' + projects.slice(0, limit).map(function (p) { return projectCard(p, section); }).join('') + '</div>'
         : emptySectionCopy(section);
     } else if (dt === 'template') {
-      var tpl = sectionWorks(section, feed).slice(0, limit);
-      body = tpl.length
-        ? '<div class="' + layout + '">' + tpl.map(function (t) { return templateCard(t, section); }).join('') + '</div>'
-        : emptySectionCopy(section);
+      var isCatalog = (section.id === 'templates' || section.id === 'sec_templates' || section.data_source === 'templates');
+      if (isCatalog && global.YooYCreationTemplates && typeof global.YooYCreationTemplates.renderHomeFeatured === 'function') {
+        body = '<div class="yai-ct-row">' + global.YooYCreationTemplates.renderHomeFeatured(4) + '</div>';
+      } else {
+        var tpl = sectionWorks(section, feed).slice(0, limit);
+        body = tpl.length
+          ? '<div class="' + layout + '">' + tpl.map(function (t) { return templateCard(t, section); }).join('') + '</div>'
+          : emptySectionCopy(section);
+      }
     } else {
       var works = sectionWorks(section, feed).slice(0, limit);
       body = works.length
@@ -523,9 +528,13 @@
   function renderQuickTools() {
     var el = document.getElementById('yai-home-quick-tools');
     if (!el) return;
-    el.innerHTML = CFG.QUICK_TOOLS.map(function (tool) {
-      return '<button type="button" class="yai-hd-quick" data-quick-tool data-studio="' + esc(tool.studio) + '" data-seed="' + esc(tool.seed) + '">' +
-        '<span class="yai-hd-quick__label">' + esc(tool.label) + '</span></button>';
+    var tools = (global.YooYCreationCatalog && global.YooYCreationCatalog.TOOLS) || (CFG.QUICK_TOOLS || []);
+    el.innerHTML = tools.map(function (tool) {
+      var id = tool.id || '';
+      var studio = tool.studio || '';
+      var label = tool.label || '';
+      return '<button type="button" class="yai-hd-quick" data-quick-tool data-tool-id="' + esc(id) + '" data-studio="' + esc(studio) + '">' +
+        '<span class="yai-hd-quick__label">' + esc(label) + '</span></button>';
     }).join('');
   }
 
@@ -608,17 +617,37 @@
       var tool = e.target.closest('[data-quick-tool]');
       if (tool) {
         e.preventDefault();
-        applySeedToHero(tool.getAttribute('data-seed'), tool.getAttribute('data-studio'));
-        if (global.YooYStudioRoute && tool.getAttribute('data-studio')) {
-          global.YooYStudioRoute(tool.getAttribute('data-studio'));
+        var toolId = tool.getAttribute('data-tool-id');
+        if (toolId && global.YooYCreationTemplates && typeof global.YooYCreationTemplates.startTool === 'function') {
+          global.YooYCreationTemplates.startTool(toolId);
+        } else {
+          applySeedToHero(tool.getAttribute('data-seed'), tool.getAttribute('data-studio'));
+          if (global.YooYStudioRoute && tool.getAttribute('data-studio')) {
+            global.YooYStudioRoute(tool.getAttribute('data-studio'));
+          }
         }
+        return;
+      }
+      var continueBtn = e.target.closest('[data-continue-work]');
+      if (continueBtn) {
+        e.preventDefault();
+        var row = continueBtn.closest('.yai-hd-recent') || continueBtn;
+        var jobId = row.getAttribute('data-job-id') || '';
+        var jobs = jobsFromFeed(state.feed);
+        var found = null;
+        jobs.forEach(function (j) {
+          if (String(j.id || j.gallery_id || '') === String(jobId)) found = j;
+        });
+        if (found) storeRemixShell(found);
+        var studio = found ? studioRouteForType(mediaTypeOf(found)) : 'image';
+        if (global.YooYStudioRoute) global.YooYStudioRoute(studio);
         return;
       }
       var tpl = e.target.closest('[data-template-seed]');
       if (tpl) {
         e.preventDefault();
         applySeedToHero(tpl.getAttribute('data-template-seed'), 'image');
-        if (global.YooYStudioRoute) global.YooYStudioRoute('assistant');
+        if (global.YooYStudioRoute) global.YooYStudioRoute('image');
       }
     });
   }

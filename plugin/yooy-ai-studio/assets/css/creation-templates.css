@@ -1,0 +1,293 @@
+/* Result-oriented template cards + start sheet */
+
+.yai-ct-card {
+  position: relative;
+  width: min(320px, 86vw);
+  flex: 0 0 auto;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #141414;
+  color: #f5f5f5;
+  cursor: pointer;
+}
+
+.yai-ct-grid .yai-ct-card {
+  width: auto;
+}
+
+.yai-ct-card__media {
+  position: relative;
+  min-height: 220px;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+}
+
+.yai-ct-card--video .yai-ct-card__media,
+.yai-ct-card--music .yai-ct-card__media,
+.yai-ct-card--voice .yai-ct-card__media {
+  aspect-ratio: 16 / 10;
+}
+
+.yai-ct-card--writing .yai-ct-card__media,
+.yai-ct-card--translator .yai-ct-card__media {
+  aspect-ratio: 16 / 11;
+}
+
+.yai-ct-card__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(201, 162, 39, 0.28), transparent 55%),
+    linear-gradient(160deg, #222, #0d0d0d);
+}
+
+.yai-ct-card--image .yai-ct-card__art {
+  background:
+    radial-gradient(circle at 70% 28%, rgba(242, 201, 76, 0.4), transparent 46%),
+    linear-gradient(145deg, #2a2418, #101010);
+}
+
+.yai-ct-card--video .yai-ct-card__art {
+  background:
+    radial-gradient(circle at 40% 60%, rgba(80, 140, 255, 0.38), transparent 50%),
+    linear-gradient(145deg, #12182a, #0c0c0c);
+}
+
+.yai-ct-card--writing .yai-ct-card__art {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(210, 210, 220, 0.22), transparent 50%),
+    linear-gradient(145deg, #1c1e24, #0c0c0c);
+}
+
+.yai-ct-card--music .yai-ct-card__art {
+  background:
+    radial-gradient(circle at 30% 70%, rgba(180, 80, 200, 0.34), transparent 50%),
+    linear-gradient(145deg, #221428, #0c0c0c);
+}
+
+.yai-ct-card--voice .yai-ct-card__art {
+  background:
+    radial-gradient(circle at 60% 40%, rgba(90, 200, 170, 0.3), transparent 50%),
+    linear-gradient(145deg, #10221c, #0c0c0c);
+}
+
+.yai-ct-card--translator .yai-ct-card__art {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(242, 201, 76, 0.22), transparent 48%),
+    linear-gradient(145deg, #1a1810, #0c0c0c);
+}
+
+.yai-ct-card__badge {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.yai-ct-card__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.72));
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+
+.yai-ct-card:hover .yai-ct-card__overlay,
+.yai-ct-card:focus-within .yai-ct-card__overlay {
+  opacity: 1;
+}
+
+.yai-ct-card__cta {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #d4af37, #b8922a);
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.yai-ct-card__cta:focus-visible,
+.yai-ct-chip:focus-visible,
+.yai-ct-sheet__go:focus-visible,
+.yai-hd-quick:focus-visible {
+  outline: 2px solid #ffe8a3;
+  outline-offset: 2px;
+}
+
+.yai-ct-card__body {
+  padding: 12px 14px 16px;
+}
+
+.yai-ct-card__body strong {
+  display: block;
+  font-size: 16px;
+}
+
+.yai-ct-card__body span {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.yai-ct-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+}
+
+.yai-ct-row .yai-ct-card {
+  scroll-snap-align: start;
+}
+
+.yai-ct-lib {
+  padding: 8px 4px 48px;
+}
+  margin: 0 0 8px;
+}
+
+.yai-ct-lib-head p {
+  margin: 0 0 20px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.yai-ct-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.yai-ct-chip {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: #eee;
+  cursor: pointer;
+}
+
+.yai-ct-chip.is-on {
+  border-color: rgba(201, 162, 39, 0.55);
+  color: #ffe8a3;
+  background: rgba(201, 162, 39, 0.12);
+}
+
+.yai-ct-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.yai-ct-sheet[hidden] { display: none !important; }
+
+.yai-ct-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.yai-ct-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.yai-ct-sheet__panel {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 24px));
+  max-height: min(80vh, 640px);
+  overflow: auto;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  background: #141414;
+  color: #f5f5f5;
+}
+
+.yai-ct-sheet__x {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  border: 0;
+  background: transparent;
+  color: #ffe8a3;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.yai-ct-sheet h2 { margin: 0 28px 6px 0; }
+.yai-ct-sheet__desc { margin: 0 0 14px; color: rgba(255,255,255,.6); font-size: 14px; }
+
+.yai-ct-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.yai-ct-field input,
+.yai-ct-field select {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: #0d0d0d;
+  color: #fff;
+  padding: 0 10px;
+}
+
+.yai-ct-upload {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px dashed rgba(201, 162, 39, 0.45);
+  background: rgba(201, 162, 39, 0.08);
+  color: #ffe8a3;
+  cursor: pointer;
+}
+
+.yai-ct-sheet__err { color: #ffb4b4; font-size: 13px; }
+.yai-ct-sheet__status { color: #ffe8a3; font-size: 13px; }
+
+.yai-ct-sheet__go {
+  width: 100%;
+  height: 46px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #d4af37, #b8922a);
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .yai-ct-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 800px) {
+  .yai-ct-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .yai-ct-sheet__panel { bottom: 0; border-radius: 18px 18px 0 0; }
+}
+
+@media (max-width: 520px) {
+  .yai-ct-grid { grid-template-columns: 1fr; }
+}

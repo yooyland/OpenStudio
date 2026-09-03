@@ -123,6 +123,9 @@
         if (imgCtx && imgCtx.remix && imgCtx.remix.aspect_ratio && !state.settings.aspect_ratio) {
           state.settings.aspect_ratio = imgCtx.remix.aspect_ratio;
         }
+        if (imgCtx && imgCtx.template && imgCtx.template.aspect_ratio) {
+          state.settings.aspect_ratio = imgCtx.template.aspect_ratio;
+        }
       }
       refreshEstimate().then(function () {
         renderTab(container);

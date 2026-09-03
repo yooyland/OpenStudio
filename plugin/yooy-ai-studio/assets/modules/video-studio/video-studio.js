@@ -51,6 +51,8 @@
         state.settings.reference_url = ctx.reference.url;
       }
       if (ctx.remix && ctx.remix.aspect_ratio) state.settings.aspect_ratio = ctx.remix.aspect_ratio;
+      if (ctx.template && ctx.template.aspect_ratio) state.settings.aspect_ratio = ctx.template.aspect_ratio;
+      if (ctx.template && ctx.template.duration) state.settings.duration = ctx.template.duration;
       if (window.YooYStudioHandoff.consumePromptKeys) window.YooYStudioHandoff.consumePromptKeys();
     });
   }

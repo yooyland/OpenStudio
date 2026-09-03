@@ -123,7 +123,6 @@
   ];
 
   var QUICK_TOOLS = [
-    { label: '배경 제거', studio: 'image', seed: '배경을 제거한 깔끔한 컷아웃' },
     { label: 'AI 이미지 개선', studio: 'image', seed: '이미지 품질을 개선하고 선명하게' },
     { label: '제품 광고 만들기', studio: 'image', seed: '프리미엄 제품 광고 포스터' },
     { label: '사진을 영상으로', studio: 'video', seed: '사진을 기반으로 한 짧은 영상' },
