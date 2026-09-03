@@ -327,7 +327,7 @@ $studio_quick = [
                         <h1>Projects</h1>
                         <p>OpenStudio의 중심 — Project 안에서 생성·관리합니다.</p>
                     </div>
-                    <button type="button" class="yai-btn yai-btn--gold yai-create-project" id="yai-projects-create-btn" data-action="create-project" data-yai-create-project>Create Project</button>
+                    <button type="button" class="yai-btn yai-btn--gold yai-create-project" id="yai-projects-create-btn" data-action="create-project" data-yai-create-project>새 프로젝트</button>
                 </header>
                 <div id="yai-projects-list"></div>
             </section>
@@ -364,11 +364,11 @@ $studio_quick = [
             <section class="yai-view" data-page="import"><div id="yai-import-engine"></div></section>
             <section class="yai-view" data-page="market"><header class="yai-page-head"><h1>Marketplace</h1><p>판매·구매 공간 — Gallery와 분리된 Publish 영역입니다.</p></header><div id="yai-marketplace"></div></section>
             <section class="yai-view" data-page="community"><header class="yai-page-head"><h1>Community</h1><p>공유 공간 — Gallery와 다른 Publish 피드입니다.</p></header><div id="yai-community"></div></section>
-            <section class="yai-view" data-page="works"><header class="yai-page-head"><h1>Gallery</h1><p>작업 결과 저장소 — 재사용 · 즐겨찾기 · Project 연결 · Marketplace · Community.</p></header><div id="yai-works"></div></section>
+            <section class="yai-view" data-page="works"><header class="yai-page-head"><h1>Gallery</h1><p>내가 만든 모든 작품 — 이어서 만들기 · 프로젝트에 추가 · 보관.</p></header><div id="yai-works"></div></section>
             <section class="yai-view" data-page="history">
                 <header class="yai-page-head">
                     <h1>History</h1>
-                    <p>Gallery 기반 최근 작업 타임라인 — 별도 History Store가 아닙니다.</p>
+                    <p>생성·활동 기록입니다. 작품 본문은 Gallery에 있습니다.</p>
                 </header>
                 <div id="yai-history"></div>
             </section>

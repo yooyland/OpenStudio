@@ -279,15 +279,15 @@ final class YooY_Public_Works_Feed {
         return [
             'id'                 => (string) ($item['id'] ?? ''),
             'title'              => (string) ($item['title'] ?? 'Work'),
-            'description'        => (string) ($item['description'] ?? $item['prompt'] ?? ''),
+            'description'        => (string) ($item['description'] ?? $item['title'] ?? ''),
             'type'               => (string) ($item['type'] ?? 'image'),
             'type_label'         => (string) ($item['type_label'] ?? $this->type_label((string) ($item['type'] ?? 'image'))),
             'thumbnail_url'      => esc_url_raw($thumb),
             'display_url'        => esc_url_raw($display),
             'full_url'           => esc_url_raw($full),
             'large_url'          => esc_url_raw($display),
-            'provider'           => (string) ($item['provider'] ?? ''),
-            'model'              => (string) ($item['model'] ?? ''),
+            'provider'           => '',
+            'model'              => '',
             'creator_name'       => $creator,
             'creator'            => $creator,
             'creator_avatar'     => (string) ($item['creator_avatar'] ?? ''),
@@ -300,7 +300,7 @@ final class YooY_Public_Works_Feed {
             'updated_at'         => (string) ($item['updated_at'] ?? ''),
             'is_platform'        => !empty($item['is_platform']) || in_array($source, ['community', 'marketplace', 'official', 'demo'], true),
             'genre'              => (string) ($item['genre'] ?? ''),
-            'prompt'             => (string) ($item['prompt'] ?? ''),
+            'prompt'             => '',
         ];
     }
 

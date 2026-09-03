@@ -212,6 +212,9 @@
   }
 
   function applyRefPayload(payload) {
+    if (window.YooYActiveProject && typeof window.YooYActiveProject.applyToPayload === 'function') {
+      payload = window.YooYActiveProject.applyToPayload(payload);
+    }
     if (window.YooYReferenceAssetsPanel && state.refPanel) {
       return window.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
     }

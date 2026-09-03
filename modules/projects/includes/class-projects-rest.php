@@ -225,6 +225,18 @@ final class YooY_Projects_REST {
             return $this->fail('작품을 찾을 수 없거나 권한이 없습니다.', 403);
         }
 
+        $target = $this->store->get($user_id, $id);
+        $existing_assets = is_array($target['assets'] ?? null) ? $target['assets'] : [];
+        foreach ($existing_assets as $existing) {
+            if (($existing['gallery_id'] ?? '') === $gallery_id) {
+                return $this->ok([
+                    'project'         => $target,
+                    'already_linked'  => true,
+                    'message'         => '이미 이 프로젝트에 있습니다.',
+                ]);
+            }
+        }
+
         $payload = array_merge($body, [
             'gallery_id' => $gallery_id,
             'type'       => $gallery_item['type'] ?? ($body['type'] ?? 'image'),

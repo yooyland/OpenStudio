@@ -153,7 +153,10 @@
 
   function applyRefPayload(payload) {
     if (window.YooYReferenceAssetsPanel && state.refPanel) {
-      return window.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+      payload = window.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+    }
+    if (window.YooYActiveProject && typeof window.YooYActiveProject.applyToPayload === 'function') {
+      payload = window.YooYActiveProject.applyToPayload(payload);
     }
     return payload;
   }

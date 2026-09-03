@@ -2089,18 +2089,11 @@
   function resultBoardToolbarHtml() {
     if (!state.lastResult || !state.lastResult.job_id) return '';
     return '<div class="yis-result-board__toolbar">' +
-      '<span class="yis-result-board__toolbar-label">Action Toolbar</span>' +
-      '<div class="yis-result-board__toolbar-actions">' +
+      '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
+        resultToolbarBtn('reuse', '이어서 만들기') +
+        resultToolbarBtn('project', '프로젝트에 추가') +
         resultToolbarBtn('download', '다운로드') +
-        resultToolbarBtn('project', '프로젝트 저장') +
-        resultToolbarBtn('edit', 'AI 편집') +
-        resultToolbarBtn('reuse', '프롬프트 재사용') +
-        resultToolbarBtn('variation', '변형 생성') +
-        resultToolbarBtn('upscale', '업스케일') +
-        resultToolbarBtn('remove-bg', '배경 제거') +
-        resultToolbarBtn('share', 'Community 공유') +
-        resultToolbarBtn('marketplace', 'Marketplace 등록') +
-        resultToolbarBtn('delete', '삭제', true) +
+        resultToolbarBtn('gallery', 'Gallery에서 보기') +
       '</div></div>';
   }
 
@@ -2247,6 +2240,21 @@
       return;
     }
 
+    if (action === 'gallery') {
+      if (global.YooYStudioRoute) global.YooYStudioRoute('works');
+      if (global.YooYGallery && typeof global.YooYGallery.openDetail === 'function') {
+        global.YooYGallery.openDetail(galleryId);
+      }
+      return;
+    }
+
+    if (action === 'project') {
+      if (global.YooYStudioPickProject) {
+        global.YooYStudioPickProject(galleryId);
+        return;
+      }
+    }
+
     if (!Core || !Core.gallery) return;
 
     var map = {
@@ -2256,7 +2264,7 @@
       public: function () { return Core.gallery.visibility(galleryId, true); },
       share: function () { return Core.gallery.share(galleryId); },
       marketplace: function () { return Core.gallery.marketplace(galleryId); },
-      project: function () { return Core.gallery.project(galleryId, ''); }
+      project: function () { return Promise.resolve({ data: { skipped: true } }); }
     };
 
     var fn = map[action];
@@ -2280,7 +2288,7 @@
         if (link) alert('공유 링크가 복사되었습니다.');
       }
       if (action === 'project') {
-        alert('프로젝트에 저장되었습니다.');
+        return;
       }
       notifyGalleryUpdated();
     }).catch(function (err) { alert(err.message || 'Action failed.'); });
@@ -2328,7 +2336,10 @@
 
   function applyRefPayload(payload) {
     if (global.YooYReferenceAssetsPanel && state.refPanel) {
-      return global.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+      payload = global.YooYReferenceAssetsPanel.applyToSettings(payload, state.refPanel.getAssets());
+    }
+    if (global.YooYActiveProject && typeof global.YooYActiveProject.applyToPayload === 'function') {
+      payload = global.YooYActiveProject.applyToPayload(payload);
     }
     return payload;
   }

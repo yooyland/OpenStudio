@@ -64,6 +64,15 @@
       return read();
     },
 
+    applyToPayload: function (payload) {
+      payload = payload || {};
+      var cur = read();
+      if (cur && cur.id && !payload.project_id) {
+        payload.project_id = cur.id;
+      }
+      return payload;
+    },
+
     getId: function () {
       var cur = read();
       return cur ? cur.id : '';

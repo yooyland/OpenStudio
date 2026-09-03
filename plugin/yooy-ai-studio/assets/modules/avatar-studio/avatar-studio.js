@@ -218,7 +218,11 @@
     if (errEl) errEl.hidden = true;
     state.generating = true;
     renderTab(root);
-    Core.avatar.generate(state.settings).then(function (res) {
+    var genPayload = Object.assign({}, state.settings);
+    if (window.YooYActiveProject && typeof window.YooYActiveProject.applyToPayload === 'function') {
+      genPayload = window.YooYActiveProject.applyToPayload(genPayload);
+    }
+    Core.avatar.generate(genPayload).then(function (res) {
       state.lastResult = res.data || res;
       state.generating = false;
       renderTab(root);

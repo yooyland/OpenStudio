@@ -322,9 +322,10 @@
   function projectCard(item, section) {
     var title = item.title || item.name || 'Project';
     var id = item.id || '';
-    return '<article class="yai-hd-card yai-hd-card--gallery" data-project-open="' + esc(id) + '" tabindex="0" role="button">' +
+    return '<article class="yai-hd-card yai-hd-card--gallery yai-hd-card--project" data-project-open="' + esc(id) + '" tabindex="0" role="button">' +
       thumbHtml(item, section) +
       '<div class="yai-hd-card__body"><strong>' + esc(title) + '</strong><span>Project</span></div>' +
+      '<div class="yai-hd-card__overlay"><button type="button" class="yai-hd-card__cta" data-project-continue="' + esc(id) + '">계속 작업하기</button></div>' +
     '</article>';
   }
 
@@ -345,13 +346,23 @@
     var title = item.title || item.type_label || item.type || '작업';
     var status = item.status || 'active';
     var thumb = thumbUrl(item);
+    var isProject = String(item.entity || item.kind || item.item_type || '').toLowerCase() === 'project' ||
+      (!!item.asset_count && !item.gallery_id && String(item.type || '').toLowerCase() === 'project');
     var thumbBlock = thumb
       ? '<div class="yai-hd-recent__thumb"><img src="' + esc(thumb) + '" alt="" loading="lazy"></div>'
       : '<div class="yai-hd-recent__thumb yai-hd-recent__thumb--skeleton"><span>' + recentIcon(item) + '</span></div>';
-    return '<article class="yai-hd-recent yai-hd-recent--' + mediaTypeOf(item) + '" data-continue-work data-job-id="' + esc(item.id || item.gallery_id || '') + '">' +
+    if (isProject) {
+      return '<article class="yai-hd-recent yai-hd-recent--project" data-project-open="' + esc(item.id || '') + '">' +
+        thumbBlock +
+        '<div class="yai-hd-recent__body"><strong>' + esc(title) + '</strong><span>Project</span></div>' +
+        '<button type="button" class="yai-text-btn" data-project-continue="' + esc(item.id || '') + '">계속 작업하기</button>' +
+      '</article>';
+    }
+    return '<article class="yai-hd-recent yai-hd-recent--' + mediaTypeOf(item) + '" data-work-id="' + esc(item.id || item.gallery_id || '') + '" role="button" tabindex="0">' +
       thumbBlock +
       '<div class="yai-hd-recent__body"><strong>' + esc(title) + '</strong><span>' + esc(status) + '</span></div>' +
-      '<button type="button" class="yai-text-btn" data-continue-work>계속 작업하기</button>' +
+      '<button type="button" class="yai-text-btn" data-work-action="regenerate" data-work-id="' + esc(item.id || item.gallery_id || '') + '" data-home-remix>' +
+        esc(primaryCtaLabel(mediaTypeOf(item))) + '</button>' +
     '</article>';
   }
 
@@ -687,10 +698,32 @@
         }
         return;
       }
-      var continueBtn = e.target.closest('[data-continue-work]');
+      var continueBtn = e.target.closest('[data-project-continue]');
       if (continueBtn) {
         e.preventDefault();
-        var row = continueBtn.closest('.yai-hd-recent') || continueBtn;
+        e.stopPropagation();
+        var pid = continueBtn.getAttribute('data-project-continue') || '';
+        if (global.YooYStudioContinueProject) {
+          global.YooYStudioContinueProject(pid);
+        } else if (global.YooYActiveProject) {
+          global.YooYActiveProject.set({ id: pid, name: 'Project' });
+          if (global.YooYStudioRoute) global.YooYStudioRoute('project-detail');
+        }
+        return;
+      }
+      var recentAsset = e.target.closest('.yai-hd-recent[data-work-id]');
+      if (recentAsset && !e.target.closest('[data-work-action]') && !e.target.closest('[data-home-remix]')) {
+        e.preventDefault();
+        var rid = recentAsset.getAttribute('data-work-id') || '';
+        if (global.YooYGallery && typeof global.YooYGallery.openDetail === 'function') {
+          global.YooYGallery.openDetail(rid);
+        }
+        return;
+      }
+      var continueWork = e.target.closest('[data-continue-work]');
+      if (continueWork) {
+        e.preventDefault();
+        var row = continueWork.closest('.yai-hd-recent') || continueWork;
         var jobId = row.getAttribute('data-job-id') || '';
         var jobs = jobsFromFeed(state.feed);
         var found = null;

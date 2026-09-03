@@ -54,28 +54,13 @@
           '<button type="button" class="yoy-project-dialog__close" data-yoy-project-dialog-close="1" aria-label="Close">&times;</button>' +
         '</header>' +
         '<form id="yai-project-form" class="yoy-project-dialog__body" novalidate>' +
-          '<label class="yoy-project-dialog__field"><span>Project Name *</span>' +
-            '<input type="text" name="title" required maxlength="120" placeholder="내 AI 프로젝트" autocomplete="off"></label>' +
-          '<label class="yoy-project-dialog__field"><span>Description</span>' +
-            '<textarea name="description" rows="3" maxlength="500" placeholder="이 프로젝트는 무엇을 위한 것인가요?"></textarea></label>' +
-          '<label class="yoy-project-dialog__field"><span>Category</span>' +
-            '<select name="category">' +
-              '<option value="mixed" selected>Mixed</option><option value="image">Image</option><option value="video">Video</option>' +
-              '<option value="music">Music</option><option value="writing">Writing</option><option value="translation">Translation</option>' +
-              '<option value="avatar">Avatar</option><option value="voice">Voice</option>' +
-            '</select></label>' +
-          '<label class="yoy-project-dialog__field"><span>Visibility</span>' +
-            '<select name="visibility"><option value="private" selected>Private</option><option value="public">Public</option></select></label>' +
-          '<label class="yoy-project-dialog__field"><span>Language</span>' +
-            '<select name="language"><option value="ko" selected>한국어 (ko)</option><option value="en">English (en)</option>' +
-            '<option value="ja">日本語 (ja)</option><option value="zh">中文 (zh)</option></select></label>' +
-          '<label class="yoy-project-dialog__field"><span>Cover URL</span>' +
-            '<input type="url" name="cover" maxlength="500" placeholder="https://…"></label>' +
+          '<label class="yoy-project-dialog__field"><span>프로젝트 이름</span>' +
+            '<input type="text" name="title" required maxlength="120" placeholder="봄 신제품 캠페인" autocomplete="off"></label>' +
           '<p class="yoy-project-dialog__hint" id="yai-project-form-works-hint" hidden></p>' +
           '<p class="yoy-project-dialog__error" id="yai-project-form-error" hidden></p>' +
           '<footer class="yoy-project-dialog__foot">' +
-            '<button type="button" class="yoy-project-dialog__btn yoy-project-dialog__btn--ghost" data-yoy-project-dialog-close="1">Cancel</button>' +
-            '<button type="submit" class="yoy-project-dialog__btn yoy-project-dialog__btn--gold">Create Project</button>' +
+            '<button type="button" class="yoy-project-dialog__btn yoy-project-dialog__btn--ghost" data-yoy-project-dialog-close="1">취소</button>' +
+            '<button type="submit" class="yoy-project-dialog__btn yoy-project-dialog__btn--gold">만들기</button>' +
           '</footer>' +
         '</form>' +
       '</div>';
@@ -1110,14 +1095,21 @@
     return arg || 'dense';
   }
 
-  function workHoverActions(id) {
+  function remixCtaLabel(type) {
+    switch (String(type || '').toLowerCase()) {
+      case 'video': return '이 영상처럼 만들기';
+      case 'music': return '이 스타일로 만들기';
+      case 'voice': return '이어서 만들기';
+      case 'writing': return '이 형식으로 쓰기';
+      case 'translation': return '이 형식으로 번역하기';
+      case 'avatar': return '이 캐릭터로 만들기';
+      default: return '따라 만들기';
+    }
+  }
+
+  function workHoverActions(id, type) {
     return '<div class="yai-work-card-hover">' +
-      '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">열기</button>' +
-      '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">프롬프트 재사용</button>' +
-      '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트 추가</button>' +
-      '<button type="button" data-work-action="share" data-work-id="' + esc(id) + '">공유</button>' +
-      '<button type="button" data-work-action="marketplace" data-work-id="' + esc(id) + '">판매</button>' +
-      '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
+      '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">' + esc(remixCtaLabel(type)) + '</button>' +
     '</div>';
   }
 
@@ -1160,7 +1152,7 @@
   function workThumbHtml(w, showHover, sizeArg, priority) {
     var id = w.id || '';
     var size = sizeArg || 'large';
-    var hover = showHover && id ? workHoverActions(id) : '';
+    var hover = showHover && id ? workHoverActions(id, w.type) : '';
     var type = String(w.type || '').toLowerCase();
 
     if (w.asset_missing) {
@@ -1231,13 +1223,11 @@
       '<div class="yai-work-card-menu">' +
         '<button type="button" class="yai-work-menu-btn" data-work-menu="' + esc(id) + '" aria-label="작품 메뉴">⋯</button>' +
         '<div class="yai-work-menu" hidden>' +
-          '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">열기</button>' +
-          '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">프롬프트 재사용</button>' +
+          '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">상세 보기</button>' +
           '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트에 추가</button>' +
-          '<button type="button" data-work-action="share" data-work-id="' + esc(id) + '">공유</button>' +
           '<button type="button" data-work-action="download" data-work-id="' + esc(id) + '">다운로드</button>' +
-          '<button type="button" data-work-action="marketplace" data-work-id="' + esc(id) + '">Marketplace 등록</button>' +
-          '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
+          '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">복제</button>' +
+          '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">작품 삭제</button>' +
           (mode === 'project-detail'
             ? '<button type="button" data-work-action="project-remove" data-work-id="' + esc(id) + '">프로젝트에서 제거</button>' +
               '<button type="button" data-work-action="project-cover" data-work-id="' + esc(id) + '">커버로 설정</button>'
@@ -1277,12 +1267,10 @@
       '<div class="yai-work-card-menu">' +
         '<button type="button" class="yai-work-menu-btn" data-work-menu="' + esc(id) + '" aria-label="작품 메뉴">⋯</button>' +
         '<div class="yai-work-menu" hidden>' +
-          '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">열기</button>' +
-          '<button type="button" data-work-action="regenerate" data-work-id="' + esc(id) + '">프롬프트 재사용</button>' +
-          '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트 추가</button>' +
-          '<button type="button" data-work-action="share" data-work-id="' + esc(id) + '">공유</button>' +
-          '<button type="button" data-work-action="marketplace" data-work-id="' + esc(id) + '">판매</button>' +
-          '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">삭제</button>' +
+          '<button type="button" data-work-action="open" data-work-id="' + esc(id) + '">상세 보기</button>' +
+          '<button type="button" data-work-action="project" data-work-id="' + esc(id) + '">프로젝트에 추가</button>' +
+          '<button type="button" data-work-action="download" data-work-id="' + esc(id) + '">다운로드</button>' +
+          '<button type="button" data-work-action="delete" data-work-id="' + esc(id) + '">작품 삭제</button>' +
         '</div>' +
       '</div>') +
     '</article>';
@@ -1548,22 +1536,37 @@
     '</article>';
   }
 
+  function projectCoverUrl(p) {
+    return p.thumbnail_url || p.cover_url || (p.assets && p.assets[0] && (p.assets[0].thumbnail || p.assets[0].url)) || '';
+  }
+
+  function projectTypeSummary(p) {
+    var assets = Array.isArray(p.assets) ? p.assets : [];
+    var types = [];
+    assets.forEach(function (a) {
+      var t = a.type || '';
+      if (t && types.indexOf(t) === -1) types.push(t);
+    });
+    return types.slice(0, 3).map(function (t) { return typeBadgeLabel(t); }).join(' · ');
+  }
+
   function projectCardHtml(p) {
-    var vis = p.visibility === 'public' ? 'Public' : 'Private';
-    var status = (p.status || 'active');
-    return '<article class="yai-card yai-project-card" data-project-open="' + esc(p.id) + '">' +
-      '<div class="yai-project-card-cover">' + (p.thumbnail_url
-        ? '<img src="' + esc(p.thumbnail_url) + '" alt="">'
-        : '<div class="yai-project-card-cover--gold">Gold Crystal</div>') +
+    var cover = projectCoverUrl(p);
+    var count = p.asset_count || p.items || (p.assets && p.assets.length) || 0;
+    var summary = projectTypeSummary(p);
+    return '<article class="yai-card yai-project-card yai-project-card--creative" data-project-open="' + esc(p.id) + '">' +
+      '<div class="yai-project-card-cover">' + (cover
+        ? '<img src="' + esc(cover) + '" alt="" loading="lazy">'
+        : '<div class="yai-project-card-cover--gold">YooY Project</div>') +
       '</div>' +
       '<strong>' + esc(p.title) + '</strong>' +
-      '<p>' + esc(p.description || 'No description') + '</p>' +
-      '<span>' + esc(p.type || 'mixed') + ' · ' + esc(vis) + ' · ' + esc(status) +
-        ' · ' + fmt(p.asset_count || p.items || 0) + ' assets · ' + relTime(p.updated_at || p.created_at) + '</span>' +
+      '<span>' + esc(relTime(p.updated_at || p.created_at)) +
+        (count ? ' · ' + fmt(count) + '작품' : '') +
+        (summary ? ' · ' + esc(summary) : '') + '</span>' +
       '<div class="yai-project-actions">' +
-      '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-project-open="' + esc(p.id) + '">Open</button>' +
-      '<button type="button" class="yai-btn--outline yai-project-rename" data-id="' + esc(p.id) + '" data-title="' + esc(p.title) + '">Rename</button>' +
-      '<button type="button" class="yai-btn--outline yai-project-delete" data-id="' + esc(p.id) + '">Delete</button>' +
+      '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-project-continue="' + esc(p.id) + '">계속 작업하기</button>' +
+      '<button type="button" class="yai-btn--outline yai-btn--sm yai-project-rename" data-id="' + esc(p.id) + '" data-title="' + esc(p.title) + '">이름 변경</button>' +
+      '<button type="button" class="yai-btn--outline yai-btn--sm yai-project-delete" data-id="' + esc(p.id) + '">삭제</button>' +
       '</div></article>';
   }
 
@@ -1611,6 +1614,11 @@
     }
     yoyProjectsLog('asset link started', projectId, galleryId);
     return Core.projects.addAsset(projectId, { gallery_id: galleryId }).then(function (res) {
+      if (res && (res.data && res.data.already_linked)) {
+        var alreadyErr = new Error('이미 이 프로젝트에 있습니다.');
+        alreadyErr.alreadyLinked = true;
+        throw alreadyErr;
+      }
       yoyProjectsLog('asset linked', galleryId);
       return res;
     });
@@ -2056,7 +2064,7 @@
       return;
     }
     if (action === 'delete') {
-      if (!confirm('이 작품을 삭제하시겠습니까?')) return;
+      if (!confirm('이 작품을 Gallery에서 삭제하시겠습니까?')) return;
       Core.gallery.remove(workId).then(function () {
         showToast('작품을 삭제했습니다.');
         if (Core.notifyGalleryUpdated) Core.notifyGalleryUpdated();
@@ -2393,6 +2401,24 @@
     renderUsageWidget({ used: 0, limit: 0, percent: 0 });
   }
 
+  function continueProjectWork(projectId) {
+    if (!projectId) return;
+    Core.projects.get(projectId).then(function (res) {
+      var project = (res.data && res.data.project) || { id: projectId };
+      setActiveProjectFromRecord(project);
+      var assets = Array.isArray(project.assets) ? project.assets : [];
+      var latest = assets[0];
+      if (latest && latest.type) {
+        route(studioRouteForType(latest.type));
+        showToast('프로젝트 컨텍스트로 Studio를 엽니다.');
+        return;
+      }
+      openProjectDetail(projectId, 'overview');
+    }).catch(function () {
+      openProjectDetail(projectId, 'overview');
+    });
+  }
+
   function openProjectDetail(projectId, tab) {
     if (!projectId || !requireLogin()) return;
     currentProjectId = projectId;
@@ -2439,58 +2465,50 @@
   function workspaceAssetCardHtml(w) {
     var id = w.id || '';
     var studio = studioRouteForType(w.type);
-    return '<article class="yai-card yai-workspace-asset-card" data-work-id="' + esc(id) + '">' +
-      '<strong>' + esc(w.title || 'Untitled') + '</strong>' +
-      '<span class="yai-muted">' + esc(typeBadgeLabel(w.type || 'image')) + ' · ' + relTime(w.created_at || w.updated_at) + '</span>' +
+    return '<article class="yai-card yai-workspace-asset-card' + (w.asset_missing ? ' is-missing' : '') + '" data-work-id="' + esc(id) + '">' +
+      (w.thumbnail_url ? '<div class="yai-workspace-asset-thumb"><img src="' + esc(w.thumbnail_url) + '" alt="" loading="lazy"></div>' : '') +
+      '<strong>' + esc(w.title || (w.asset_missing ? '삭제된 작품' : 'Untitled')) + '</strong>' +
+      '<span class="yai-muted">' + (w.asset_missing
+        ? 'Gallery에서 찾을 수 없습니다'
+        : (esc(typeBadgeLabel(w.type || 'image')) + ' · ' + relTime(w.created_at || w.updated_at))) + '</span>' +
       '<div class="yai-project-actions">' +
-        '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="open" data-work-id="' + esc(id) + '">Open</button>' +
-        '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="preview" data-work-id="' + esc(id) + '">Preview</button>' +
-        '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="remove" data-work-id="' + esc(id) + '">Remove from Project</button>' +
-        '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="studio" data-work-id="' + esc(id) + '" data-studio-route="' + esc(studio) + '">Go to Source Studio</button>' +
+        (w.asset_missing ? '' :
+        '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="open" data-work-id="' + esc(id) + '">상세 보기</button>') +
+        '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="remove" data-work-id="' + esc(id) + '">프로젝트에서 제거</button>' +
       '</div></article>';
   }
 
   function renderWorkspaceOverview(project, works) {
     var recent = (works || []).slice().sort(function (a, b) {
       return String(b.created_at || '').localeCompare(String(a.created_at || ''));
-    }).slice(0, 5);
-    var cat = project.category || project.type || 'mixed';
-    var launchers = [
-      { route: 'image', label: 'Image' },
-      { route: 'video', label: 'Video' },
-      { route: 'music', label: 'Music' },
-      { route: 'translator', label: 'Translator' },
-      { route: 'writing', label: 'Writing' },
-      { route: 'voice', label: 'Voice' },
-      { route: 'avatar', label: 'Avatar' }
-    ];
-    return '<div class="yai-workspace-overview">' +
-      '<div class="yai-workspace-meta-grid">' +
-        '<div><span class="yai-muted">Name</span><strong>' + esc(project.title || '') + '</strong></div>' +
-        '<div><span class="yai-muted">Category</span><strong>' + esc(cat) + '</strong></div>' +
-        '<div><span class="yai-muted">Visibility</span><strong>' + esc(project.visibility || 'private') + '</strong></div>' +
-        '<div><span class="yai-muted">Language</span><strong>' + esc(project.language || 'ko') + '</strong></div>' +
-        '<div><span class="yai-muted">Assets</span><strong>' + fmt(project.asset_count || works.length || 0) + '</strong></div>' +
-        '<div><span class="yai-muted">Created</span><strong>' + esc(relTime(project.created_at)) + '</strong></div>' +
-        '<div><span class="yai-muted">Updated</span><strong>' + esc(relTime(project.updated_at)) + '</strong></div>' +
+    });
+    var main = recent[0];
+    var cover = projectCoverUrl(project) || (main && (main.thumbnail_url || main.image_url)) || '';
+    return '<div class="yai-workspace-overview yai-workspace-overview--creative">' +
+      '<div class="yai-workspace-hero-actions">' +
+        '<button type="button" class="yai-btn yai-btn--gold" data-project-continue="' + esc(project.id || '') + '">계속 작업하기</button>' +
+        '<button type="button" class="yai-btn yai-btn--outline" data-workspace-studio="image">새 작품 만들기</button>' +
+        '<button type="button" class="yai-btn yai-btn--outline" id="yai-project-add-works">Gallery에서 추가</button>' +
       '</div>' +
-      '<p class="yai-workspace-desc">' + esc(project.description || '설명이 없습니다.') + '</p>' +
-      (project.thumbnail_url
-        ? '<div class="yai-project-detail-cover"><img src="' + esc(project.thumbnail_url) + '" alt=""></div>'
-        : '') +
-      '<section class="yai-workspace-section"><h3>Studio Launcher</h3>' +
-        '<div class="yai-studio-launcher">' +
-          launchers.map(function (s) {
-            return '<button type="button" class="yai-btn yai-btn--outline" data-workspace-studio="' + esc(s.route) + '">' + esc(s.label) + '</button>';
-          }).join('') +
-        '</div></section>' +
-      '<section class="yai-workspace-section"><h3>최근 작업</h3>' +
+      '<section class="yai-workspace-section"><h3>Main Work</h3>' +
+        (cover
+          ? '<div class="yai-project-detail-cover yai-project-detail-cover--large"><img src="' + esc(cover) + '" alt=""></div>'
+          : '<p class="yai-muted">이 프로젝트에는 아직 작품이 없습니다.</p>') +
+      '</section>' +
+      '<section class="yai-workspace-section"><h3>Project Assets</h3>' +
+        (works.length
+          ? '<div class="yai-workspace-asset-list yai-workspace-asset-list--overview">' + works.slice(0, 8).map(workspaceAssetCardHtml).join('') + '</div>'
+          : '<div class="yai-empty"><h3>이 프로젝트에는 아직 작품이 없습니다.</h3>' +
+            '<button type="button" class="yai-btn yai-btn--gold" data-workspace-studio="image">새 작품 만들기</button> ' +
+            '<button type="button" class="yai-btn yai-btn--outline" data-route="works">Gallery에서 추가</button></div>') +
+      '</section>' +
+      '<section class="yai-workspace-section"><h3>Recent Activity</h3>' +
         (recent.length
-          ? '<div class="yai-workspace-recent">' + recent.map(function (w) {
+          ? '<div class="yai-workspace-recent">' + recent.slice(0, 6).map(function (w) {
               return '<button type="button" class="yai-text-btn" data-ws-asset-action="open" data-work-id="' + esc(w.id) + '">' +
-                esc(w.title || 'Untitled') + ' · ' + esc(typeBadgeLabel(w.type || '')) + '</button>';
+                esc(w.title || 'Untitled') + ' · ' + esc(relTime(w.created_at || w.updated_at)) + '</button>';
             }).join('')
-          : '<p class="yai-muted">아직 연결된 작품이 없습니다.</p>') +
+          : '<p class="yai-muted">아직 활동이 없습니다.</p>') +
       '</section></div>';
   }
 
@@ -2512,7 +2530,7 @@
       '</div>' +
       (filtered.length
         ? '<div class="yai-workspace-asset-list">' + filtered.map(workspaceAssetCardHtml).join('') + '</div>'
-        : emptyBlock('', 'No assets', 'Gallery 작품을 이 프로젝트에 연결하세요. Asset 본문은 복제되지 않습니다.', 'Gallery', 'works')) +
+        : emptyBlock('', '이 프로젝트에는 아직 작품이 없습니다.', 'Gallery 작품을 연결하거나 새 작품을 만드세요.', 'Gallery', 'works')) +
       '</div>';
   }
 
@@ -2739,6 +2757,7 @@
         works = assetRefs.map(function (a) {
           var gid = a.gallery_id || a.id || '';
           var g = byId[gid] || {};
+          var missing = !g.id;
           return {
             id: gid,
             gallery_id: gid,
@@ -2749,7 +2768,8 @@
             output_url: a.url || g.output_url || '',
             created_at: a.added_at || g.created_at || '',
             updated_at: g.updated_at || a.added_at || '',
-            project_id: project.id || currentProjectId
+            project_id: project.id || currentProjectId,
+            asset_missing: missing
           };
         }).filter(function (w) { return !!w.id; });
       } else {
@@ -2818,11 +2838,17 @@
         return;
       }
       list.innerHTML = projects.map(function (p) {
-        return '<button type="button" class="yai-project-chip" data-picker-project="' + esc(p.id) + '" style="width:100%;margin-bottom:8px">' +
+        var assets = Array.isArray(p.assets) ? p.assets : [];
+        var linked = assets.some(function (a) { return String(a.gallery_id || '') === String(workId); });
+        return '<button type="button" class="yai-project-chip" data-picker-project="' + esc(p.id) + '" style="width:100%;margin-bottom:8px"' +
+          (linked ? ' data-already-linked="1"' : '') + '>' +
           projectThumbHtml(p) +
-          '<div><strong>' + esc(p.title) + '</strong><span>' + fmt(p.asset_count || p.items || 0) + ' works</span></div>' +
+          '<div><strong>' + esc(p.title) + '</strong><span>' +
+            (linked ? '이미 이 프로젝트에 있습니다.' : (fmt(p.asset_count || p.items || 0) + ' works')) +
+          '</span></div>' +
         '</button>';
-      }).join('') + '<button type="button" class="yai-btn--outline" data-picker-project="" style="width:100%;margin-top:8px">프로젝트에서 제거</button>';
+      }).join('') +
+        '<button type="button" class="yai-btn yai-btn--gold" data-picker-create="1" style="width:100%;margin-top:8px">+ 새 프로젝트</button>';
     }).catch(function (err) {
       list.innerHTML = '<p class="yai-error">' + esc(err.message || 'Failed to load projects.') + '</p>';
     });
@@ -2874,6 +2900,11 @@
         openProjectDetail(projectId, 'assets');
       });
     }).catch(function (err) {
+      if (err && err.alreadyLinked) {
+        showToast('이미 이 프로젝트에 있습니다.');
+        closeProjectPicker();
+        return;
+      }
       showToast(err.message || '프로젝트 연결에 실패했습니다.', true);
     });
   }
@@ -2881,9 +2912,9 @@
   function renderProjectsEmpty(el) {
     el.innerHTML =
       '<div class="yai-empty">' +
-        '<h3>아직 생성된 프로젝트가 없습니다.</h3>' +
-        '<p>프로젝트를 만들고 Gallery 작품을 묶어 관리하세요.</p>' +
-        '<button type="button" class="yai-btn yai-btn--gold yai-create-project" data-action="create-project" data-yai-create-project>첫 프로젝트 만들기</button>' +
+        '<h3>아직 프로젝트가 없습니다.</h3>' +
+        '<p>하나의 작업에 필요한 작품을 모아두는 공간입니다.</p>' +
+        '<button type="button" class="yai-btn yai-btn--gold yai-create-project" data-action="create-project" data-yai-create-project>새 프로젝트</button>' +
       '</div>' +
       '<div id="yai-projects-suggest" class="yai-projects-suggest"><p class="yai-muted">Loading recent works…</p></div>';
 
@@ -2940,20 +2971,17 @@
     if (active && active.id) {
       banner.innerHTML =
         '<div class="yai-project-context-banner__inner">' +
-          '<span>Working in Project: <strong>' + esc(active.name || 'Project') + '</strong></span>' +
+          '<span>프로젝트 <strong>' + esc(active.name || 'Project') + '</strong></span>' +
           '<div class="yai-project-context-banner__actions">' +
-            '<button type="button" class="yai-text-btn" data-project-ctx="open">Open Workspace</button>' +
-            '<button type="button" class="yai-text-btn" data-project-ctx="change">Change Project</button>' +
-            '<button type="button" class="yai-text-btn" data-project-ctx="clear">Clear Project</button>' +
+            '<button type="button" class="yai-text-btn" data-project-ctx="change">변경</button>' +
           '</div>' +
         '</div>';
     } else {
       banner.innerHTML =
         '<div class="yai-project-context-banner__inner yai-project-context-banner__inner--idle">' +
-          '<span class="yai-muted">No active project</span>' +
+          '<span class="yai-muted">활성 프로젝트 없음</span>' +
           '<div class="yai-project-context-banner__actions">' +
-            '<button type="button" class="yai-text-btn" data-project-ctx="pick">Select Project</button>' +
-            '<button type="button" class="yai-text-btn" data-project-ctx="create">Create Project</button>' +
+            '<button type="button" class="yai-text-btn" data-project-ctx="pick">선택</button>' +
           '</div>' +
         '</div>';
     }
@@ -3094,7 +3122,7 @@
     var el = document.getElementById('yai-history');
     if (!el) return;
     if (window.YooYGallery) {
-      window.YooYGallery.mount(el);
+      window.YooYGallery.mount(el, { historyMode: true });
       return;
     }
     Core.gallery.works().then(function (res) {
@@ -3106,7 +3134,7 @@
         return;
       }
       el.innerHTML = '<ul class="yai-workspace-history-list">' + works.map(function (w) {
-        return '<li class="yai-workspace-history-item"><strong>' + esc(w.title || 'Work') + '</strong>' +
+        return '<li class="yai-workspace-history-item"><button type="button" class="yai-text-btn" data-work-action="open" data-work-id="' + esc(w.id) + '"><strong>' + esc(w.title || 'Work') + '</strong></button>' +
           '<span class="yai-muted">' + esc(typeBadgeLabel(w.type || '')) + ' · ' + esc(relTime(w.created_at)) + '</span></li>';
       }).join('') + '</ul>';
     }).catch(function () {
@@ -3713,8 +3741,32 @@
       return;
     }
 
+    var projectContinue = e.target.closest('[data-project-continue]');
+    if (projectContinue) {
+      e.preventDefault();
+      e.stopPropagation();
+      continueProjectWork(projectContinue.getAttribute('data-project-continue'));
+      return;
+    }
+
+    var pickerCreate = e.target.closest('[data-picker-create]');
+    if (pickerCreate) {
+      e.preventDefault();
+      var wid = pickerWorkId;
+      closeProjectPicker();
+      openProjectModal(wid ? [wid] : []);
+      return;
+    }
+
+    var pickerAlready = e.target.closest('[data-picker-project][data-already-linked="1"]');
+    if (pickerAlready) {
+      e.preventDefault();
+      showToast('이미 이 프로젝트에 있습니다.');
+      return;
+    }
+
     var projectOpen = e.target.closest('[data-project-open]');
-    if (projectOpen && !e.target.closest('.yai-project-rename') && !e.target.closest('.yai-project-delete')) {
+    if (projectOpen && !e.target.closest('.yai-project-rename') && !e.target.closest('.yai-project-delete') && !e.target.closest('[data-project-continue]')) {
       e.preventDefault();
       openProjectDetail(projectOpen.getAttribute('data-project-open'), 'overview');
       return;
@@ -3933,6 +3985,7 @@
   };
   window.YooYStudioRoute = route;
   window.YooYStudioOpenProject = openProjectDetail;
+  window.YooYStudioContinueProject = continueProjectWork;
   window.YooYStudioPickProject = openProjectPicker;
   window.YooYStudioSaveToProject = saveGalleryItemToProject;
   window.YooYStudioOpenProjectModal = window.YooYOpenProjectCreateDialog;

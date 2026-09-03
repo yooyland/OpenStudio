@@ -3726,8 +3726,51 @@ body.yoy-project-dialog-open {
 .yai-workspace-asset-card strong { display: block; margin-bottom: 4px; }
 .yai-recent-work-actions { margin-top: 8px; }
 .yai-empty--reserved { border-style: dashed; }
-.yai-project-context-banner {
-  margin: 0 0 12px;
+.yai-project-card--creative {
+  gap: 12px;
+  padding: 0 0 14px;
+}
+.yai-project-card--creative .yai-project-card-cover {
+  aspect-ratio: 16 / 10;
+  border-radius: 14px 14px 0 0;
+}
+.yai-project-card--creative strong,
+.yai-project-card--creative span,
+.yai-project-card--creative .yai-project-actions {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.yai-project-detail-cover--large {
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.yai-project-detail-cover--large img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.yai-workspace-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.yai-workspace-asset-thumb {
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.yai-workspace-asset-thumb img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.yai-workspace-asset-card.is-missing {
+  opacity: 0.72;
 }
 .yai-project-context-banner__inner {
   align-items: center;

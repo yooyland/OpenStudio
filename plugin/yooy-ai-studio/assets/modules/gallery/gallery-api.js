@@ -25,6 +25,8 @@
         if (params.project_id) parts.push('project_id=' + encodeURIComponent(params.project_id));
         if (params.favorite) parts.push('favorite=1');
         if (params.sync) parts.push('sync=1');
+        if (params.q) parts.push('q=' + encodeURIComponent(params.q));
+        if (params.sort) parts.push('sort=' + encodeURIComponent(params.sort));
         if (parts.length) q = '?' + parts.join('&');
       }
       return Core.get('gallery', '/items' + q);

@@ -40,6 +40,7 @@
 .yis-result-board__toolbar{background:#0a0a0a;border:1px solid rgba(220,170,45,.18);border-radius:16px;display:flex;flex-direction:column;gap:12px;padding:14px 16px}
 .yis-result-board__toolbar-label{color:#888;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .yis-result-board__toolbar-actions{display:flex;flex-wrap:wrap;gap:8px}
+.yis-result-board__toolbar-actions--phase5 .yis-result-board__action:first-child{background:#f2c14e;border-color:#f2c14e;color:#111;font-weight:700}
 .yis-result-board__action{background:#151515;border:1px solid rgba(220,170,45,.24);border-radius:12px;color:#ffd76a;cursor:pointer;font-size:13px;font-weight:600;padding:10px 14px}
 .yis-result-board__action:hover{border-color:#d8a63a;background:#1c170d}
 .yis-result-board__action--danger{border-color:rgba(255,107,107,.35);color:#ff8a8a}

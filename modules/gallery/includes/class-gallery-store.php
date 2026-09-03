@@ -11,19 +11,54 @@ final class YooY_Gallery_Store {
         $type       = sanitize_text_field($filters['type'] ?? '');
         $project_id = sanitize_text_field($filters['project_id'] ?? '');
         $fav        = isset($filters['favorite']) ? (bool) $filters['favorite'] : null;
+        $q          = strtolower(sanitize_text_field($filters['q'] ?? ''));
+        $sort       = sanitize_text_field($filters['sort'] ?? 'newest');
 
         if ($type !== '') {
-            $items = array_values(array_filter($items, fn($i) => ($i['type'] ?? '') === $type));
+            $items = array_values(array_filter($items, function ($i) use ($type) {
+                return ($i['type'] ?? '') === $type;
+            }));
         }
         if ($project_id !== '') {
             $items = array_values(array_filter($items, function ($i) use ($project_id) {
                 $meta = is_array($i['meta'] ?? null) ? $i['meta'] : [];
-                return ($meta['project_id'] ?? '') === $project_id;
+                $pid = (string) ($i['project_id'] ?? $meta['project_id'] ?? '');
+                return $pid === $project_id;
             }));
         }
         if ($fav !== null) {
-            $items = array_values(array_filter($items, fn($i) => !empty($i['favorite']) === $fav));
+            $items = array_values(array_filter($items, function ($i) use ($fav) {
+                return !empty($i['favorite']) === $fav;
+            }));
         }
+        if ($q !== '') {
+            $items = array_values(array_filter($items, function ($i) use ($q) {
+                $meta = is_array($i['meta'] ?? null) ? $i['meta'] : [];
+                $hay = strtolower(
+                    (string) ($i['title'] ?? '') . ' ' .
+                    (string) ($i['prompt'] ?? '') . ' ' .
+                    (string) ($i['user_prompt'] ?? '') . ' ' .
+                    (string) ($i['type'] ?? '') . ' ' .
+                    (string) ($meta['project_id'] ?? '') . ' ' .
+                    (string) ($i['project_title'] ?? '')
+                );
+                return strpos($hay, $q) !== false;
+            }));
+        }
+
+        usort($items, function ($a, $b) use ($sort) {
+            $ta = strtotime((string) ($a['created_at'] ?? '')) ?: 0;
+            $tb = strtotime((string) ($b['created_at'] ?? '')) ?: 0;
+            $ua = strtotime((string) ($a['updated_at'] ?? $a['created_at'] ?? '')) ?: 0;
+            $ub = strtotime((string) ($b['updated_at'] ?? $b['created_at'] ?? '')) ?: 0;
+            if ($sort === 'oldest') {
+                return $ta <=> $tb;
+            }
+            if ($sort === 'updated') {
+                return $ub <=> $ua;
+            }
+            return $tb <=> $ta;
+        });
 
         return array_map([$this, 'enrich_item'], $items);
     }

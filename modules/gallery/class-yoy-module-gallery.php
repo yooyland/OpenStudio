@@ -194,6 +194,8 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             'type'        => sanitize_text_field($request->get_param('type') ?? ''),
             'project_id'  => sanitize_text_field($request->get_param('project_id') ?? ''),
             'favorite'    => $request->get_param('favorite'),
+            'q'           => sanitize_text_field($request->get_param('q') ?? ''),
+            'sort'        => sanitize_text_field($request->get_param('sort') ?? 'newest'),
         ];
 
         if ($request->get_param('sync') === '1' || $request->get_param('sync') === 'true') {
