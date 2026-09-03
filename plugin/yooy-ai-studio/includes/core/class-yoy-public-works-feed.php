@@ -305,40 +305,9 @@ final class YooY_Public_Works_Feed {
     }
 
     private function seed_platform_feed_if_empty(string $option_key, string $source): void {
-        $existing = get_option($option_key, []);
-        if (is_array($existing) && !empty($existing)) {
-            return;
-        }
-        if (!class_exists('YooY_Official_Showcase')) {
-            return;
-        }
-
-        $cards = YooY_Official_Showcase::instance()->to_feed_cards(
-            array_slice(YooY_Official_Showcase::instance()->list_public(24), 0, 12)
-        );
-
-        $seed = [];
-        foreach ($cards as $idx => $card) {
-            $seed[] = [
-                'id'            => ($source === 'marketplace' ? 'mkt_' : 'com_') . ($card['id'] ?? ('seed_' . $idx)),
-                'gallery_id'    => (string) ($card['id'] ?? ''),
-                'title'         => (string) ($card['title'] ?? 'Sample Work'),
-                'type'          => (string) ($card['type'] ?? 'image'),
-                'thumbnail_url' => (string) ($card['thumbnail_url'] ?? ''),
-                'provider'      => (string) ($card['provider'] ?? 'YooY Official'),
-                'creator'       => $source === 'marketplace' ? 'YooY Marketplace' : 'YooY Community',
-                'likes'         => max(1, 24 - $idx),
-                'price'         => $source === 'marketplace' ? ($idx % 3 === 0 ? 0 : 9900) : 0,
-                'status'        => 'listed',
-                'created_at'    => gmdate('c', time() - ($idx * 3600)),
-                'feed_source'   => $source,
-                'is_demo'       => true,
-            ];
-        }
-
-        if (!empty($seed)) {
-            update_option($option_key, $seed, false);
-        }
+        // Intentionally no-op: Guest/Public discovery must never be padded with
+        // Official Showcase placeholder cards. Keep existing option data untouched.
+        unset($option_key, $source);
     }
 
     /**
@@ -376,7 +345,7 @@ final class YooY_Public_Works_Feed {
         }
         return strpos($url, 'placeholder.svg') !== false
             || strpos($url, 'placehold.co') !== false
-            || strpos($url, 'official-showcase/thumbs/placeholder') !== false;
+            || strpos($url, 'official-showcase/thumbs') !== false;
     }
 
     /**

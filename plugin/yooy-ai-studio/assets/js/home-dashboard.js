@@ -44,8 +44,11 @@
         if (s.visible === false) return false;
         if (!isLoggedInHome()) {
           var dt = sectionDisplayType(s);
+          var src = String(s.data_source || s.source || '');
           if (dt === 'recent' || dt === 'projects') return false;
-          if ((s.data_source || s.source) === 'user') return false;
+          if (src === 'user' || src === 'demo' || src === 'official') return false;
+          // Guest gallery sections with zero real works: keep one honest empty,
+          // but never render filler cards.
         }
         return true;
       })
@@ -75,10 +78,11 @@
 
   function isRealPublicWork(w) {
     if (!w) return false;
-    var url = w.thumbnail_url || w.display_url || w.large_url || w.cover || w.url || '';
+    if (w.is_demo || w.feed_source === 'demo' || w.source === 'demo') return false;
+    var url = w.thumbnail_url || w.display_url || w.large_url || w.cover || w.url || w.image_url || '';
     if (!url) return false;
     if (url.indexOf('placeholder.svg') !== -1 || url.indexOf('placehold.co') !== -1) return false;
-    if (w.is_demo || w.feed_source === 'demo') return false;
+    if (url.indexOf('official-showcase/thumbs') !== -1) return false;
     return true;
   }
 
@@ -375,9 +379,13 @@
   }
 
   function emptySectionCopy(section) {
+    var guest = !isLoggedInHome();
+    var title = guestSectionTitle(section) || section.title || '작품';
     return '<div class="yai-hd-empty">' +
-      '<p class="yai-muted">아직 표시할 ' + esc(section.title) + '이 없습니다.</p>' +
-      '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-route="assistant">AI Assistant로 시작</button>' +
+      '<p class="yai-muted">아직 공개된 ' + esc(title) + '이(가) 없습니다.</p>' +
+      (guest
+        ? '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-yai-free-start>무료로 시작하기</button>'
+        : '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-route="assistant">AI Assistant로 시작</button>') +
     '</div>';
   }
 
@@ -819,6 +827,18 @@
     state.workById = {};
     state.serverConfigured = CFG.hasServerSections(feed);
     state.sections = CFG.sectionsFromFeed(feed);
+    // If server only returned private user sections, guest filter would wipe Home.
+    // Prefer Discovery defaults so Guest/Auth share one product shell.
+    if (!isLoggedInHome()) {
+      var visible = sortedVisibleSections();
+      if (!visible.length) {
+        state.sections = CFG.cloneDefaults().filter(function (s) {
+          var dt = sectionDisplayType(s);
+          return dt !== 'recent' && dt !== 'projects';
+        });
+        state.serverConfigured = false;
+      }
+    }
     renderSectionManager();
     renderSections();
   }

@@ -820,6 +820,20 @@
       el.classList.toggle('is-active', el.dataset.page === name);
     });
 
+    try {
+      document.body.classList.toggle('yai-route-home', name === 'home');
+      var backBtnEarly = document.getElementById('yai-nav-back');
+      if (backBtnEarly) {
+        if (name === 'home') {
+          backBtnEarly.hidden = true;
+          backBtnEarly.setAttribute('hidden', 'hidden');
+          backBtnEarly.style.display = 'none';
+        } else {
+          backBtnEarly.style.display = '';
+        }
+      }
+    } catch (eRouteHome) { /* ignore */ }
+
     document.querySelectorAll('[data-route]').forEach(function (btn) {
       if (btn.dataset.route) {
         var active = btn.dataset.route === name;

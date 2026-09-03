@@ -185,7 +185,7 @@ $studio_quick = [
         <main class="yai-main" id="yai-main">
             <header class="yai-topbar yai-topbar--global" id="yai-global-topbar">
                 <div class="yai-topbar-nav" id="yai-topbar-nav">
-                    <button type="button" class="yai-nav-chrome-btn yai-nav-chrome-btn--back" id="yai-nav-back" aria-label="뒤로" title="이전 화면으로" hidden>
+                    <button type="button" class="yai-nav-chrome-btn yai-nav-chrome-btn--back" id="yai-nav-back" aria-label="뒤로" title="이전 화면으로" hidden style="display:none">
                         <span aria-hidden="true">←</span><span class="yai-nav-chrome-label">뒤로</span>
                     </button>
                     <span class="yai-crumb" id="yai-topbar-title">YooY AI Studio</span>

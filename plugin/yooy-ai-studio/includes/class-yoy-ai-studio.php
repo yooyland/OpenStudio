@@ -62,6 +62,8 @@ final class YooY_AI_Studio {
     public function body_class(array $classes): array {
         if ($this->should_load_assets()) {
             $classes[] = 'yoy-creator-os-active';
+            // Boot route is Home — hide Back before first paint / JS sync.
+            $classes[] = 'yai-route-home';
         }
         return $classes;
     }

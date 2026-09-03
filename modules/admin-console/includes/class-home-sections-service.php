@@ -140,7 +140,14 @@ final class YooY_Home_Sections_Service {
     public function resolve_for_home(int $user_id): array {
         self::$pool_cache = [];
         $output = [];
-        foreach ($this->list_visible() as $section) {
+        $sections = $this->list_visible();
+
+        // Guest Home must use the same Discovery shell, not private "user" sections.
+        if ($user_id <= 0) {
+            $sections = $this->guest_discovery_sections($sections);
+        }
+
+        foreach ($sections as $section) {
             $display_type = $this->normalize_display_type($section);
             $data_source = $this->normalize_data_source($section);
             $layout = $this->normalize_layout($section);
@@ -170,11 +177,17 @@ final class YooY_Home_Sections_Service {
             }
 
             if ($display_type === 'recent') {
+                if ($user_id <= 0) {
+                    continue;
+                }
                 $output[] = $entry;
                 continue;
             }
 
             if ($display_type === 'projects' || $data_source === 'projects' || $type === 'project') {
+                if ($user_id <= 0) {
+                    continue;
+                }
                 $entry['projects'] = $this->resolve_project_section($section, $user_id);
                 $output[] = $entry;
                 continue;
@@ -192,6 +205,66 @@ final class YooY_Home_Sections_Service {
         }
         self::$pool_cache = [];
         return $output;
+    }
+
+    /**
+     * Build guest-visible Discovery sections from admin config or defaults.
+     * Never keep private user/recent/project sources for logged-out visitors.
+     *
+     * @param array<int, array<string, mixed>> $sections
+     * @return array<int, array<string, mixed>>
+     */
+    private function guest_discovery_sections(array $sections): array {
+        $guest = [];
+        foreach ($sections as $section) {
+            $display = $this->normalize_display_type($section);
+            $source = $this->normalize_data_source($section);
+            $raw_source = sanitize_text_field((string) ($section['source'] ?? ''));
+
+            if ($display === 'recent' || $display === 'projects' || $source === 'projects') {
+                continue;
+            }
+            if ($source === 'user' || $raw_source === 'user' || $source === 'demo' || $raw_source === 'demo') {
+                continue;
+            }
+            if ($source === 'official' || $raw_source === 'official') {
+                // Official catalog may still contain seeded placeholder thumbs — skip for guest.
+                continue;
+            }
+
+            if ($display === 'gallery' || $display === 'template' || $display === 'guide') {
+                if ($display === 'gallery' && ($source === 'gallery' || $source === 'mixed' || $raw_source === 'mixed')) {
+                    $section['source'] = 'community';
+                    $section['data_source'] = 'community';
+                }
+                $guest[] = $section;
+            }
+        }
+
+        if (!empty($guest)) {
+            return $guest;
+        }
+
+        // Legacy WP options often store only private user sections (sec_best_default…).
+        // Fall back to the public Discovery defaults so Guest/Auth share one Home product.
+        $defaults = [];
+        foreach ($this->default_sections() as $section) {
+            $display = $this->normalize_display_type($section);
+            if ($display === 'recent' || $display === 'projects') {
+                continue;
+            }
+            if ($display === 'gallery') {
+                $section['source'] = 'community';
+                $section['data_source'] = 'community';
+                $section['type'] = 'latest';
+            }
+            if (($section['data_source'] ?? '') === 'templates' || $display === 'template') {
+                $section['source'] = 'templates';
+                $section['data_source'] = 'templates';
+            }
+            $defaults[] = $section;
+        }
+        return $defaults;
     }
 
     /**
@@ -302,7 +375,10 @@ final class YooY_Home_Sections_Service {
         $filled = [];
         if ($user_id <= 0) {
             $chain = array_values(array_filter($chain, function ($source) {
-                return $source !== 'demo' && $source !== 'user' && $source !== 'project';
+                return $source !== 'demo'
+                    && $source !== 'user'
+                    && $source !== 'project'
+                    && $source !== 'official';
             }));
         }
 
@@ -357,8 +433,15 @@ final class YooY_Home_Sections_Service {
             return true;
         }
         $source = (string) ($item['feed_source'] ?? $item['source'] ?? '');
-        if ($source === 'demo') {
-            return true;
+        if ($source === 'demo' || $source === 'official') {
+            // Official seeded filler must never appear in Guest discovery.
+            if ($source === 'demo') {
+                return true;
+            }
+            $url_check = (string) ($item['thumbnail_url'] ?? $item['display_url'] ?? $item['image_url'] ?? '');
+            if ($url_check === '' || strpos($url_check, 'placeholder') !== false || strpos($url_check, 'official-showcase/thumbs') !== false) {
+                return true;
+            }
         }
         $url = (string) ($item['thumbnail_url'] ?? $item['display_url'] ?? $item['large_url'] ?? $item['image_url'] ?? $item['cover'] ?? '');
         if ($url === '') {
@@ -366,7 +449,8 @@ final class YooY_Home_Sections_Service {
         }
         return strpos($url, 'placeholder.svg') !== false
             || strpos($url, 'placehold.co') !== false
-            || strpos($url, 'official-showcase/thumbs/placeholder') !== false;
+            || strpos($url, 'official-showcase/thumbs/placeholder') !== false
+            || strpos($url, '/official-showcase/thumbs/') !== false;
     }
 
     /**

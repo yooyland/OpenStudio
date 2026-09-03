@@ -487,11 +487,16 @@
     var backBtn = document.getElementById('yai-nav-back');
     var resetBtn = document.getElementById('yai-nav-reset');
     var showReset = canReset(currentRoute);
+    try {
+      document.body.classList.toggle('yai-route-home', currentRoute === 'home');
+    } catch (eBody) { /* ignore */ }
     if (backBtn) {
       if (currentRoute === 'home') {
         backBtn.hidden = true;
+        backBtn.setAttribute('hidden', 'hidden');
         backBtn.disabled = true;
         backBtn.setAttribute('aria-disabled', 'true');
+        backBtn.style.display = 'none';
       } else {
         var enabled = canGoBack(currentRoute);
         var peek = peekBack();
@@ -509,6 +514,8 @@
         backBtn.setAttribute('aria-label', label + '으로');
         backBtn.title = label + '으로';
         backBtn.hidden = false;
+        backBtn.removeAttribute('hidden');
+        backBtn.style.display = '';
         backBtn.disabled = !enabled && currentRoute === 'home';
         backBtn.setAttribute('aria-disabled', (!enabled && currentRoute === 'home') ? 'true' : 'false');
         if (!enabled && currentRoute !== 'home') {

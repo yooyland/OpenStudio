@@ -1,0 +1,209 @@
+/* YooY Navigation / Reset UX — Black/Gold */
+
+.yai-topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.yai-topbar-nav #yai-topbar-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yai-nav-chrome-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+
+/* Author display:inline-flex must not override the HTML hidden attribute. */
+.yai-nav-chrome-btn[hidden],
+#yai-nav-back[hidden],
+#yai-nav-reset[hidden],
+body.yai-route-home #yai-nav-back {
+  display: none !important;
+}
+
+.yai-nav-chrome-btn:hover:not(:disabled) {
+  border-color: #c9a227;
+  color: #ffe8a3;
+}
+
+.yai-nav-chrome-btn:disabled,
+.yai-nav-chrome-btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.yai-nav-chrome-btn--reset {
+  margin-left: 2px;
+}
+
+.yai-studio-nav-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.yai-studio-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #eee;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.yai-studio-nav-btn--back {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.yai-studio-nav-btn--reset:hover {
+  border-color: #c9a227;
+  color: #ffe8a3;
+}
+
+.yai-studio-nav-btn:focus-visible,
+.yai-nav-chrome-btn:focus-visible,
+.yai-nav-dialog__btn:focus-visible {
+  outline: 2px solid #c9a227;
+  outline-offset: 2px;
+}
+
+.yai-nav-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.yai-nav-dialog.is-open,
+.yai-nav-dialog:not([hidden]) {
+  display: flex;
+}
+
+.yai-nav-dialog[hidden] {
+  display: none !important;
+}
+
+.yai-nav-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.yai-nav-dialog__panel {
+  position: relative;
+  z-index: 1;
+  width: min(440px, 100%);
+  padding: 22px 22px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  background: #121212;
+  color: #f3f3f3;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.yai-nav-dialog__title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.yai-nav-dialog__body {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: pre-wrap;
+}
+
+.yai-nav-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.yai-nav-dialog__btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #eee;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.yai-nav-dialog__btn--ghost {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.yai-nav-dialog__btn--gold {
+  border-color: #c9a227;
+  background: linear-gradient(180deg, #d4af37, #b8922a);
+  color: #111;
+}
+
+.yai-nav-dialog__btn--warn {
+  border-color: #c45c5c;
+  background: rgba(160, 40, 40, 0.25);
+  color: #ffd0d0;
+}
+
+.yai-nav-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 10060;
+  max-width: min(90vw, 420px);
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #1a1a1a;
+  border: 1px solid rgba(201, 162, 39, 0.4);
+  color: #f5f5f5;
+  font-size: 13px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 720px) {
+  .yai-nav-chrome-btn span.yai-nav-chrome-label {
+    /* keep short labels */
+  }
+  .yai-topbar-nav {
+    gap: 6px;
+  }
+  .yai-nav-chrome-btn {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+}
