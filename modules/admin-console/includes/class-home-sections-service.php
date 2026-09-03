@@ -237,6 +237,12 @@ final class YooY_Home_Sections_Service {
                     $section['source'] = 'community';
                     $section['data_source'] = 'community';
                 }
+                // Saved templates are private — never show on Guest Home.
+                $id = (string) ($section['id'] ?? '');
+                $title = (string) ($section['title'] ?? '');
+                if ($display === 'template' && (strpos($id, 'saved') !== false || strpos($title, '저장') !== false)) {
+                    continue;
+                }
                 $guest[] = $section;
             }
         }
@@ -251,6 +257,10 @@ final class YooY_Home_Sections_Service {
         foreach ($this->default_sections() as $section) {
             $display = $this->normalize_display_type($section);
             if ($display === 'recent' || $display === 'projects') {
+                continue;
+            }
+            $id = (string) ($section['id'] ?? '');
+            if ($display === 'template' && strpos($id, 'saved') !== false) {
                 continue;
             }
             if ($display === 'gallery') {
@@ -1147,13 +1157,28 @@ final class YooY_Home_Sections_Service {
      */
     private function resolve_templates(array $section, int $user_id): array {
         $limit = max(1, min(24, (int) ($section['limit'] ?? 8)));
+
+        // Guest Home uses the Creation Templates catalog in the frontend.
+        // Never return Official Showcase placeholder thumbs as "templates".
+        if ($user_id <= 0) {
+            return [];
+        }
+
         $official = $this->resolve_official($limit, false);
-        if (!empty($official)) {
-            return array_map(function ($item) {
-                $item['seed'] = (string) ($item['seed_prompt'] ?? $item['prompt'] ?? $item['title'] ?? '');
-                $item['seed_prompt'] = $item['seed'];
-                return $item;
-            }, $official);
+        $clean = [];
+        foreach ($official as $item) {
+            if ($this->is_placeholder_or_demo_work($item)) {
+                continue;
+            }
+            $item['seed'] = (string) ($item['seed_prompt'] ?? $item['prompt'] ?? $item['title'] ?? '');
+            $item['seed_prompt'] = $item['seed'];
+            $clean[] = $item;
+            if (count($clean) >= $limit) {
+                break;
+            }
+        }
+        if (!empty($clean)) {
+            return $clean;
         }
 
         return $this->apply_filters(

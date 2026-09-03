@@ -45,10 +45,11 @@
         if (!isLoggedInHome()) {
           var dt = sectionDisplayType(s);
           var src = String(s.data_source || s.source || '');
+          var sid = String(s.id || '');
+          var stitle = String(s.title || '');
           if (dt === 'recent' || dt === 'projects') return false;
           if (src === 'user' || src === 'demo' || src === 'official') return false;
-          // Guest gallery sections with zero real works: keep one honest empty,
-          // but never render filler cards.
+          if (dt === 'template' && (sid.indexOf('saved') !== -1 || stitle.indexOf('저장') !== -1)) return false;
         }
         return true;
       })
@@ -423,11 +424,15 @@
         ? '<div class="' + layout + '">' + projects.slice(0, limit).map(function (p) { return projectCard(p, section); }).join('') + '</div>'
         : emptySectionCopy(section);
     } else if (dt === 'template') {
-      var isCatalog = (section.id === 'templates' || section.id === 'sec_templates' || section.data_source === 'templates');
+      var id = String(section.id || '');
+      var isCatalog = (id === 'templates' || id === 'sec_templates' || id === 'sec_templates_default');
+      if (!isLoggedInHome() && (id.indexOf('saved') !== -1 || (section.title || '').indexOf('저장') !== -1)) {
+        return '';
+      }
       if (isCatalog && global.YooYCreationTemplates && typeof global.YooYCreationTemplates.renderHomeFeatured === 'function') {
         body = '<div class="yai-ct-row">' + global.YooYCreationTemplates.renderHomeFeatured(4) + '</div>';
       } else {
-        var tpl = sectionWorks(section, feed).slice(0, limit);
+        var tpl = sectionWorks(section, feed).filter(isRealPublicWork).slice(0, limit);
         body = tpl.length
           ? '<div class="' + layout + '">' + tpl.map(function (t) { return templateCard(t, section); }).join('') + '</div>'
           : emptySectionCopy(section);
@@ -834,7 +839,10 @@
       if (!visible.length) {
         state.sections = CFG.cloneDefaults().filter(function (s) {
           var dt = sectionDisplayType(s);
-          return dt !== 'recent' && dt !== 'projects';
+          var sid = String(s.id || '');
+          if (dt === 'recent' || dt === 'projects') return false;
+          if (dt === 'template' && sid.indexOf('saved') !== -1) return false;
+          return true;
         });
         state.serverConfigured = false;
       }
