@@ -3422,13 +3422,15 @@
       { id: 'ad', label: '광고 카피' },
       { id: 'company', label: '회사 소개' },
       { id: 'sns', label: 'SNS 글' },
+      { id: 'press', label: '보도자료' },
       { id: 'free', label: '자유 작성' }
     ];
     var tones = [
       { id: 'friendly', label: '친근하게' },
       { id: 'professional', label: '전문적으로' },
       { id: 'persuasive', label: '설득력 있게' },
-      { id: 'concise', label: '간결하게' }
+      { id: 'concise', label: '간결하게' },
+      { id: 'emotional', label: '감성적으로' }
     ];
     var lengths = [
       { id: 'short', label: '짧게' },
@@ -3438,6 +3440,7 @@
     var purpose = 'free';
     var tone = 'friendly';
     var length = 'medium';
+    var writingBusy = false;
 
     el.innerHTML =
       (window.YooYNavigation ? window.YooYNavigation.headerActionsHtml('writing') : '') +
@@ -3513,6 +3516,7 @@
       } catch (e) {}
     }
     btn.addEventListener('click', function () {
+      if (writingBusy || btn.disabled) return;
       if (!requireLogin()) return;
       var prompt = input.value.trim();
       if (!prompt) {
@@ -3520,16 +3524,14 @@
         return;
       }
       if (errEl) errEl.hidden = true;
+      writingBusy = true;
       btn.disabled = true;
-      btn.textContent = '글 작성 중…';
-      var purposeLabel = (purposes.find(function (x) { return x.id === purpose; }) || {}).label || purpose;
-      var toneLabel = (tones.find(function (x) { return x.id === tone; }) || {}).label || tone;
-      var lengthLabel = (lengths.find(function (x) { return x.id === length; }) || {}).label || length;
-      var composed = '[' + purposeLabel + ' / ' + toneLabel + ' / ' + lengthLabel + ']\n' + prompt;
+      btn.textContent = '글 작성 중...';
+      result.innerHTML = '<p class="yai-muted">글 작성 중...</p>';
       var providerEl = el.querySelector('#yai-writing-provider');
       var payload = {
         type: 'writing',
-        prompt: composed,
+        prompt: prompt,
         provider: (providerEl && providerEl.value) || 'auto',
         purpose: purpose,
         tone: tone,
@@ -3545,14 +3547,20 @@
       }
       Core.router.generate(payload).then(function (res) {
         var data = res.data || {};
-        var text = data.output || data.text || data.content || '';
-        if (typeof text === 'object' && text !== null) {
-          text = text.text || text.content || JSON.stringify(text);
+        var text = '';
+        if (typeof data.output === 'string') {
+          text = data.output;
+        } else if (data.output && typeof data.output === 'object') {
+          text = data.output.text || data.output.content || '';
         }
-        var galleryId = data.gallery_id || data.gallery_item_id || data.job_id || '';
+        if (!text) text = data.text || data.content || '';
+        if (typeof text === 'object' && text !== null) {
+          text = text.text || text.content || '';
+        }
+        var galleryId = data.gallery_id || data.gallery_item_id || '';
         result.innerHTML = '<div class="yai-card"><strong>작성 완료</strong>' +
-          (text ? '<div class="yai-writing-output" style="white-space:pre-wrap;margin-top:8px">' + esc(String(text)) + '</div>' : '') +
-          '<p style="margin-top:8px;opacity:.7">Credits: ' + esc(String(data.credits_used != null ? data.credits_used : '—')) + '</p>' +
+          (text ? '<div class="yai-writing-output" style="white-space:pre-wrap;margin-top:8px">' + esc(String(text)) + '</div>' : '<p class="yai-error">결과를 표시하지 못했습니다.</p>') +
+          '<p style="margin-top:8px;opacity:.7">크레딧: ' + esc(String(data.credits_used != null ? data.credits_used : '—')) + '</p>' +
           '<div class="yai-writing-result-actions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">' +
             '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" id="yai-writing-again">다시 만들기</button>' +
             (galleryId ? '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" id="yai-writing-project" data-gallery-id="' + esc(galleryId) + '">프로젝트에 추가</button>' : '') +
@@ -3578,13 +3586,17 @@
         }
         if (Core.notifyGalleryUpdated) Core.notifyGalleryUpdated();
       }).catch(function (err) {
-        var msg = err.message || '글 만들기에 실패했습니다.';
-        if (msg.indexOf('No provider route') !== -1) {
-          msg = '글 만들기 경로를 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+        var msg = err.message || '글을 생성하지 못했습니다. 다시 시도해 주세요.';
+        if (msg.indexOf('No provider route') !== -1 || msg.indexOf('openai_') === 0) {
+          msg = '글을 생성하지 못했습니다. 다시 시도해 주세요.';
         }
         result.innerHTML = '<p class="yai-error">' + esc(msg) + '</p>';
       })
-        .finally(function () { btn.disabled = false; btn.textContent = '글 만들기'; });
+        .finally(function () {
+          writingBusy = false;
+          btn.disabled = false;
+          btn.textContent = '글 만들기';
+        });
     });
     el.dataset.ready = '1';
   }

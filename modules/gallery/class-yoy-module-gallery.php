@@ -473,7 +473,21 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             'visibility'       => !empty($item['public']) ? 'public' : 'private',
             'is_favorite'      => !empty($item['favorite']),
             'marketplace_status' => (string) ($item['marketplace_status'] ?? 'none'),
+            'content'          => $this->writing_content($item),
+            'text'             => $this->writing_content($item),
         ]);
+    }
+
+    private function writing_content(array $item): string {
+        $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+        $text = (string) (
+            $meta['content']
+            ?? $meta['body']
+            ?? $item['content']
+            ?? $item['text']
+            ?? ''
+        );
+        return $text;
     }
 
     private function type_label(string $type): string {

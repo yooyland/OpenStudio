@@ -69,6 +69,13 @@ final class YooY_Module_AI_Router extends YooY_Module_Base {
                 'provider' => sanitize_text_field($body['provider'] ?? $request->get_param('provider') ?: 'auto'),
                 'job_id'   => 'job_' . wp_generate_uuid4(),
             ]);
+            // Writing Simple Mode fields (purpose / tone / length / project).
+            if (($payload['type'] ?? '') === 'writing') {
+                $payload['purpose'] = sanitize_text_field((string) ($body['purpose'] ?? 'free'));
+                $payload['tone'] = sanitize_text_field((string) ($body['tone'] ?? 'friendly'));
+                $payload['length'] = sanitize_text_field((string) ($body['length'] ?? 'medium'));
+                $payload['project_id'] = sanitize_text_field((string) ($body['project_id'] ?? ''));
+            }
 
             if (!empty($body['reference_assets']) && is_array($body['reference_assets'])) {
                 if (!class_exists('YooY_Reference_Asset_Service')) {

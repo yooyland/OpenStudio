@@ -32,6 +32,27 @@ final class YooY_Job_Normalizer {
             'raw'          => $raw['raw'] ?? null,
         ];
 
+        if ($type === 'writing' || $type === 'translation') {
+            $text = (string) ($raw['text'] ?? $raw['content'] ?? '');
+            if ($text === '' && is_array($output)) {
+                $text = (string) ($output['text'] ?? $output['content'] ?? '');
+            }
+            if ($text !== '') {
+                $normalized['text'] = $text;
+                $normalized['content'] = $text;
+            }
+            if (!empty($raw['gallery_id'])) {
+                $normalized['gallery_id'] = (string) $raw['gallery_id'];
+                $normalized['gallery_item_id'] = (string) ($raw['gallery_item_id'] ?? $raw['gallery_id']);
+            }
+            if (!empty($raw['project_id'])) {
+                $normalized['project_id'] = (string) $raw['project_id'];
+            }
+            if (!empty($raw['credits']) && is_array($raw['credits'])) {
+                $normalized['credits'] = $raw['credits'];
+            }
+        }
+
         return self::enforce_pollable_state($normalized, $type);
     }
 
@@ -40,6 +61,22 @@ final class YooY_Job_Normalizer {
         if (($normalized['status'] ?? '') !== YooY_Job_Status::COMPLETED) {
             return $normalized;
         }
+
+        $type = (string) ($normalized['type'] ?? '');
+        if ($type === 'writing' || $type === 'translation') {
+            $text = (string) ($normalized['text'] ?? $normalized['content'] ?? '');
+            if ($text === '' && is_array($normalized['output'] ?? null)) {
+                $text = (string) ($normalized['output']['text'] ?? $normalized['output']['content'] ?? '');
+            }
+            if (trim($text) !== '') {
+                return $normalized;
+            }
+            $normalized['status'] = YooY_Job_Status::FAILED;
+            $normalized['error']  = 'Generation completed but no text output was returned.';
+            $normalized['progress'] = 0;
+            return $normalized;
+        }
+
         if (class_exists('YooY_Asset_Generator') && YooY_Asset_Generator::has_displayable_asset($normalized)) {
             return $normalized;
         }
@@ -169,6 +206,36 @@ final class YooY_Job_Normalizer {
     }
 
     private static function build_output(array $raw, string $type): array {
+        if ($type === 'writing' || $type === 'translation') {
+            $text = '';
+            if (!empty($raw['output']) && is_string($raw['output'])) {
+                $text = $raw['output'];
+            } elseif (!empty($raw['output']) && is_array($raw['output'])) {
+                $text = (string) ($raw['output']['text'] ?? $raw['output']['content'] ?? '');
+            }
+            if ($text === '') {
+                $text = (string) ($raw['text'] ?? $raw['content'] ?? '');
+            }
+            $shape = [
+                'urls'      => [],
+                'primary'   => '',
+                'mime'      => 'text/plain',
+                'thumbnail' => '',
+                'artifacts' => [],
+                'text'      => $text,
+                'content'   => $text,
+            ];
+            if (!empty($raw['output']) && is_array($raw['output'])) {
+                $shape = array_merge(self::normalize_output_shape($raw['output'], $type), $shape);
+                $shape['text'] = $text;
+                $shape['content'] = $text;
+                if (empty($shape['mime'])) {
+                    $shape['mime'] = 'text/plain';
+                }
+            }
+            return $shape;
+        }
+
         if (!empty($raw['output']) && is_array($raw['output'])) {
             return self::normalize_output_shape($raw['output'], $type);
         }

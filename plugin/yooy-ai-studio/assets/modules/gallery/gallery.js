@@ -123,7 +123,7 @@
     }
     if (type === 'writing') {
       return '<span class="ygl-thumb-icon">📝</span><span class="ygl-thumb-excerpt">' +
-        esc(String(item.user_prompt || item.prompt || item.title || '').slice(0, 80)) + '</span>';
+        esc(String((item.meta && (item.meta.content || item.meta.body)) || item.content || item.text || item.user_prompt || item.prompt || item.title || '').slice(0, 80)) + '</span>';
     }
     if (type === 'translation') {
       return '<span class="ygl-thumb-icon">🌐</span><span class="ygl-thumb-excerpt">' +
@@ -138,7 +138,8 @@
     }
     var type = item.type;
     if (type === 'writing') {
-      return '<div class="ygl-text-preview">' + esc(item.user_prompt || item.prompt || '') + '</div>';
+      var body = (item.meta && (item.meta.content || item.meta.body)) || item.content || item.text || item.user_prompt || item.prompt || '';
+      return '<div class="ygl-text-preview" style="white-space:pre-wrap">' + esc(String(body || '내용 없음')) + '</div>';
     }
     if (type === 'translation') {
       var translated = item.translated_text || (item.meta && item.meta.translated_text) || '';

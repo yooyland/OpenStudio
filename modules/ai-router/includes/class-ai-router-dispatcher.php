@@ -120,37 +120,91 @@ final class YooY_AI_Router_Dispatcher {
         $purpose = sanitize_text_field((string) ($payload['purpose'] ?? 'free'));
         $tone = sanitize_text_field((string) ($payload['tone'] ?? 'friendly'));
         $length = sanitize_text_field((string) ($payload['length'] ?? 'medium'));
+        $requested_provider = sanitize_text_field((string) ($payload['provider'] ?? 'auto'));
+        if ($requested_provider === '') {
+            $requested_provider = 'auto';
+        }
 
+        // Existing product convention (estimate endpoint): writing => 5
         $cost = 5;
         if (!$this->credits->can_afford($user_id, $cost)) {
             throw new Exception('크레딧이 부족합니다. Credits에서 충전 후 다시 시도해 주세요.');
         }
 
-        $body = $this->compose_writing_draft($prompt, $purpose, $tone, $length);
-        $result = [
-            'job_id'       => $job_id,
-            'status'       => YooY_Job_Status::COMPLETED,
-            'type'         => 'writing',
-            'studio'       => 'writing-studio',
-            'provider'     => 'mock',
-            'model'        => 'writing-draft-1',
-            'prompt'       => $prompt,
-            'output'       => $body,
-            'text'         => $body,
-            'content'      => $body,
-            'credits_used' => $cost,
-            'created_at'   => gmdate('c'),
-            'project_id'   => $project_id,
-        ];
+        if ($prompt === '') {
+            throw new Exception('무엇을 작성할지 입력해 주세요.');
+        }
 
+        $this->ensure_openai_chat_helper();
+
+        $ref_context = $this->extract_writing_reference_context($payload);
+        $generation = $this->generate_writing_content(
+            $prompt,
+            $purpose,
+            $tone,
+            $length,
+            $ref_context,
+            $requested_provider
+        );
+
+        $body = (string) ($generation['content'] ?? '');
+        if (trim($body) === '') {
+            throw new Exception('글을 생성하지 못했습니다. 다시 시도해 주세요.');
+        }
+
+        $provider_used = sanitize_text_field((string) ($generation['provider'] ?? 'openai'));
+        $model_used = sanitize_text_field((string) ($generation['model'] ?? 'gpt-4o-mini'));
+
+        // Charge once after successful generation (matches Image Studio pattern).
+        $credit_info = ['deducted' => 0];
         if (class_exists('YooY_Credits_Service')) {
             $label = function_exists('mb_substr')
                 ? mb_substr($prompt, 0, 40)
                 : substr($prompt, 0, 40);
-            $credit_info = $this->credits->deduct($user_id, $cost, 'Writing: ' . $label, 'writing-studio');
-            $result['credits_used'] = (int) ($credit_info['deducted'] ?? $cost);
-            $result['credits'] = $credit_info;
+            $credit_info = $this->credits->deduct(
+                $user_id,
+                $cost,
+                'Writing: ' . $label,
+                'writing-studio',
+                [
+                    'studio'   => 'writing-studio',
+                    'provider' => $provider_used,
+                    'status'   => 'completed',
+                ]
+            );
         }
+
+        $result = [
+            'job_id'             => $job_id,
+            'status'             => YooY_Job_Status::COMPLETED,
+            'type'               => 'writing',
+            'studio'             => 'writing-studio',
+            'provider'           => $provider_used,
+            'provider_used'      => $provider_used,
+            'requested_provider' => $requested_provider,
+            'model'              => $model_used,
+            'prompt'             => $prompt,
+            'output'             => [
+                'text'    => $body,
+                'content' => $body,
+                'mime'    => 'text/plain',
+            ],
+            'text'               => $body,
+            'content'            => $body,
+            'credits_used'       => (int) ($credit_info['deducted'] ?? $cost),
+            'credits'            => $credit_info,
+            'created_at'         => gmdate('c'),
+            'project_id'         => $project_id,
+            'meta'               => [
+                'content'    => $body,
+                'body'       => $body,
+                'purpose'    => $purpose,
+                'tone'       => $tone,
+                'length'     => $length,
+                'project_id' => $project_id,
+                'request_id' => (string) ($generation['request_id'] ?? ''),
+            ],
+        ];
 
         if (!class_exists('YooY_Gallery_Store') && defined('YOY_AI_STUDIO_MODULES_DIR')) {
             $gpath = YOY_AI_STUDIO_MODULES_DIR . 'gallery/includes/class-gallery-store.php';
@@ -167,11 +221,11 @@ final class YooY_AI_Router_Dispatcher {
                 'id'           => $job_id,
                 'type'         => 'writing',
                 'studio'       => 'writing-studio',
-                'title'        => $title,
+                'title'        => $title !== '' ? $title : 'Writing',
                 'prompt'       => $prompt,
                 'user_prompt'  => $prompt,
-                'provider'     => 'mock',
-                'model'        => 'writing-draft-1',
+                'provider'     => $provider_used,
+                'model'        => $model_used,
                 'credits_used' => (int) ($result['credits_used'] ?? $cost),
                 'project_id'   => $project_id,
                 'created_at'   => gmdate('c'),
@@ -191,14 +245,192 @@ final class YooY_AI_Router_Dispatcher {
         return $this->finalize($user_id, 'writing', 'writing-studio', $result);
     }
 
+    /**
+     * Resolve Writing text via existing OpenAI chat path (same key as Translator/Import).
+     * Mock draft only when explicit provider=mock AND debug flags allow it.
+     *
+     * @return array{content:string,provider:string,model:string,request_id?:string}
+     */
+    private function generate_writing_content(
+        string $prompt,
+        string $purpose,
+        string $tone,
+        string $length,
+        string $ref_context,
+        string $requested_provider
+    ): array {
+        $want_mock = ($requested_provider === 'mock');
+        $allow_mock = class_exists('YooY_OpenAI_Chat')
+            ? YooY_OpenAI_Chat::allow_mock_fallback()
+            : false;
+
+        if ($want_mock && $allow_mock) {
+            return [
+                'content'  => $this->compose_writing_draft($prompt, $purpose, $tone, $length),
+                'provider' => 'mock',
+                'model'    => 'writing-draft-1',
+            ];
+        }
+
+        if (!class_exists('YooY_OpenAI_Chat') || !YooY_OpenAI_Chat::is_configured()) {
+            if (class_exists('YooY_System_Log')) {
+                YooY_System_Log::write('error', 'Writing provider unavailable: OpenAI key missing', [
+                    'provider' => 'openai',
+                    'studio'   => 'writing-studio',
+                ]);
+            }
+            throw new Exception('글을 생성하지 못했습니다. 다시 시도해 주세요.');
+        }
+
+        try {
+            $messages = [
+                [
+                    'role'    => 'system',
+                    'content' => $this->build_writing_system_prompt($purpose, $tone, $length),
+                ],
+                [
+                    'role'    => 'user',
+                    'content' => $this->build_writing_user_prompt($prompt, $ref_context),
+                ],
+            ];
+            $chat = YooY_OpenAI_Chat::complete($messages, [
+                'model'       => 'gpt-4o-mini',
+                'temperature' => 0.7,
+                'timeout'     => 90,
+            ]);
+            return [
+                'content'    => (string) ($chat['content'] ?? ''),
+                'provider'   => 'openai',
+                'model'      => (string) ($chat['model'] ?? 'gpt-4o-mini'),
+                'request_id' => (string) ($chat['request_id'] ?? ''),
+            ];
+        } catch (Exception $e) {
+            if (class_exists('YooY_System_Log')) {
+                YooY_System_Log::write('error', 'Writing generation failed', [
+                    'provider' => 'openai',
+                    'studio'   => 'writing-studio',
+                    'code'     => $e->getMessage(),
+                ]);
+            }
+            // Production: never silently return mock draft to users.
+            throw new Exception('글을 생성하지 못했습니다. 다시 시도해 주세요.');
+        }
+    }
+
+    private function ensure_openai_chat_helper(): void {
+        if (class_exists('YooY_OpenAI_Chat')) {
+            return;
+        }
+        $path = '';
+        if (defined('YOY_AI_STUDIO_PROVIDERS_DIR')) {
+            $path = YOY_AI_STUDIO_PROVIDERS_DIR . 'helpers/class-yoy-openai-chat.php';
+        }
+        if ($path !== '' && file_exists($path)) {
+            require_once $path;
+        }
+    }
+
+    private function build_writing_system_prompt(string $purpose, string $tone, string $length): string {
+        $purpose_map = [
+            'blog'    => '블로그 글',
+            'product' => '제품 소개문',
+            'ad'      => '광고 카피',
+            'company' => '회사 소개문',
+            'sns'     => 'SNS 게시글',
+            'press'   => '보도자료 초안',
+            'free'    => '자유 형식 글',
+        ];
+        $tone_map = [
+            'friendly'     => '친근하고 따뜻한',
+            'professional' => '전문적이고 신뢰감 있는',
+            'persuasive'   => '설득력 있는',
+            'concise'      => '간결하고 명확한',
+            'emotional'    => '감성적인',
+        ];
+        $length_map = [
+            'short'  => '짧게 (핵심만, 대략 150~300자)',
+            'medium' => '보통 길이 (대략 400~800자)',
+            'long'   => '길게 (상세하게, 대략 900~1500자)',
+        ];
+
+        $purpose_label = $purpose_map[$purpose] ?? $purpose_map['free'];
+        $tone_label = $tone_map[$tone] ?? $tone_map['friendly'];
+        $length_label = $length_map[$length] ?? $length_map['medium'];
+
+        return "당신은 YooY AI Studio의 한국어 카피라이터입니다.\n"
+            . "글 종류: {$purpose_label}\n"
+            . "톤: {$tone_label}\n"
+            . "길이: {$length_label}\n"
+            . "규칙:\n"
+            . "- 요청에 맞는 완성된 본문만 작성합니다.\n"
+            . "- 메타 설명, 프롬프트 재진술, '여기 초안입니다' 같은 서두는 쓰지 않습니다.\n"
+            . "- 마크다운 제목이 자연스러우면 사용하되 과도한 장식은 피합니다.\n"
+            . "- 참고 자료가 있으면 사실에 맞게 활용하고 없는 내용은 지어내지 않습니다.";
+    }
+
+    private function build_writing_user_prompt(string $prompt, string $ref_context): string {
+        $parts = [];
+        $parts[] = "요청:\n" . trim($prompt);
+        if ($ref_context !== '') {
+            $parts[] = "참고 자료:\n" . $ref_context;
+        }
+        return implode("\n\n", $parts);
+    }
+
+    private function extract_writing_reference_context(array $payload): string {
+        $chunks = [];
+        $assets = [];
+        if (!empty($payload['reference_assets']) && is_array($payload['reference_assets'])) {
+            $assets = $payload['reference_assets'];
+        }
+        foreach ($assets as $asset) {
+            if (!is_array($asset)) {
+                continue;
+            }
+            $title = sanitize_text_field((string) ($asset['title'] ?? $asset['name'] ?? ''));
+            $excerpt = sanitize_textarea_field((string) (
+                $asset['excerpt']
+                ?? $asset['content']
+                ?? $asset['text']
+                ?? $asset['normalized_content']
+                ?? ''
+            ));
+            if ($excerpt === '' && !empty($asset['url'])) {
+                $excerpt = 'URL: ' . esc_url_raw((string) $asset['url']);
+            }
+            if ($excerpt === '') {
+                continue;
+            }
+            if (function_exists('mb_substr')) {
+                $excerpt = mb_substr($excerpt, 0, 4000);
+            } else {
+                $excerpt = substr($excerpt, 0, 4000);
+            }
+            $chunks[] = ($title !== '' ? '[' . $title . "]\n" : '') . $excerpt;
+        }
+
+        if (!empty($payload['reference_url']) && empty($chunks)) {
+            $chunks[] = 'URL: ' . esc_url_raw((string) $payload['reference_url']);
+        }
+
+        $joined = implode("\n\n---\n\n", $chunks);
+        if (function_exists('mb_substr')) {
+            return mb_substr($joined, 0, 8000);
+        }
+        return substr($joined, 0, 8000);
+    }
+
+    /**
+     * Dev/test-only draft (never used for normal production users).
+     */
     private function compose_writing_draft(string $prompt, string $purpose, string $tone, string $length): string {
         $lines = [];
-        $lines[] = '[초안] ' . ($purpose !== '' ? $purpose : 'writing') . ' · ' . $tone . ' · ' . $length;
+        $lines[] = '[DEV MOCK DRAFT] ' . ($purpose !== '' ? $purpose : 'writing') . ' · ' . $tone . ' · ' . $length;
         $lines[] = '';
         $lines[] = trim($prompt);
         $lines[] = '';
         $lines[] = '---';
-        $lines[] = '요청하신 주제를 바탕으로 초안을 정리했습니다. Studio에서 톤과 길이를 조정해 이어서 다듬을 수 있습니다.';
+        $lines[] = 'This mock draft is only available when WP_DEBUG/YOOY_DEBUG is on and provider=mock.';
         return implode("\n", $lines);
     }
 
@@ -235,6 +467,35 @@ final class YooY_AI_Router_Dispatcher {
 
     private function finalize(int $user_id, string $type, string $studio, array $result): array {
         $normalized = YooY_Job_Normalizer::normalize($result, $type);
+
+        if ($type === 'writing') {
+            $text = (string) ($result['text'] ?? $result['content'] ?? '');
+            if ($text === '' && !empty($result['output']) && is_array($result['output'])) {
+                $text = (string) ($result['output']['text'] ?? $result['output']['content'] ?? '');
+            }
+            if ($text !== '') {
+                $normalized['text'] = $text;
+                $normalized['content'] = $text;
+                $out = is_array($normalized['output'] ?? null) ? $normalized['output'] : [];
+                $out['text'] = $text;
+                $out['content'] = $text;
+                if (empty($out['mime'])) {
+                    $out['mime'] = 'text/plain';
+                }
+                $normalized['output'] = $out;
+            }
+            if (!empty($result['gallery_id'])) {
+                $normalized['gallery_id'] = (string) $result['gallery_id'];
+                $normalized['gallery_item_id'] = (string) ($result['gallery_item_id'] ?? $result['gallery_id']);
+            }
+            if (!empty($result['project_id'])) {
+                $normalized['project_id'] = (string) $result['project_id'];
+            }
+            if (!empty($result['credits']) && is_array($result['credits'])) {
+                $normalized['credits'] = $result['credits'];
+            }
+        }
+
         $saved = $this->jobs->save($user_id, array_merge($normalized, ['studio' => $studio]), $studio);
         return $saved;
     }

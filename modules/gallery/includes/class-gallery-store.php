@@ -466,6 +466,8 @@ final class YooY_Gallery_Store {
             'translation_mode'   => (string) ($meta['mode'] ?? ''),
             'source_language'    => (string) ($meta['source_language'] ?? ''),
             'target_language'    => (string) ($meta['target_language'] ?? ''),
+            'content'            => (string) ($meta['content'] ?? $meta['body'] ?? ''),
+            'text'               => (string) ($meta['content'] ?? $meta['body'] ?? ''),
         ]);
     }
 
