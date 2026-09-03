@@ -4,9 +4,9 @@
   position: fixed;
   left: var(--yai-sidebar-w, 260px);
   right: 0;
-  bottom: 0;
+  bottom: max(36px, env(safe-area-inset-bottom, 0px));
   z-index: 40;
-  padding: 12px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 20px 8px;
   pointer-events: none;
   background: linear-gradient(180deg, transparent 0%, rgba(8, 8, 8, 0.72) 38%, rgba(8, 8, 8, 0.94) 100%);
 }
@@ -179,7 +179,7 @@ body.yai-sidebar-collapsed .yai-home-composer {
 }
 
 .yai-view--home.yai-hd-page {
-  padding-bottom: 160px !important;
+  padding-bottom: 196px !important;
 }
 
 .yai-home-composer .yai-create-ux__coach {
@@ -189,8 +189,13 @@ body.yai-sidebar-collapsed .yai-home-composer {
 @media (max-width: 900px) {
   .yai-home-composer {
     left: 0;
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
     padding-left: 12px;
     padding-right: 12px;
+  }
+
+  .yai-view--home.yai-hd-page {
+    padding-bottom: 180px !important;
   }
 
   .yai-home-composer__inner {
