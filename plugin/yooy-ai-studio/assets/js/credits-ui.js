@@ -41,19 +41,22 @@
     if (top && isLoggedIn()) {
       top.textContent = bal + ' 크레딧';
     }
+    var myCredits = document.getElementById('yai-my-menu-credits');
+    if (myCredits && isLoggedIn()) {
+      myCredits.textContent = bal + ' 크레딧';
+    }
     if (global.YooYHomeDashboard && typeof global.YooYHomeDashboard.updateCredits === 'function') {
       global.YooYHomeDashboard.updateCredits(acc);
     }
     var profile = document.getElementById('yai-credits');
     if (profile) profile.textContent = '크레딧: ' + bal;
 
+    var pname = acc.plan_name || acc.tier || 'Free';
+    var myPlan = document.getElementById('yai-my-menu-plan');
+    if (myPlan) myPlan.textContent = pname + ' 플랜';
+
     var planBtn = document.getElementById('yai-pro-plan-btn');
     if (planBtn) {
-      var pname = acc.plan_name || acc.tier || 'Free';
-      planBtn.childNodes[0] && planBtn.childNodes[0].nodeType === 3
-        ? (planBtn.childNodes[0].textContent = pname + ' 플랜 ')
-        : null;
-      // Keep chevron: rewrite text carefully
       var chev = planBtn.querySelector('[aria-hidden="true"]');
       planBtn.textContent = '';
       planBtn.appendChild(document.createTextNode(pname + ' 플랜 '));

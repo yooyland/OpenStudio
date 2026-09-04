@@ -82,9 +82,15 @@ $nav_sections = [
 
 $user_initials = 'G';
 $user_email    = '';
+$user_display  = 'Guest';
+$user_avatar   = '';
 if ($is_logged_in) {
-    $user_email = (string) $user->user_email;
-    $name_src   = trim((string) ($user->display_name ?: $user->user_login));
+    $user_email   = (string) $user->user_email;
+    $user_display = trim((string) ($user->display_name ?: $user->user_login));
+    if ($user_display === '') {
+        $user_display = 'User';
+    }
+    $name_src = $user_display;
     if ($name_src !== '') {
         $parts = preg_split('/\s+/', $name_src);
         if (is_array($parts) && count($parts) >= 2) {
@@ -93,6 +99,7 @@ if ($is_logged_in) {
             $user_initials = strtoupper(mb_substr($name_src, 0, 2));
         }
     }
+    $user_avatar = (string) get_avatar_url($user->ID, ['size' => 64]);
 }
 
 $studio_quick = [
@@ -202,16 +209,43 @@ $studio_quick = [
                 </div>
                 <div class="yai-topbar-actions" id="yai-topbar-actions">
                     <?php if ($is_logged_in) : ?>
-                        <button class="yai-topbar-user" data-route="credits" type="button" aria-label="Credits and plan">
-                            <span class="yai-membership-crystal yai-crystal--<?php echo esc_attr($crystal_class); ?> yai-crystal--sm<?php echo esc_attr($crystal_diamond); ?>" id="yai-topbar-crystal" role="img" aria-label="<?php echo esc_attr($crystal_label); ?>">
-                                <span class="yai-crystal-core" aria-hidden="true"></span>
-                                <span class="yai-crystal-shine" aria-hidden="true"></span>
-                            </span>
-                            <span class="yai-pill" id="yai-top-credits">— Credits</span>
-                        </button>
-                        <button class="yai-icon-btn" type="button" data-yai-panel="notifications" aria-label="Notifications"><?php echo YooY_UI_Icons::svg('bell', 18); ?></button>
-                        <button class="yai-icon-btn" type="button" data-yai-panel="help" aria-label="Help"><?php echo YooY_UI_Icons::svg('help', 18); ?></button>
-                        <button class="yai-icon-btn" data-route="settings" type="button" aria-label="Settings"><?php echo YooY_UI_Icons::svg('settings', 18); ?></button>
+                        <div class="yai-my-menu" id="yai-my-menu">
+                            <button type="button" class="yai-my-menu__trigger" id="yai-my-menu-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="yai-my-menu-panel">
+                                <span class="yai-my-menu__avatar" aria-hidden="true">
+                                    <?php if ($user_avatar !== '') : ?>
+                                        <img src="<?php echo esc_url($user_avatar); ?>" alt="" width="28" height="28">
+                                    <?php else : ?>
+                                        <span class="yai-my-menu__initials"><?php echo esc_html($user_initials); ?></span>
+                                    <?php endif; ?>
+                                </span>
+                                <span class="yai-my-menu__name" id="yai-my-menu-name"><?php echo esc_html($user_display); ?></span>
+                                <span class="yai-my-menu__chev" aria-hidden="true">▾</span>
+                            </button>
+                            <div class="yai-my-menu__panel" id="yai-my-menu-panel" role="menu" hidden>
+                                <div class="yai-my-menu__head">
+                                    <strong id="yai-my-menu-head-name"><?php echo esc_html($user_display); ?></strong>
+                                    <span class="yai-my-menu__plan" id="yai-my-menu-plan"><?php echo esc_html($plan_label); ?> 플랜</span>
+                                    <span class="yai-my-menu__credits" id="yai-my-menu-credits">— 크레딧</span>
+                                </div>
+                                <button type="button" role="menuitem" data-route="settings">내 프로필</button>
+                                <button type="button" role="menuitem" data-route="credits">내 플랜</button>
+                                <button type="button" role="menuitem" data-route="credits">크레딧</button>
+                                <button type="button" role="menuitem" data-route="settings">계정 정보</button>
+                                <?php if ($is_admin) : ?>
+                                <div class="yai-my-menu__admin" role="group" aria-label="관리자 도구">
+                                    <span class="yai-my-menu__admin-label">관리자 도구</span>
+                                    <button type="button" role="menuitem" data-admin-tool="sections">섹션 관리</button>
+                                    <button type="button" role="menuitem" data-admin-tool="system-status">시스템 상태</button>
+                                </div>
+                                <?php endif; ?>
+                                <a role="menuitem" class="yai-my-menu__logout" href="<?php echo $logout_url; ?>">로그아웃</a>
+                            </div>
+                        </div>
+                        <button class="yai-icon-btn" type="button" data-yai-panel="notifications" aria-label="알림"><?php echo YooY_UI_Icons::svg('bell', 18); ?></button>
+                        <!-- Hidden hook for admin section manager (opened from MY / sidebar). -->
+                        <?php if ($is_admin) : ?>
+                        <button type="button" id="yai-section-manage-btn" class="yai-sr-only" tabindex="-1" aria-hidden="true">섹션 관리</button>
+                        <?php endif; ?>
                     <?php else : ?>
                         <a class="yai-btn yai-btn--outline yai-login-link" href="<?php echo $login_url; ?>">로그인</a>
                         <a class="yai-btn yai-btn--gold yai-register-link" href="<?php echo esc_url($register_url); ?>">회원가입</a>
@@ -224,29 +258,6 @@ $studio_quick = [
             <section class="yai-view yai-view--home yai-hd-page" data-page="home">
                 <div class="yai-hd-layout yai-hd-layout--full">
                     <div class="yai-hd-main">
-                        <?php if ($is_admin || $is_logged_in) : ?>
-                        <header class="yai-hd-greeting yai-hd-greeting--toolbar" aria-label="홈 도구">
-                            <div class="yai-hd-greeting__actions">
-                                <?php if ($is_admin) : ?>
-                                <button type="button" class="yai-btn yai-btn--outline yai-btn--sm yai-hd-section-manage-btn" id="yai-section-manage-btn">섹션 관리</button>
-                                <?php endif; ?>
-                                <?php if ($is_logged_in) : ?>
-                                <div class="yai-hd-plan-wrap" id="yai-plan-dropdown-wrap">
-                                    <button type="button" id="yai-pro-plan-btn" aria-haspopup="true" aria-expanded="false">Pro 플랜 <span aria-hidden="true">▾</span></button>
-                                    <div class="yai-hd-plan-menu" id="yai-plan-dropdown-menu" role="menu" hidden>
-                                        <span class="yai-hd-plan-menu__label">현재 플랜</span>
-                                        <span class="yai-hd-plan-menu__current" id="yai-plan-dropdown-current"><?php echo esc_html($plan_label); ?></span>
-                                        <span class="yai-hd-plan-menu__balance" id="yai-plan-dropdown-balance">— 크레딧</span>
-                                        <button type="button" role="menuitem" data-route="credits" data-plan-action="compare">플랜 비교</button>
-                                        <button type="button" role="menuitem" data-route="billing" data-plan-action="upgrade">업그레이드</button>
-                                        <button type="button" role="menuitem" data-route="billing" data-plan-action="downgrade">다운그레이드 문의</button>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                        </header>
-                        <?php endif; ?>
-
                         <div id="yai-home-onboarding" class="yai-home-onboarding" hidden></div>
 
                         <section class="yai-hd-studio-recos" aria-labelledby="yai-home-studio-recos-title">

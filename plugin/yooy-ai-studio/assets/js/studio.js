@@ -1024,6 +1024,10 @@
       setText('yai-stat-works', fmt(d.work_count || (d.works || []).length || 0));
       setText('yai-stat-likes', fmt(d.community_likes || 0));
       setText('yai-top-credits', (cr.unlimited ? '∞' : fmt(cr.balance)) + ' 크레딧');
+      setText('yai-my-menu-credits', (cr.unlimited ? '∞' : fmt(cr.balance)) + ' 크레딧');
+      if (cr.plan_name || cr.tier || cr.plan) {
+        setText('yai-my-menu-plan', (cr.plan_name || cr.tier || cr.plan) + ' 플랜');
+      }
       renderUsageWidget(mu);
       if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.updateCredits === 'function') {
         window.YooYHomeDashboard.updateCredits({
@@ -3846,6 +3850,48 @@
     loadWriting();
   };
 
+  function closeMyMenu() {
+    var trigger = document.getElementById('yai-my-menu-trigger');
+    var panel = document.getElementById('yai-my-menu-panel');
+    if (panel) panel.hidden = true;
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function openMyMenu() {
+    var trigger = document.getElementById('yai-my-menu-trigger');
+    var panel = document.getElementById('yai-my-menu-panel');
+    if (panel) panel.hidden = false;
+    if (trigger) trigger.setAttribute('aria-expanded', 'true');
+  }
+
+  function bindMyMenu() {
+    var trigger = document.getElementById('yai-my-menu-trigger');
+    var panel = document.getElementById('yai-my-menu-panel');
+    if (!trigger || !panel || trigger.dataset.bound === '1') return;
+    trigger.dataset.bound = '1';
+
+    trigger.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (panel.hidden) openMyMenu();
+      else closeMyMenu();
+    });
+
+    panel.addEventListener('click', function (e) {
+      if (e.target.closest('[role="menuitem"]')) closeMyMenu();
+    });
+
+    document.addEventListener('click', function (e) {
+      if (panel.hidden) return;
+      if (e.target.closest('#yai-my-menu')) return;
+      closeMyMenu();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeMyMenu();
+    });
+  }
+
   function loadProfile() {
     if (!isLoggedIn()) return;
     Core.credits.overview().then(function (res) {
@@ -3865,11 +3911,13 @@
       if (tier) tier.textContent = acc.plan_name || acc.tier || 'Free';
       var usage = document.getElementById('yai-monthly-usage');
       if (usage) usage.textContent = 'Monthly: ' + fmt(mu.used || 0) + ' / ' + fmt(mu.limit || 0);
-      if (document.getElementById('yai-top-credits')) {
-        setText('yai-top-credits', (acc.unlimited ? '∞' : fmt(acc.balance)) + ' 크레딧');
+      setText('yai-top-credits', (acc.unlimited ? '∞' : fmt(acc.balance)) + ' 크레딧');
+      setText('yai-my-menu-credits', (acc.unlimited ? '∞' : fmt(acc.balance)) + ' 크레딧');
+      if (acc.plan_name || acc.tier) {
+        setText('yai-my-menu-plan', (acc.plan_name || acc.tier) + ' 플랜');
+      }
       if (window.YooYCreditsUI && typeof window.YooYCreditsUI.applyShell === 'function') {
         window.YooYCreditsUI.applyShell(acc);
-      }
       }
       if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.updateCredits === 'function') {
         window.YooYHomeDashboard.updateCredits(acc);
@@ -4325,6 +4373,7 @@
   }
 
   try {
+    bindMyMenu();
     loadProfile();
     watchBillingReturn();
     ensureProjectModal();
