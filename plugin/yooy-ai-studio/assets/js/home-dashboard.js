@@ -903,17 +903,20 @@
     bindHeroAndTools();
     bindPlanDropdown();
     bindSectionDrawer();
-    updateGreeting();
+    updateStudioRecoHeadline();
   }
 
-  function updateGreeting() {
-    var el = document.getElementById('yai-hd-greeting-title');
+  function updateStudioRecoHeadline() {
+    var el = document.getElementById('yai-home-studio-recos-title');
     if (!el) return;
     var cfg = global.YooYStudio || {};
     var name = (cfg.user && cfg.user.name) ? String(cfg.user.name).trim() : '';
-    if (name && cfg.loggedIn) {
-      el.textContent = '안녕하세요, ' + name + '님! 👋';
+    var loggedIn = !!cfg.loggedIn;
+    if (loggedIn && name && name.toLowerCase() !== 'guest') {
+      el.textContent = name + '님의 아이디어를 완벽한 결과물로 완성하세요';
+      return;
     }
+    el.textContent = '당신의 아이디어를 완벽한 결과물로 완성하세요';
   }
 
   global.YooYHomeDashboard = {

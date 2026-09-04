@@ -217,11 +217,8 @@ $studio_quick = [
             <section class="yai-view yai-view--home yai-hd-page" data-page="home">
                 <div class="yai-hd-layout yai-hd-layout--full">
                     <div class="yai-hd-main">
-                        <header class="yai-hd-greeting">
-                            <div>
-                                <h1 id="yai-hd-greeting-title">안녕하세요<?php echo $is_logged_in ? ', ' . esc_html($user->display_name ?: '크리에이터') . '님' : ''; ?>! 👋</h1>
-                                <p class="yai-hero-sub">상상한 모든 것을 YooY Studio에서 현실로 만들어보세요.</p>
-                            </div>
+                        <?php if ($is_admin || $is_logged_in) : ?>
+                        <header class="yai-hd-greeting yai-hd-greeting--toolbar" aria-label="홈 도구">
                             <div class="yai-hd-greeting__actions">
                                 <?php if ($is_admin) : ?>
                                 <button type="button" class="yai-btn yai-btn--outline yai-btn--sm yai-hd-section-manage-btn" id="yai-section-manage-btn">섹션 관리</button>
@@ -239,12 +236,24 @@ $studio_quick = [
                                 <?php endif; ?>
                             </div>
                         </header>
+                        <?php endif; ?>
 
                         <section class="yai-hd-studio-recos" aria-labelledby="yai-home-studio-recos-title">
                             <header class="yai-hd-section__head yai-hd-studio-recos__head">
                                 <div>
                                     <p class="yai-hd-studio-recos__eyebrow">추천 Studio</p>
-                                    <h2 id="yai-home-studio-recos-title">당신의 아이디어를 완벽한 결과물로 완성하세요</h2>
+                                    <h2 id="yai-home-studio-recos-title"><?php
+                                    if ($is_logged_in) {
+                                        $reco_name = trim((string) ($user->display_name ?: $user->user_login));
+                                        if ($reco_name !== '' && strcasecmp($reco_name, 'Guest') !== 0) {
+                                            echo esc_html($reco_name . '님의 아이디어를 완벽한 결과물로 완성하세요');
+                                        } else {
+                                            echo '당신의 아이디어를 완벽한 결과물로 완성하세요';
+                                        }
+                                    } else {
+                                        echo '당신의 아이디어를 완벽한 결과물로 완성하세요';
+                                    }
+                                    ?></h2>
                                     <p>원하는 결과를 선택하면 됩니다.<br>모델·Provider를 몰라도 YooY가 최적의 설정으로 도와드립니다.</p>
                                 </div>
                             </header>
