@@ -412,6 +412,74 @@
   padding: 24px 8px;
 }
 
+.yai-my-avatar-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.yai-my-avatar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.yai-my-avatar-actions label.yai-btn {
+  cursor: pointer;
+  margin: 0;
+}
+
+.yai-my-form--profile {
+  max-width: 520px;
+}
+
+.yai-my-fieldset {
+  margin: 8px 0 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yai-my-fieldset legend {
+  padding: 0;
+  margin-bottom: 12px;
+  color: #ffd84a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.yai-my-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.yai-my-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.yai-my-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.yai-my-table th,
+.yai-my-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.yai-my-table th {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+}
+
 @media (max-width: 760px) {
   .yai-my-layout {
     grid-template-columns: 1fr;
@@ -435,6 +503,15 @@
   }
 
   .yai-my-hero {
+    align-items: flex-start;
+  }
+
+  .yai-my-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .yai-my-avatar-block {
+    flex-direction: column;
     align-items: flex-start;
   }
 }

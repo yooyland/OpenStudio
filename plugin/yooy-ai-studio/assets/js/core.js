@@ -408,7 +408,32 @@
       profile: {
         me: function () { return Core.get('user-profile', '/me'); },
         update: function (data) { return Core.put('user-profile', '/me', data || {}); },
-        deleteAccount: function (data) { return Core.del('user-profile', '/me', data || {}); }
+        deleteAccount: function (data) { return Core.del('user-profile', '/me', data || {}); },
+        uploadAvatar: function (file) {
+          var c = restConfig();
+          var uploadBase = (getRestMode() === 'rest_route' && c.restRouteUrl) ? c.restRouteUrl : (c.restUrl || '');
+          var url = joinRestUrl(uploadBase, '/user-profile/me/avatar');
+          var fd = new FormData();
+          fd.append('avatar', file);
+          return fetch(url, {
+            method: 'POST',
+            headers: { 'X-WP-Nonce': c.nonce || '' },
+            body: fd,
+            credentials: 'same-origin'
+          }).then(function (res) {
+            return res.text().then(function (text) {
+              var json = {};
+              try { json = text ? JSON.parse(text) : {}; } catch (e) { throw new Error('Invalid API response'); }
+              if (!res.ok) {
+                var msg = (json && json.message) || (json && json.error) || 'Upload failed';
+                if (json && json.error && json.error.message) msg = json.error.message;
+                throw new Error(msg);
+              }
+              return json;
+            });
+          });
+        },
+        removeAvatar: function () { return Core.del('user-profile', '/me/avatar'); }
       },
 
       router: {

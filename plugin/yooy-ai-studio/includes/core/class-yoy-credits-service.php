@@ -258,12 +258,36 @@ final class YooY_Credits_Service {
             return ($tx['type'] ?? '') === 'purchase' || ($tx['studio'] ?? '') === 'billing';
         }));
 
+        $manage_url = '';
+        if (class_exists('WooCommerce')) {
+            if (function_exists('wc_get_account_endpoint_url')) {
+                $manage_url = (string) wc_get_account_endpoint_url('payment-methods');
+            }
+            if ($manage_url === '' && function_exists('wc_get_page_permalink')) {
+                $manage_url = (string) wc_get_page_permalink('myaccount');
+            }
+        }
+
+        $plan_id = $this->get_user_plan_id($user_id);
+
         return [
             'orders'           => $orders,
             'invoices'         => $orders,
             'credit_purchases' => array_slice($purchases, 0, 20),
             'can_cancel'       => false,
-            'can_downgrade'    => $this->get_user_plan_id($user_id) !== 'free',
+            'can_downgrade'    => $plan_id !== 'free',
+            'payment_methods'  => [
+                'saved_cards_supported' => false,
+                'methods'               => [],
+                'manage_url'            => esc_url_raw($manage_url),
+                'note'                  => '저장 카드(토큰) 관리는 현재 YooY에서 직접 지원하지 않습니다.',
+            ],
+            'subscription'     => [
+                'provider' => 'yoy_plan',
+                'status'   => $plan_id === 'free' ? 'free' : 'active',
+                'label'    => $plan_id === 'free' ? '무료 플랜' : '활성',
+                'wc_subscriptions' => false,
+            ],
         ];
     }
 

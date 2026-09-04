@@ -6,8 +6,8 @@
   'use strict';
 
   var SECTIONS = [
-    { id: 'profile', label: '프로필' },
-    { id: 'plan', label: '플랜 및 구독' },
+    { id: 'profile', label: '내 프로필' },
+    { id: 'billing', label: '플랜 및 결제' },
     { id: 'credits', label: '크레딧' },
     { id: 'settings', label: '설정' },
     { id: 'help', label: '도움말' },
@@ -19,7 +19,6 @@
     profile: null,
     settings: null,
     credits: null,
-    editingProfile: false,
     busy: false
   };
 
@@ -97,6 +96,7 @@
   }
 
   function setSection(id) {
+    if (id === 'plan') id = 'billing';
     var ok = false;
     SECTIONS.forEach(function (s) { if (s.id === id) ok = true; });
     state.section = ok ? id : 'profile';
@@ -147,71 +147,157 @@
       '</header>';
   }
 
-  function profileSection(profile) {
-    if (state.editingProfile) {
-      return '' +
-        '<section class="yai-my-panel" aria-labelledby="yai-my-profile-title">' +
-          '<h2 id="yai-my-profile-title">프로필</h2>' +
-          '<p class="yai-my-lead">표시 이름과 소개를 수정할 수 있습니다. 이메일은 변경할 수 없습니다.</p>' +
-          '<form class="yai-my-form" id="yai-my-profile-form">' +
-            '<div class="yai-my-field">' +
-              '<label for="yai-my-display-name">표시 이름</label>' +
-              '<input id="yai-my-display-name" name="display_name" type="text" maxlength="60" required value="' + esc(profile.display_name || '') + '">' +
-              '<p class="yai-field-error" id="yai-my-profile-error" hidden></p>' +
-            '</div>' +
-            '<div class="yai-my-field">' +
-              '<label for="yai-my-bio">소개</label>' +
-              '<textarea id="yai-my-bio" name="bio" rows="3" maxlength="500" placeholder="간단한 소개 (선택)">' + esc(profile.bio || '') + '</textarea>' +
-            '</div>' +
-            '<div class="yai-my-field">' +
-              '<label>이메일</label>' +
-              '<input type="email" value="' + esc(profile.email || '') + '" disabled aria-disabled="true">' +
-              '<p class="yai-muted">이메일은 보안상 읽기 전용입니다.</p>' +
-            '</div>' +
-            '<div class="yai-my-actions">' +
-              '<button type="submit" class="yai-btn yai-btn--gold" id="yai-my-profile-save">저장</button>' +
-              '<button type="button" class="yai-btn yai-btn--outline" data-my-cancel-edit>취소</button>' +
-            '</div>' +
-          '</form>' +
-        '</section>';
+  function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      return d.toLocaleDateString('ko-KR');
+    } catch (e) {
+      return String(iso);
     }
+  }
 
+  function formatMoney(amount, currency) {
+    var n = Number(amount);
+    if (!isFinite(n)) return '—';
+    var cur = currency || 'KRW';
+    try {
+      return n.toLocaleString('ko-KR') + (cur === 'KRW' ? '원' : ' ' + cur);
+    } catch (e) {
+      return String(n) + (cur === 'KRW' ? '원' : '');
+    }
+  }
+
+  function profileSection(profile) {
+    var hasCustom = !!(profile && profile.has_custom_avatar);
     return '' +
       '<section class="yai-my-panel" aria-labelledby="yai-my-profile-title">' +
-        '<div class="yai-my-panel__head">' +
-          '<h2 id="yai-my-profile-title">프로필</h2>' +
-          '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-my-edit-profile>수정</button>' +
-        '</div>' +
-        '<dl class="yai-my-dl">' +
-          '<div><dt>표시 이름</dt><dd>' + esc(profile.display_name || '—') + '</dd></div>' +
-          '<div><dt>이메일</dt><dd>' + esc(profile.email || '—') + '</dd></div>' +
-          '<div><dt>소개</dt><dd>' + esc(profile.bio || '아직 소개가 없습니다.') + '</dd></div>' +
-          '<div><dt>프로필 이미지</dt><dd>WordPress / Gravatar 연동 · 이미지 로드 실패 시 이니셜 표시</dd></div>' +
-        '</dl>' +
+        '<h2 id="yai-my-profile-title">내 프로필</h2>' +
+        '<p class="yai-my-lead">프로필 사진, 이름, 이메일, 기본 계정 정보를 한 화면에서 관리합니다.</p>' +
+        '<form class="yai-my-form yai-my-form--profile" id="yai-my-profile-form">' +
+          '<div class="yai-my-avatar-block">' +
+            avatarHtml(profile, 'yai-my-avatar--lg') +
+            '<div class="yai-my-avatar-actions">' +
+              '<label class="yai-btn yai-btn--outline yai-btn--sm">' +
+                '사진 변경' +
+                '<input type="file" id="yai-my-avatar-file" accept="image/jpeg,image/png,image/gif,image/webp" class="yai-sr-only">' +
+              '</label>' +
+              (hasCustom
+                ? '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-my-avatar-remove>사진 제거</button>'
+                : '<p class="yai-muted">이미지가 없으면 Gravatar 또는 이니셜을 사용합니다.</p>') +
+            '</div>' +
+          '</div>' +
+          '<div class="yai-my-field">' +
+            '<label for="yai-my-display-name">이름 (표시 이름)</label>' +
+            '<input id="yai-my-display-name" name="display_name" type="text" maxlength="60" required value="' + esc(profile.display_name || '') + '">' +
+            '<p class="yai-field-error" id="yai-my-profile-error" hidden></p>' +
+          '</div>' +
+          '<div class="yai-my-field">' +
+            '<label for="yai-my-email">이메일</label>' +
+            '<input id="yai-my-email" type="email" value="' + esc(profile.email || '') + '" disabled aria-disabled="true">' +
+            '<p class="yai-muted">' + esc((profile.account && profile.account.email_note) || '이메일 변경은 현재 지원하지 않습니다.') + '</p>' +
+          '</div>' +
+          '<fieldset class="yai-my-fieldset">' +
+            '<legend>기본 계정 정보</legend>' +
+            '<div class="yai-my-field-row">' +
+              '<div class="yai-my-field">' +
+                '<label for="yai-my-first-name">이름 (first name)</label>' +
+                '<input id="yai-my-first-name" name="first_name" type="text" maxlength="60" value="' + esc(profile.first_name || '') + '">' +
+              '</div>' +
+              '<div class="yai-my-field">' +
+                '<label for="yai-my-last-name">성 (last name)</label>' +
+                '<input id="yai-my-last-name" name="last_name" type="text" maxlength="60" value="' + esc(profile.last_name || '') + '">' +
+              '</div>' +
+            '</div>' +
+            '<div class="yai-my-field">' +
+              '<label>로그인 ID</label>' +
+              '<input type="text" value="' + esc(profile.user_login || '') + '" disabled aria-disabled="true">' +
+              '<p class="yai-muted">로그인 ID는 변경할 수 없습니다.</p>' +
+            '</div>' +
+            '<div class="yai-my-field">' +
+              '<label>가입일</label>' +
+              '<input type="text" value="' + esc(formatDate(profile.registered_at)) + '" disabled aria-disabled="true">' +
+            '</div>' +
+          '</fieldset>' +
+          '<div class="yai-my-actions">' +
+            '<button type="submit" class="yai-btn yai-btn--gold" id="yai-my-profile-save">변경사항 저장</button>' +
+          '</div>' +
+        '</form>' +
       '</section>';
   }
 
-  function planSection(credits) {
+  function billingSection(credits) {
     var plan = (credits && (credits.plan_name || credits.tier || credits.plan)) || 'Free';
     var unlimited = !!(credits && credits.unlimited);
     var bal = unlimited ? '∞' : fmt(credits && (credits.remaining != null ? credits.remaining : credits.balance));
     var billing = (credits && credits.billing) || {};
     var paymentReady = !!(billing.payment_ready || billing.woocommerce_active);
-    var action = paymentReady
-      ? '<button type="button" class="yai-btn yai-btn--gold" data-route="credits">플랜 변경 · 업그레이드</button>'
-      : '<p class="yai-muted">결제 연동이 준비되면 여기서 플랜을 변경할 수 있습니다.</p>' +
-        '<button type="button" class="yai-btn yai-btn--outline" data-route="credits">플랜 자세히 보기</button>';
+    var sub = billing.subscription || {};
+    var pm = billing.payment_methods || {};
+    var orders = billing.orders || billing.invoices || [];
+    var renewalLabel = credits && credits.renewal_label ? String(credits.renewal_label) : '';
+    var renewalAt = credits && credits.renewal_at ? String(credits.renewal_at) : '';
+
+    var orderRows = orders.slice(0, 10).map(function (o) {
+      return '<tr>' +
+        '<td>' + esc(formatDate(o.created_at || o.recorded_at)) + '</td>' +
+        '<td>' + esc(o.plan_name || o.plan_id || o.label || '플랜') + '</td>' +
+        '<td>' + esc(formatMoney(o.total, o.currency)) + '</td>' +
+        '<td>' + esc(o.status || '—') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var historyHtml = orderRows
+      ? '<div class="yai-my-table-wrap"><table class="yai-my-table"><thead><tr><th>날짜</th><th>상품/플랜</th><th>금액</th><th>상태</th></tr></thead><tbody>' +
+        orderRows + '</tbody></table></div>'
+      : '<p class="yai-muted">결제 내역이 없습니다.</p>';
+
+    var payHtml = '';
+    if (pm.saved_cards_supported && pm.methods && pm.methods.length) {
+      payHtml = '<ul class="yai-my-pay-list">' + pm.methods.map(function (m) {
+        return '<li>' + esc(m.label || '카드') + (m.is_default ? ' · 기본' : '') + '</li>';
+      }).join('') + '</ul>';
+    } else {
+      payHtml = '<p class="yai-muted">현재 등록된 결제수단이 없습니다.</p>';
+      if (pm.note) payHtml += '<p class="yai-muted">' + esc(pm.note) + '</p>';
+      if (pm.manage_url) {
+        payHtml += '<a class="yai-btn yai-btn--outline" href="' + esc(pm.manage_url) + '" target="_blank" rel="noopener">결제수단 관리</a>';
+      }
+    }
 
     return '' +
-      '<section class="yai-my-panel" aria-labelledby="yai-my-plan-title">' +
-        '<h2 id="yai-my-plan-title">플랜 및 구독</h2>' +
-        '<p class="yai-my-lead">현재 적용 중인 플랜입니다. 갱신일·청구 정보는 실제 결제 연동이 있을 때만 표시됩니다.</p>' +
+      '<section class="yai-my-panel" aria-labelledby="yai-my-billing-title">' +
+        '<h2 id="yai-my-billing-title">플랜 및 결제</h2>' +
+        '<p class="yai-my-lead">실제 플랜·결제 데이터만 표시합니다. 저장 카드 등록 UI는 게이트웨이 미지원으로 제공하지 않습니다.</p>' +
+
+        '<h3 class="yai-my-subhead">현재 플랜</h3>' +
         '<div class="yai-my-plan-card">' +
-          '<div><span class="yai-muted">현재 플랜</span><strong class="yai-my-plan-card__name">' + esc(plan) + '</strong></div>' +
+          '<div><span class="yai-muted">플랜</span><strong class="yai-my-plan-card__name">' + esc(plan) + '</strong></div>' +
           '<div><span class="yai-muted">잔여 크레딧</span><strong>' + esc(String(bal)) + '</strong></div>' +
-          '<div><span class="yai-muted">상태</span><strong>' + (paymentReady ? '결제 연동됨' : '플랜 활성') + '</strong></div>' +
         '</div>' +
-        '<div class="yai-my-actions">' + action + '</div>' +
+
+        '<h3 class="yai-my-subhead">구독 상태</h3>' +
+        '<dl class="yai-my-dl">' +
+          '<div><dt>상태</dt><dd>' + esc(sub.label || (plan === 'Free' || plan === 'free' ? '무료 플랜' : '활성')) + '</dd></div>' +
+          (renewalAt
+            ? '<div><dt>크레딧 갱신 예정</dt><dd>' + esc(renewalLabel || formatDate(renewalAt)) + '</dd></div>'
+            : '') +
+          '<div><dt>결제 연동</dt><dd>' + (paymentReady ? 'WooCommerce 연동됨' : '미연동 또는 매핑 대기') + '</dd></div>' +
+        '</dl>' +
+
+        '<h3 class="yai-my-subhead">결제수단</h3>' +
+        payHtml +
+
+        '<h3 class="yai-my-subhead">결제내역</h3>' +
+        historyHtml +
+
+        '<h3 class="yai-my-subhead">플랜 변경</h3>' +
+        '<div class="yai-my-actions">' +
+          (paymentReady
+            ? '<button type="button" class="yai-btn yai-btn--gold" data-route="credits">플랜 변경 · 업그레이드</button>'
+            : '<button type="button" class="yai-btn yai-btn--outline" data-route="credits">플랜 자세히 보기</button>') +
+        '</div>' +
       '</section>';
   }
 
@@ -341,7 +427,9 @@
     var credits = state.credits || {};
     var settings = state.settings || {};
     switch (state.section) {
-      case 'plan': return planSection(credits);
+      case 'billing':
+      case 'plan':
+        return billingSection(credits);
       case 'credits': return creditsSection(credits);
       case 'settings': return settingsSection(settings);
       case 'help': return helpSection();
@@ -375,36 +463,33 @@
     root.querySelectorAll('[data-my-nav]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         setSection(btn.getAttribute('data-my-nav'));
-        state.editingProfile = false;
         render();
         var main = document.getElementById('yai-my-main');
         if (main) main.focus();
       });
     });
 
-    var edit = root.querySelector('[data-my-edit-profile]');
-    if (edit) {
-      edit.addEventListener('click', function () {
-        state.editingProfile = true;
-        render();
-        var input = document.getElementById('yai-my-display-name');
-        if (input) input.focus();
-      });
-    }
-
-    var cancel = root.querySelector('[data-my-cancel-edit]');
-    if (cancel) {
-      cancel.addEventListener('click', function () {
-        state.editingProfile = false;
-        render();
-      });
-    }
-
     var form = root.querySelector('#yai-my-profile-form');
     if (form) {
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         saveProfile();
+      });
+    }
+
+    var file = root.querySelector('#yai-my-avatar-file');
+    if (file) {
+      file.addEventListener('change', function () {
+        if (!file.files || !file.files[0]) return;
+        uploadAvatar(file.files[0]);
+        file.value = '';
+      });
+    }
+
+    var removeAv = root.querySelector('[data-my-avatar-remove]');
+    if (removeAv) {
+      removeAv.addEventListener('click', function () {
+        removeAvatar();
       });
     }
 
@@ -442,7 +527,8 @@
   function saveProfile() {
     if (state.busy) return;
     var nameEl = document.getElementById('yai-my-display-name');
-    var bioEl = document.getElementById('yai-my-bio');
+    var firstEl = document.getElementById('yai-my-first-name');
+    var lastEl = document.getElementById('yai-my-last-name');
     var errEl = document.getElementById('yai-my-profile-error');
     var name = nameEl ? String(nameEl.value || '').trim() : '';
     if (!name) {
@@ -454,16 +540,15 @@
       return;
     }
     state.busy = true;
-    var C = Core();
-    C.profile.update({
+    Core().profile.update({
       display_name: name,
-      bio: bioEl ? bioEl.value : ''
+      first_name: firstEl ? firstEl.value : '',
+      last_name: lastEl ? lastEl.value : ''
     }).then(function (res) {
       state.busy = false;
       var p = res && res.data && res.data.profile;
       if (p) state.profile = p;
-      state.editingProfile = false;
-      syncShellName(p);
+      syncShellIdentity(p);
       toast((res && res.data && res.data.message) || '프로필이 저장되었습니다.');
       render();
     }).catch(function (err) {
@@ -474,6 +559,39 @@
         errEl.textContent = msg;
       }
       toast(msg, true);
+    });
+  }
+
+  function uploadAvatar(file) {
+    if (state.busy || !file) return;
+    state.busy = true;
+    toast('프로필 사진 업로드 중…');
+    Core().profile.uploadAvatar(file).then(function (res) {
+      state.busy = false;
+      var p = res && res.data && res.data.profile;
+      if (p) state.profile = p;
+      syncShellIdentity(p);
+      toast((res && res.data && res.data.message) || '프로필 사진이 업데이트되었습니다.');
+      render();
+    }).catch(function (err) {
+      state.busy = false;
+      toast((err && err.message) || '사진 업로드에 실패했습니다.', true);
+    });
+  }
+
+  function removeAvatar() {
+    if (state.busy) return;
+    state.busy = true;
+    Core().profile.removeAvatar().then(function (res) {
+      state.busy = false;
+      var p = res && res.data && res.data.profile;
+      if (p) state.profile = p;
+      syncShellIdentity(p);
+      toast((res && res.data && res.data.message) || '프로필 사진을 제거했습니다.');
+      render();
+    }).catch(function (err) {
+      state.busy = false;
+      toast((err && err.message) || '사진 제거에 실패했습니다.', true);
     });
   }
 
@@ -519,13 +637,37 @@
     });
   }
 
-  function syncShellName(profile) {
+  function syncShellIdentity(profile) {
     if (!profile) return;
     var name = profile.display_name || '';
     ['yai-my-menu-name', 'yai-my-menu-head-name'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.textContent = name;
     });
+    var trigger = document.getElementById('yai-my-menu-trigger');
+    if (trigger && name) {
+      trigger.setAttribute('aria-label', name + ' 프로필');
+    }
+    var wrap = document.querySelector('#yai-my-menu .yai-my-menu__avatar');
+    if (!wrap) return;
+    var url = profile.avatar ? String(profile.avatar) : '';
+    var ini = initialsFrom(name);
+    if (url && /^https?:/i.test(url)) {
+      wrap.innerHTML =
+        '<img class="yai-my-menu__avatar-img" src="' + esc(url) + '" alt="' + esc(name + ' 프로필') +
+        '" width="28" height="28" decoding="async" data-yai-avatar-fallback="1">' +
+        '<span class="yai-my-menu__initials" hidden>' + esc(ini) + '</span>';
+      var img = wrap.querySelector('[data-yai-avatar-fallback]');
+      var initials = wrap.querySelector('.yai-my-menu__initials');
+      if (img && initials) {
+        img.addEventListener('error', function () {
+          if (img.parentNode) img.parentNode.removeChild(img);
+          initials.hidden = false;
+        });
+      }
+    } else {
+      wrap.innerHTML = '<span class="yai-my-menu__initials">' + esc(ini) + '</span>';
+    }
   }
 
   function loadAll() {

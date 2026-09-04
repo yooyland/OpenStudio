@@ -250,7 +250,7 @@ $studio_quick = [
                                     <span class="yai-my-menu__credits" id="yai-my-menu-credits">— 크레딧</span>
                                 </div>
                                 <button type="button" role="menuitem" data-route="my" data-my-section="profile">내 프로필</button>
-                                <button type="button" role="menuitem" data-route="my" data-my-section="plan">플랜 · 구독</button>
+                                <button type="button" role="menuitem" data-route="my" data-my-section="billing">플랜 및 결제</button>
                                 <button type="button" role="menuitem" data-route="my" data-my-section="credits">크레딧</button>
                                 <button type="button" role="menuitem" data-route="my" data-my-section="settings">설정</button>
                                 <button type="button" role="menuitem" data-route="my" data-my-section="help">도움말</button>
