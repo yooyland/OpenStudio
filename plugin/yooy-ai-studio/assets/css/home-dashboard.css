@@ -797,7 +797,7 @@
 /* ── Studio recommendation tall cinematic cards ── */
 .yai-hd-studio-recos {
   margin-top: 8px;
-  margin-bottom: 28px;
+  margin-bottom: 36px;
 }
 
 .yai-hd-studio-recos__head h2 {
@@ -828,10 +828,11 @@
 .yai-hd-studio-recos__row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
   width: 100%;
   margin-top: 18px;
-  padding: 6px 0 14px;
+  margin-bottom: 8px;
+  padding: 6px 0 8px;
   overflow: visible;
 }
 
@@ -851,13 +852,15 @@
   background: #0c0c0c;
   color: inherit;
   font: inherit;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
 }
 
 .yai-hd-studio-card:hover {
-  border-color: rgba(242, 201, 76, 0.45);
-  transform: translateY(-4px);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48);
+  border-color: rgba(242, 201, 76, 0.48);
+  transform: translateY(-3px);
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(242, 201, 76, 0.16);
 }
 
 .yai-hd-studio-card:focus-visible {
@@ -873,17 +876,36 @@
 .yai-hd-studio-card--orange { --studio-accent: #f0a15a; }
 .yai-hd-studio-card--cyan { --studio-accent: #4ec4e0; }
 
-.yai-hd-studio-card--blue:hover { border-color: rgba(91, 140, 255, 0.5); }
-.yai-hd-studio-card--silver:hover { border-color: rgba(215, 215, 222, 0.45); }
-.yai-hd-studio-card--purple:hover { border-color: rgba(181, 108, 255, 0.5); }
-.yai-hd-studio-card--emerald:hover { border-color: rgba(62, 207, 154, 0.5); }
-.yai-hd-studio-card--orange:hover { border-color: rgba(240, 161, 90, 0.5); }
-.yai-hd-studio-card--cyan:hover { border-color: rgba(78, 196, 224, 0.5); }
+.yai-hd-studio-card--blue:hover {
+  border-color: rgba(91, 140, 255, 0.5);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(91, 140, 255, 0.2);
+}
+.yai-hd-studio-card--silver:hover {
+  border-color: rgba(215, 215, 222, 0.45);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(215, 215, 222, 0.18);
+}
+.yai-hd-studio-card--purple:hover {
+  border-color: rgba(181, 108, 255, 0.5);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(181, 108, 255, 0.2);
+}
+.yai-hd-studio-card--emerald:hover {
+  border-color: rgba(62, 207, 154, 0.5);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(62, 207, 154, 0.2);
+}
+.yai-hd-studio-card--orange:hover {
+  border-color: rgba(240, 161, 90, 0.5);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(240, 161, 90, 0.2);
+}
+.yai-hd-studio-card--cyan:hover {
+  border-color: rgba(78, 196, 224, 0.5);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(78, 196, 224, 0.2);
+}
 
 .yai-hd-studio-card__media {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 5;
+  /* ~10% taller portrait than 4/5 */
+  aspect-ratio: 4 / 5.5;
   flex: 0 0 auto;
   overflow: hidden;
   background: #080808;
@@ -906,7 +928,7 @@
 }
 
 .yai-hd-studio-card:hover .yai-hd-studio-card__img {
-  transform: scale(1.03);
+  transform: scale(1.02);
 }
 
 .yai-hd-studio-card__art {
@@ -957,6 +979,11 @@
   font-size: clamp(11px, 0.72vw, 12.5px);
   line-height: 1.4;
   color: #b3b3b3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .yai-hd-studio-card__tags {
@@ -990,9 +1017,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
-  border-radius: 11px;
-  font-size: 13px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 12px;
   font-weight: 700;
   color: #111111;
   background: var(--accent-gold, #f2c94c);
@@ -1005,7 +1033,7 @@
 
 .yai-hd-studio-benefits {
   list-style: none;
-  margin: 18px 0 0;
+  margin: 28px 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1040,21 +1068,21 @@
 @media (min-width: 700px) {
   .yai-hd-studio-recos__row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    gap: 14px;
   }
 }
 
 @media (min-width: 1024px) {
   .yai-hd-studio-recos__row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
+    gap: 16px;
   }
 }
 
 @media (min-width: 1440px) {
   .yai-hd-studio-recos__row {
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 14px;
+    gap: 16px;
   }
 }
 
@@ -1066,7 +1094,7 @@
 
 @media (max-width: 700px) {
   .yai-hd-studio-card__media {
-    aspect-ratio: 4 / 4.6;
+    aspect-ratio: 4 / 5.1;
   }
   .yai-hd-studio-card {
     border-radius: 14px;

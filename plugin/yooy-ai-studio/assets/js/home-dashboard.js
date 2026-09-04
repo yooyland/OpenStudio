@@ -591,7 +591,7 @@
       var accent = s.accent || s.id || 'gold';
       var jpg = studioRecoAssetUrl(s.image || '');
       var webp = studioRecoAssetUrl(s.imageWebp || '');
-      var examples = Array.isArray(s.examples) ? s.examples : [];
+      var examples = Array.isArray(s.examples) ? s.examples.slice(0, 3) : [];
       var lazy = idx < 2 ? 'eager' : 'lazy';
       var fetchPri = idx < 2 ? ' high' : '';
       var picture = jpg
