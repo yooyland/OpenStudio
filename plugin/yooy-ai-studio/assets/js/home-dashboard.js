@@ -573,16 +573,50 @@
     });
   }
 
+  function studioRecoAssetUrl(rel) {
+    if (!rel) return '';
+    if (/^https?:\/\//i.test(rel)) return rel;
+    var base = '';
+    try {
+      base = (global.YooYStudio && global.YooYStudio.pluginUrl) || '';
+    } catch (e) { base = ''; }
+    if (!base) return rel;
+    return String(base).replace(/\/?$/, '/') + String(rel).replace(/^\//, '');
+  }
+
   function renderStudioRecos() {
     var el = document.getElementById('yai-home-studio-recos');
     if (!el || !CFG.STUDIO_RECOS) return;
-    el.innerHTML = CFG.STUDIO_RECOS.map(function (s) {
-      return '<button type="button" class="yai-hd-studio-card yai-hd-studio-card--' + esc(s.art || s.id) + '" data-studio-reco="' + esc(s.route) + '">' +
-        '<span class="yai-hd-studio-card__art" aria-hidden="true"></span>' +
-        '<span class="yai-hd-studio-card__body">' +
-          '<strong>' + esc(s.title) + '</strong>' +
-          '<span>' + esc(s.desc) + '</span>' +
-        '</span></button>';
+    el.innerHTML = CFG.STUDIO_RECOS.map(function (s, idx) {
+      var accent = s.accent || s.id || 'gold';
+      var jpg = studioRecoAssetUrl(s.image || '');
+      var webp = studioRecoAssetUrl(s.imageWebp || '');
+      var examples = Array.isArray(s.examples) ? s.examples : [];
+      var lazy = idx < 2 ? 'eager' : 'lazy';
+      var fetchPri = idx < 2 ? ' high' : '';
+      var picture = jpg
+        ? ('<picture class="yai-hd-studio-card__picture">' +
+            (webp ? '<source type="image/webp" srcset="' + esc(webp) + '">' : '') +
+            '<img class="yai-hd-studio-card__img" src="' + esc(jpg) + '" alt="' + esc(s.title || 'Studio') + '" loading="' + lazy + '" decoding="async"' +
+            (fetchPri ? ' fetchpriority="high"' : '') + '>' +
+          '</picture>')
+        : '<span class="yai-hd-studio-card__art" aria-hidden="true"></span>';
+      var tags = examples.length
+        ? ('<ul class="yai-hd-studio-card__tags" aria-label="예시">' +
+            examples.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') +
+          '</ul>')
+        : '';
+      return '<article class="yai-hd-studio-card yai-hd-studio-card--' + esc(accent) + '" data-studio-reco="' + esc(s.route) + '" tabindex="0" role="link" aria-label="' + esc((s.title || 'Studio') + ' 선택하기') + '">' +
+        '<div class="yai-hd-studio-card__media">' + picture + '</div>' +
+        '<div class="yai-hd-studio-card__body">' +
+          '<div class="yai-hd-studio-card__title">' +
+            '<span class="yai-hd-studio-card__icon" aria-hidden="true">' + esc(s.icon || '◆') + '</span>' +
+            '<strong>' + esc(s.title) + '</strong>' +
+          '</div>' +
+          '<p class="yai-hd-studio-card__desc">' + esc(s.desc || '') + '</p>' +
+          tags +
+          '<span class="yai-hd-studio-card__cta">선택하기 →</span>' +
+        '</div></article>';
     }).join('');
   }
 
@@ -754,6 +788,15 @@
         applySeedToHero(tpl.getAttribute('data-template-seed'), 'image');
         if (global.YooYStudioRoute) global.YooYStudioRoute('image');
       }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      var reco = e.target.closest && e.target.closest('[data-studio-reco]');
+      if (!reco) return;
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      var routeName = reco.getAttribute('data-studio-reco');
+      if (global.YooYStudioRoute && routeName) global.YooYStudioRoute(routeName);
     });
   }
 

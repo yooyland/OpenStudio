@@ -381,6 +381,7 @@ final class YooY_AI_Studio {
             'restUrl'      => esc_url_raw(rest_url('yoy-ai-studio/v1')),
             'restRouteUrl' => esc_url_raw(site_url('index.php')) . '?rest_route=/yoy-ai-studio/v1',
             'restRoot'     => esc_url_raw(rest_url()),
+            'pluginUrl'    => esc_url_raw(YOY_AI_STUDIO_URL),
             'nonce'     => wp_create_nonce('wp_rest'),
             'version'   => YOY_AI_STUDIO_VERSION,
             'debug'     => (defined('YOOY_DEBUG') && YOOY_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG),

@@ -103,13 +103,55 @@
   ];
 
   var STUDIO_RECOS = [
-    { id: 'image', route: 'image', title: '이미지 Studio', desc: '상상한 장면을 이미지로 만들어보세요.', art: 'image' },
-    { id: 'video', route: 'video', title: '영상 Studio', desc: '아이디어를 영상으로 완성해보세요.', art: 'video' },
-    { id: 'writing', route: 'writing', title: '글쓰기 Studio', desc: '생각을 글과 카피로 완성해보세요.', art: 'writing' },
-    { id: 'music', route: 'music', title: '음악 Studio', desc: '브랜드와 분위기에 맞는 BGM을 만드세요.', art: 'music' },
-    { id: 'voice', route: 'voice', title: '보이스 Studio', desc: '나레이션·TTS를 바로 들어보세요.', art: 'voice' },
-    { id: 'avatar', route: 'avatar', title: '아바타 Studio', desc: '캐릭터가 말하는 영상을 만들어보세요.', art: 'avatar' },
-    { id: 'translator', route: 'translator', title: '번역 Studio', desc: '문맥에 맞는 자연스러운 번역을 얻으세요.', art: 'translator' }
+    {
+      id: 'image', route: 'image', title: '이미지 Studio', accent: 'gold', icon: '◆',
+      desc: '상상한 장면을 고품질 이미지로 만들어보세요.',
+      examples: ['판타지 아트', '제품 사진', '인물 사진'],
+      image: 'assets/images/studio-cards/web/01-image-studio-card.jpg',
+      imageWebp: 'assets/images/studio-cards/web/01-image-studio-card.webp'
+    },
+    {
+      id: 'video', route: 'video', title: '영상 Studio', accent: 'blue', icon: '▶',
+      desc: '아이디어를 생동감 있는 영상으로 완성해보세요.',
+      examples: ['광고 영상', '쇼츠', '시네마틱'],
+      image: 'assets/images/studio-cards/web/02-video-studio-card.jpg',
+      imageWebp: 'assets/images/studio-cards/web/02-video-studio-card.webp'
+    },
+    {
+      id: 'writing', route: 'writing', title: '글쓰기 Studio', accent: 'silver', icon: '✎',
+      desc: '생각을 매력적인 글과 카피로 표현해보세요.',
+      examples: ['블로그 글', '카피라이팅', '시나리오'],
+      image: 'assets/images/studio-cards/web/03-writing-studio-card.jpg',
+      imageWebp: 'assets/images/studio-cards/web/03-writing-studio-card.webp'
+    },
+    {
+      id: 'music', route: 'music', title: '음악 Studio', accent: 'purple', icon: '♪',
+      desc: '분위기와 장르에 맞는 음악을 만들어보세요.',
+      examples: ['BGM', '인트로', '비트/리믹스'],
+      image: 'assets/images/studio-cards/web/04-music-studio-card.jpg',
+      imageWebp: 'assets/images/studio-cards/web/04-music-studio-card.webp'
+    },
+    {
+      id: 'voice', route: 'voice', title: '보이스 Studio', accent: 'emerald', icon: '◎',
+      desc: '자연스러운 AI 음성으로 메시지를 전달하세요.',
+      examples: ['나레이션', '오디오북', '광고 음성'],
+      image: 'assets/images/studio-cards/web/05-voice-studio-card.jpg',
+      imageWebp: 'assets/images/studio-cards/web/05-voice-studio-card.webp'
+    },
+    {
+      id: 'avatar', route: 'avatar', title: '아바타 Studio', accent: 'orange', icon: '◇',
+      desc: '나만의 캐릭터와 아바타를 창조해보세요.',
+      examples: ['게임 캐릭터', '3D 아바타', '가상 인물'],
+      image: 'assets/images/studio-cards/web/06-avatar-studio-card.jpg',
+      imageWebp: 'assets/images/studio-cards/web/06-avatar-studio-card.webp'
+    },
+    {
+      id: 'translator', route: 'translator', title: '번역 Studio', accent: 'cyan', icon: '文',
+      desc: '문맥에 맞는 자연스러운 번역을 제공해요.',
+      examples: ['문서 번역', '학술 번역', '비즈니스'],
+      image: 'assets/images/studio-cards/web/07-translator-studio-card.jpg',
+      imageWebp: 'assets/images/studio-cards/web/07-translator-studio-card.webp'
+    }
   ];
 
   var HERO_CHIPS = [

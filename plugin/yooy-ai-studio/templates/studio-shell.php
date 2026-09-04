@@ -241,13 +241,36 @@ $studio_quick = [
                         </header>
 
                         <section class="yai-hd-studio-recos" aria-labelledby="yai-home-studio-recos-title">
-                            <header class="yai-hd-section__head">
+                            <header class="yai-hd-section__head yai-hd-studio-recos__head">
                                 <div>
-                                    <h2 id="yai-home-studio-recos-title">추천 Studio</h2>
-                                    <p>원하는 결과를 고르면 됩니다. 모델·Provider를 몰라도 됩니다.</p>
+                                    <p class="yai-hd-studio-recos__eyebrow">추천 Studio</p>
+                                    <h2 id="yai-home-studio-recos-title">당신의 아이디어를 완벽한 결과물로 완성하세요</h2>
+                                    <p>원하는 결과를 선택하면 됩니다.<br>모델·Provider를 몰라도 YooY가 최적의 설정으로 도와드립니다.</p>
                                 </div>
                             </header>
                             <div class="yai-hd-studio-recos__row" id="yai-home-studio-recos"></div>
+                            <ul class="yai-hd-studio-benefits" aria-label="추천 Studio 장점">
+                                <li>
+                                    <span class="yai-hd-studio-benefits__icon" aria-hidden="true">⚡</span>
+                                    <strong>최적 Studio 자동 선택</strong>
+                                    <span>AI가 요청에 맞는 Studio를 자동으로 추천</span>
+                                </li>
+                                <li>
+                                    <span class="yai-hd-studio-benefits__icon" aria-hidden="true">◎</span>
+                                    <strong>모델을 몰라도 사용 가능</strong>
+                                    <span>YooY 추천 설정으로 바로 시작</span>
+                                </li>
+                                <li>
+                                    <span class="yai-hd-studio-benefits__icon" aria-hidden="true">▣</span>
+                                    <strong>크레딧 효율 사용</strong>
+                                    <span>작업에 맞는 기존 Credits 시스템 활용</span>
+                                </li>
+                                <li>
+                                    <span class="yai-hd-studio-benefits__icon" aria-hidden="true">🛡</span>
+                                    <strong>안전한 개인 작업</strong>
+                                    <span>개인 Gallery와 공개 작품을 분리</span>
+                                </li>
+                            </ul>
                         </section>
 
                         <div id="yai-home-sections-root" aria-label="홈 섹션"></div>
