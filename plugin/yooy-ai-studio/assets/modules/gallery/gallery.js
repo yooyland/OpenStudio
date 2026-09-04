@@ -354,6 +354,24 @@
       state.selected = item;
       closeDetail();
 
+      try {
+        if (global.YooYAIAssistant && typeof global.YooYAIAssistant.setSelectedAsset === 'function') {
+          var thumb = '';
+          if (global.YooYGalleryImage && typeof global.YooYGalleryImage.pickUrl === 'function') {
+            thumb = global.YooYGalleryImage.pickUrl(item, 'thumb') || '';
+          }
+          global.YooYAIAssistant.setSelectedAsset({
+            gallery_id: item.id,
+            type: item.type || 'image',
+            title: item.title || '',
+            thumbnail: thumb || item.thumbnail || item.url || '',
+            url: item.url || thumb || '',
+            studio: item.studio || item.type || '',
+            public_safe: !!(item.public || (item.visibility === 'public'))
+          });
+        }
+      } catch (eCtx) { /* ignore */ }
+
       var overlay = document.createElement('div');
       overlay.className = 'ygl-drawer-overlay';
       overlay.innerHTML = drawerHtml(item);
@@ -985,6 +1003,20 @@
     state.query = '';
     state.sort = 'newest';
 
+    // Phase 9 — Assistant may prefill Gallery search / type filter via sessionStorage.
+    try {
+      var aq = sessionStorage.getItem('yoy_assistant_gallery_query');
+      var at = sessionStorage.getItem('yoy_assistant_gallery_type');
+      if (aq) {
+        state.query = aq;
+        sessionStorage.removeItem('yoy_assistant_gallery_query');
+      }
+      if (at && at !== 'all') {
+        state.filter = at;
+        sessionStorage.removeItem('yoy_assistant_gallery_type');
+      }
+    } catch (ePend) { /* ignore */ }
+
     if (state.historyMode) {
       el.innerHTML =
         '<div class="ygl-root ygl-root--history">' +
@@ -999,7 +1031,8 @@
       '<div class="ygl-toolbar">' +
       '<div class="ygl-filters"></div>' +
       '<label class="ygl-search"><span class="ygl-sr">검색</span>' +
-      '<input type="search" data-ygl-search placeholder="제목, 프롬프트, 유형" aria-label="Gallery 검색"></label>' +
+      '<input type="search" data-ygl-search placeholder="제목, 프롬프트, 유형" aria-label="Gallery 검색" value="' +
+      String(state.query || '').replace(/"/g, '&quot;') + '"></label>' +
       '<label class="ygl-sort"><span class="ygl-sr">정렬</span>' +
       '<select data-ygl-sort aria-label="정렬">' +
       '<option value="newest">최근 생성</option>' +

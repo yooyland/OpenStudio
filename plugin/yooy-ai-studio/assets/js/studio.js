@@ -711,6 +711,13 @@
     } catch (e2) { /* ignore */ }
 
     var known = ['image', 'video', 'writing', 'music', 'voice', 'avatar', 'translator'];
+    if (pending === 'assistant') {
+      setTimeout(function () {
+        route('assistant');
+        showToast('AI Assistant로 이어갑니다.');
+      }, 80);
+      return true;
+    }
     if (known.indexOf(studio) < 0) studio = 'image';
     setTimeout(function () {
       route(studio);

@@ -353,7 +353,7 @@ $studio_quick = [
                     </div>
                     <button type="button" class="yai-home-composer__submit" id="yai-home-create">생성하기 →</button>
                 </div>
-                <p class="yai-home-composer__hint">예: 여름 바닷가 화장품 광고 이미지 만들어줘</p>
+                <p class="yai-home-composer__hint">예: 여름 바닷가 화장품 광고 이미지 만들어줘 · <button type="button" class="yai-home-composer__consult" data-route="assistant">AI와 상의하기</button></p>
             </div>
 
             <!-- PAGES -->

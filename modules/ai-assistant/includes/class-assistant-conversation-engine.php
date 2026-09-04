@@ -15,12 +15,16 @@ final class YooY_Assistant_Conversation_Engine {
     /** @var YooY_Assistant_Recommendation_Engine */
     private $recommendations;
 
+    /** @var YooY_Assistant_Action_Resolver */
+    private $actions;
+
     public function __construct(
         YooY_Assistant_Prompt_Composer $composer,
         YooY_Assistant_Recommendation_Engine $recommendations
     ) {
         $this->composer        = $composer;
         $this->recommendations = $recommendations;
+        $this->actions         = new YooY_Assistant_Action_Resolver();
     }
 
     /**
@@ -48,6 +52,16 @@ final class YooY_Assistant_Conversation_Engine {
                 $this->empty_brief(),
                 $context
             );
+        }
+
+        // Phase 9 — executable command center (prepare / navigate / confirm). No auto Generate.
+        $command = $this->actions->resolve($message, $context);
+        if (is_array($command) && !empty($command['command_action'])) {
+            $command['korea_note'] = $this->korea_authority_note($message);
+            if (!isset($command['credits_charged'])) {
+                $command['credits_charged'] = false;
+            }
+            return $command;
         }
 
         $brief = $this->merge_brief($brief_in, $history, $message, $context);

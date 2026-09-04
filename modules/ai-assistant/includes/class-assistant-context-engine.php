@@ -34,12 +34,13 @@ final class YooY_Assistant_Context_Engine {
     }
 
     /**
-     * @param int         $user_id
-     * @param string|null $project_id
-     * @param string|null $current_studio
+     * @param int                  $user_id
+     * @param string|null          $project_id
+     * @param string|null          $current_studio
+     * @param array<string, mixed> $client_context Selected/last asset from UI (session).
      * @return array<string, mixed>
      */
-    public function build(int $user_id, ?string $project_id = null, ?string $current_studio = null): array {
+    public function build(int $user_id, ?string $project_id = null, ?string $current_studio = null, array $client_context = []): array {
         $project_id = $project_id ? sanitize_text_field($project_id) : '';
         $studio     = $current_studio ? sanitize_text_field($current_studio) : '';
 
@@ -72,26 +73,64 @@ final class YooY_Assistant_Context_Engine {
                     if (!is_array($item)) {
                         continue;
                     }
-                    $recent[] = [
-                        'gallery_id' => (string) ($item['id'] ?? $item['gallery_id'] ?? ''),
-                        'type'       => (string) ($item['type'] ?? 'image'),
-                        'title'      => (string) ($item['title'] ?? ''),
-                        'studio'     => (string) ($item['studio'] ?? ''),
-                        'created_at' => (string) ($item['created_at'] ?? ''),
-                    ];
+                    $recent[] = $this->normalize_asset_ref($item);
                 }
             }
         }
+
+        $selected = $this->normalize_asset_ref(isset($client_context['selected_asset']) ? $client_context['selected_asset'] : null);
+        $last     = $this->normalize_asset_ref(isset($client_context['last_asset']) ? $client_context['last_asset'] : null);
 
         return [
             'mode'            => $mode,
             'project'         => $project,
             'current_studio'  => $studio,
+            'selected_asset'  => $selected,
+            'last_asset'      => $last,
             'recent_assets'   => $recent,
             'source_authority'=> $this->source_authority_hint(),
             'credits_note'    => '대화·추천·프롬프트 보완은 Credits를 차감하지 않습니다. Studio 실행 시에만 기존 Credits가 적용됩니다.',
             'gallery_policy'  => '대화는 Gallery에 저장되지 않습니다. 생성된 Asset만 Gallery에 저장됩니다.',
         ];
+    }
+
+    /**
+     * Public-safe asset reference only (no private prompt / provider).
+     *
+     * @param mixed $raw
+     * @return array<string, mixed>|null
+     */
+    private function normalize_asset_ref($raw) {
+        if (!is_array($raw)) {
+            return null;
+        }
+        $id = sanitize_text_field((string) ($raw['gallery_id'] ?? $raw['id'] ?? ''));
+        if ($id === '') {
+            return null;
+        }
+        $thumb = '';
+        if (!empty($raw['thumbnail'])) {
+            $thumb = esc_url_raw((string) $raw['thumbnail']);
+        } elseif (!empty($raw['url'])) {
+            $thumb = esc_url_raw((string) $raw['url']);
+        } elseif (!empty($raw['preview'])) {
+            $thumb = esc_url_raw((string) $raw['preview']);
+        }
+        $out = [
+            'gallery_id' => $id,
+            'type'       => sanitize_text_field((string) ($raw['type'] ?? 'image')),
+            'title'      => sanitize_text_field((string) ($raw['title'] ?? '')),
+            'studio'     => sanitize_text_field((string) ($raw['studio'] ?? '')),
+            'created_at' => sanitize_text_field((string) ($raw['created_at'] ?? '')),
+        ];
+        if ($thumb !== '') {
+            $out['thumbnail'] = $thumb;
+            $out['url']       = $thumb;
+        }
+        if (!empty($raw['public_safe']) || !empty($raw['is_public'])) {
+            $out['public_safe'] = true;
+        }
+        return $out;
     }
 
     /**

@@ -178,6 +178,24 @@ body.yai-sidebar-collapsed .yai-home-composer {
   color: rgba(255, 255, 255, 0.45);
 }
 
+.yai-home-composer__consult {
+  pointer-events: auto;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 216, 74, 0.85);
+  font: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.yai-home-composer__consult:hover,
+.yai-home-composer__consult:focus-visible {
+  color: #ffd84a;
+}
+
 .yai-view--home.yai-hd-page {
   padding-bottom: 196px !important;
 }

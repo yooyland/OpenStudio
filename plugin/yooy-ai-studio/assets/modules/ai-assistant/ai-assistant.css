@@ -613,6 +613,108 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
+#yai-assistant .yai-assistant-context-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding: 0.45rem 1rem 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+#yai-assistant .yai-assistant-ctx-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 216, 74, 0.35);
+  background: rgba(255, 216, 74, 0.08);
+  color: #f5e7a8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#yai-assistant .yai-assistant-ctx-chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 0.1rem;
+}
+
+#yai-assistant .yai-assistant-action-card {
+  margin-top: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 216, 74, 0.28);
+  background: #141820;
+  width: 100%;
+}
+
+#yai-assistant .yai-assistant-action-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffd84a;
+  margin-bottom: 0.45rem;
+}
+
+#yai-assistant .yai-assistant-action-card__thumb {
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+  max-height: 120px;
+  background: #0a0a0a;
+}
+
+#yai-assistant .yai-assistant-action-card__thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 120px;
+  object-fit: cover;
+}
+
+#yai-assistant .yai-assistant-action-card__row {
+  display: flex;
+  gap: 0.55rem;
+  font-size: 12px;
+  margin: 0.25rem 0;
+  color: #9aa3b2;
+}
+
+#yai-assistant .yai-assistant-action-card__row strong {
+  color: #f3f4f6;
+  font-weight: 600;
+  flex: 1;
+  word-break: break-word;
+}
+
+#yai-assistant .yai-assistant-action-card__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.45rem 0;
+}
+
+#yai-assistant .yai-assistant-action-btn--primary {
+  background: #ffd84a !important;
+  color: #111 !important;
+  border-color: #ffd84a !important;
+  font-weight: 700;
+}
+
+#yai-assistant .yai-assistant-status-text {
+  display: inline-block;
+  margin-left: 0.45rem;
+  font-size: 12px;
+  color: #9aa3b2;
+  vertical-align: middle;
+}
+
 @media (max-width: 719px) {
   #yai-assistant.yai-assistant {
     height: calc(100vh - 56px);
@@ -634,5 +736,13 @@
 
   #yai-assistant .yai-assistant__scroll {
     padding: 0.85rem 1rem;
+  }
+
+  #yai-assistant .yai-assistant-action-card {
+    width: 100%;
+  }
+
+  #yai-assistant .yai-assistant-composer-wrap {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
 }

@@ -166,6 +166,7 @@
           '<div class="yai-ob-panel__actions">' +
             '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ob-action="studios">Studio 선택하기</button>' +
             '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ob-action="compose">직접 입력하기</button>' +
+            '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ob-action="assistant">AI Assistant에게 물어보기</button>' +
           '</div>' +
         '</div>' +
         '<button type="button" class="yai-ob-panel__dismiss" data-ob-action="dismiss" aria-label="안내 닫기">닫기</button>' +
@@ -186,6 +187,10 @@
         }
         if (act === 'compose') {
           focusComposer();
+          return;
+        }
+        if (act === 'assistant') {
+          routeTo('assistant');
         }
       });
     });

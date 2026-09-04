@@ -161,13 +161,24 @@ final class YooY_Module_AI_Assistant extends YooY_Module_Base {
             $brief = [];
         }
 
+        $client_context = [];
+        $selected = $request->get_param('selected_asset');
+        if (is_array($selected)) {
+            $client_context['selected_asset'] = $selected;
+        }
+        $last = $request->get_param('last_asset');
+        if (is_array($last)) {
+            $client_context['last_asset'] = $last;
+        }
+
         return $this->success($this->service()->chat(
             (int) $user,
             $message,
             $project !== '' ? $project : null,
             $studio !== '' ? $studio : null,
             $history,
-            $brief
+            $brief,
+            $client_context
         ));
     }
 

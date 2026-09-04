@@ -33,12 +33,13 @@ final class YooY_Assistant_Service {
             'id'          => 'ai-assistant',
             'name'        => 'AI Assistant',
             'role'        => 'creative_partner',
-            'version'     => '2.0.0',
+            'version'     => '3.0.0',
             'credits'     => [
                 'chat'     => false,
                 'recommend'=> false,
                 'compose'  => false,
                 'studio'   => 'existing_credits',
+                'auto_generate' => false,
             ],
             'gallery'     => [
                 'save_conversation' => false,
@@ -48,13 +49,14 @@ final class YooY_Assistant_Service {
                 'image', 'video', 'writing', 'translator', 'music', 'voice', 'avatar',
             ],
             'ux'          => [
-                'mode'           => 'conversational_creative_partner',
-                'prompt_policy'  => 'ask_first_prompt_secondary',
+                'mode'           => 'universal_command_center',
+                'prompt_policy'  => 'prepare_only_no_auto_generate',
                 'cards'          => 'purpose_first',
                 'hero'           => 'large_input_first',
+                'actions'        => 'prepare_confirm_execute_existing',
             ],
             'phase'       => [
-                'included' => ['conversation', 'recommendation', 'prompt_composer_secondary', 'context', 'ui'],
+                'included' => ['conversation', 'recommendation', 'prompt_composer_secondary', 'context', 'ui', 'command_actions'],
                 'next'     => ['image_analysis', 'video_analysis', 'ocr', 'document', 'website', 'audio', 'youtube'],
             ],
         ];
@@ -97,15 +99,20 @@ final class YooY_Assistant_Service {
         ?string $project_id = null,
         ?string $current_studio = null,
         array $history = [],
-        array $brief = []
+        array $brief = [],
+        array $client_context = []
     ): array {
-        $ctx = $this->context->build($user_id, $project_id, $current_studio);
+        $ctx = $this->context->build($user_id, $project_id, $current_studio, $client_context);
         $out = $this->conversation->reply($message, $ctx, $history, $brief);
         $out['context'] = [
-            'mode'    => $ctx['mode'],
-            'project' => $ctx['project'],
+            'mode'            => $ctx['mode'],
+            'project'         => $ctx['project'],
+            'selected_asset'  => $ctx['selected_asset'] ?? null,
+            'last_asset'      => $ctx['last_asset'] ?? null,
+            'recent_assets'   => $ctx['recent_assets'] ?? [],
         ];
         $out['persisted'] = false;
+        $out['credits_charged'] = false;
         return $out;
     }
 
