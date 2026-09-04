@@ -291,6 +291,13 @@ final class YooY_AI_Studio {
             YOY_AI_STUDIO_VERSION
         );
 
+        wp_enqueue_style(
+            'yoy-my-account',
+            YOY_AI_STUDIO_URL . 'assets/css/my-account.css',
+            ['yoy-ai-studio'],
+            YOY_AI_STUDIO_VERSION
+        );
+
         wp_enqueue_script(
             'yoy-credits-ui',
             YOY_AI_STUDIO_URL . 'assets/js/credits-ui.js',
@@ -300,9 +307,17 @@ final class YooY_AI_Studio {
         );
 
         wp_enqueue_script(
+            'yoy-my-account',
+            YOY_AI_STUDIO_URL . 'assets/js/my-account.js',
+            ['yoy-ai-studio-core', 'yoy-credits-ui'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-home-onboarding', 'yoy-credits-ui', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-home-onboarding', 'yoy-credits-ui', 'yoy-my-account', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -416,6 +431,8 @@ final class YooY_AI_Studio {
             'loginUrl'  => esc_url_raw(wp_login_url(get_permalink())),
             'registerUrl' => esc_url_raw(wp_registration_url()),
             'logoutUrl' => esc_url_raw(wp_logout_url(get_permalink())),
+            'lostPasswordUrl' => esc_url_raw(wp_lostpassword_url()),
+            'privacyPolicyUrl' => esc_url_raw((string) get_privacy_policy_url()),
             'user'      => [
                 'id'    => $user->ID,
                 'name'  => $user->display_name ?: 'Guest',
@@ -532,6 +549,7 @@ final class YooY_AI_Studio {
             ['id' => 'community', 'label' => 'Community', 'module' => 'community'],
             ['id' => 'market', 'label' => 'Marketplace', 'module' => 'marketplace'],
             ['id' => 'credits', 'label' => 'Credits', 'module' => 'credits'],
+            ['id' => 'my', 'label' => 'MY', 'module' => 'user-profile'],
             ['id' => 'settings', 'label' => 'Settings', 'module' => 'settings'],
         ];
 

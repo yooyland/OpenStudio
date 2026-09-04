@@ -296,8 +296,10 @@
         return api('/' + module + endpoint, { method: 'PUT', body: body });
       },
 
-      del: function (module, endpoint) {
-        return api('/' + module + endpoint, { method: 'DELETE' });
+      del: function (module, endpoint, body) {
+        var opts = { method: 'DELETE' };
+        if (body) opts.body = body;
+        return api('/' + module + endpoint, opts);
       },
 
       credits: {
@@ -404,7 +406,9 @@
       },
 
       profile: {
-        me: function () { return Core.get('user-profile', '/me'); }
+        me: function () { return Core.get('user-profile', '/me'); },
+        update: function (data) { return Core.put('user-profile', '/me', data || {}); },
+        deleteAccount: function (data) { return Core.del('user-profile', '/me', data || {}); }
       },
 
       router: {

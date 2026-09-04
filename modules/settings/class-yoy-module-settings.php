@@ -45,21 +45,41 @@ final class YooY_Module_Settings extends YooY_Module_Base {
     public function update_settings(WP_REST_Request $request): WP_REST_Response {
         $user_id  = $this->current_user_id();
         $incoming = $request->get_json_params();
+        if (!is_array($incoming)) {
+            $incoming = array();
+        }
         $current  = get_user_meta($user_id, 'yoy_studio_settings', true);
         $current  = is_array($current) ? $current : $this->default_user_settings();
 
-        $allowed = ['korean_context', 'default_provider', 'auto_save', 'notifications', 'quality'];
+        $allowed = array('korean_context', 'auto_save', 'notifications', 'quality');
         $updated = $current;
 
         foreach ($allowed as $key) {
-            if (array_key_exists($key, $incoming)) {
-                $updated[$key] = $incoming[$key];
+            if (!array_key_exists($key, $incoming)) {
+                continue;
             }
+            if ($key === 'quality') {
+                $q = sanitize_text_field((string) $incoming[$key]);
+                if (!in_array($q, array('standard', 'high'), true)) {
+                    return $this->error('지원하지 않는 품질 설정입니다.', 400);
+                }
+                $updated[$key] = $q;
+                continue;
+            }
+            $updated[$key] = (bool) $incoming[$key];
+        }
+
+        // Keep legacy key if present; do not expose in user MY UI.
+        if (!isset($updated['default_provider'])) {
+            $updated['default_provider'] = isset($current['default_provider']) ? $current['default_provider'] : 'mock';
         }
 
         update_user_meta($user_id, 'yoy_studio_settings', $updated);
 
-        return $this->success(['settings' => $updated]);
+        return $this->success(array(
+            'settings' => $updated,
+            'message'  => '설정이 저장되었습니다.',
+        ));
     }
 
     public function global_settings(): WP_REST_Response {

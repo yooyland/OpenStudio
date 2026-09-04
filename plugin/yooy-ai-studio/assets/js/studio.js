@@ -317,7 +317,7 @@
     { id: 'ja', label: '日本語 (ja)' },
     { id: 'zh', label: '中文 (zh)' }
   ];
-  var PROTECTED_ROUTES = ['projects', 'project-detail', 'import', 'video', 'image', 'music', 'voice', 'avatar', 'writing', 'translator', 'history', 'assistant'];
+  var PROTECTED_ROUTES = ['projects', 'project-detail', 'import', 'video', 'image', 'music', 'voice', 'avatar', 'writing', 'translator', 'history', 'assistant', 'my', 'settings', 'credits', 'billing'];
   var PLAN_CRYSTALS = {
     free: 'gray', starter: 'green', creator: 'blue', pro: 'purple', business: 'gold'
   };
@@ -654,7 +654,7 @@
     home: 'Home', assistant: 'AI Assistant', projects: 'Projects', 'project-detail': 'Project Workspace', video: 'Video Studio', image: 'Image Studio',
     music: 'Music Studio', voice: 'Voice Studio', avatar: 'Avatar Studio', writing: 'Writing Studio', translator: 'Translator',
     import: 'Import', works: 'Gallery', history: 'History', community: 'Community', market: 'Marketplace',
-    credits: 'Credits', billing: 'Billing', settings: 'Settings', 'prompt-library': 'Prompt Library', templates: 'Templates', 'admin-console': 'Admin Console'
+    credits: 'Credits', billing: 'Billing', my: 'MY', settings: 'Settings', 'prompt-library': 'Prompt Library', templates: 'Templates', 'admin-console': 'Admin Console'
   };
 
   function isLoggedIn() { return !!Core.config.loggedIn; }
@@ -792,6 +792,10 @@
   function route(name, opts) {
     opts = opts || {};
     if (name === 'admin-console' && !Core.config.isAdmin) return;
+    if (name === 'settings') {
+      try { sessionStorage.setItem('yoy_my_section', 'settings'); } catch (eSet) { /* ignore */ }
+      name = 'my';
+    }
     if (PROTECTED_ROUTES.indexOf(name) !== -1 && !isLoggedIn()) {
       showLoginModal();
       return;
@@ -885,6 +889,7 @@
     if (name === 'works') { loaded[name] = false; loadWorks(); loaded[name] = true; return; }
     if (name === 'history') { loaded[name] = false; loadHistory(); loaded[name] = true; return; }
     if (name === 'home') { loaded[name] = false; loadHome(); loaded[name] = true; return; }
+    if (name === 'my') { loaded[name] = false; loadMyAccount(); loaded[name] = true; return; }
     if (name === 'templates') {
       loaded[name] = true;
       if (window.YooYCreationTemplates && typeof window.YooYCreationTemplates.renderLibrary === 'function') {
@@ -939,6 +944,7 @@
       case 'community': loadCommunity(); break;
       case 'credits': loadCredits(); break;
       case 'billing': loadBilling(); break;
+      case 'my': loadMyAccount(); break;
       case 'settings': loadSettings(); break;
       case 'admin-console':
         loaded[name] = false;
@@ -3639,17 +3645,18 @@
     return html + '</tbody></table></div>';
   }
 
+  function loadMyAccount() {
+    loaded.my = false;
+    if (window.YooYMyAccount && typeof window.YooYMyAccount.mount === 'function') {
+      window.YooYMyAccount.mount();
+    }
+    loaded.my = true;
+  }
+
   function loadSettings() {
-    var el = document.getElementById('yai-settings');
-    if (!el) return;
-    Core.settings.get().then(function (res) {
-      var s = (res.data && res.data.settings) || {};
-      el.innerHTML =
-        '<div class="yai-setting-card"><strong>Korean Context</strong><span>' + (s.korean_context ? 'Enabled' : 'Disabled') + '</span></div>' +
-        '<div class="yai-setting-card"><strong>Default AI Engine</strong><span>' + esc(s.default_provider || 'Auto') + '</span></div>' +
-        '<div class="yai-setting-card"><strong>Auto Save</strong><span>' + (s.auto_save ? 'On' : 'Off') + '</span></div>' +
-        '<div class="yai-setting-card"><strong>Output Quality</strong><span>' + esc(s.quality || 'Standard') + '</span></div>';
-    });
+    // Settings UI lives in MY hub — keep legacy route as alias.
+    try { sessionStorage.setItem('yoy_my_section', 'settings'); } catch (e) { /* ignore */ }
+    route('my', { replace: true, skipDirtyCheck: true });
   }
 
   function loadWriting() {
@@ -4320,6 +4327,10 @@
     var btn = e.target.closest('[data-route]');
     if (!btn) return;
     e.preventDefault();
+    var mySec = btn.getAttribute('data-my-section');
+    if (mySec) {
+      try { sessionStorage.setItem('yoy_my_section', mySec); } catch (eMy) { /* ignore */ }
+    }
     var adminSec = btn.getAttribute('data-admin-section');
     if (adminSec) pendingAdminSection = adminSec;
     route(btn.dataset.route);
@@ -4418,6 +4429,7 @@
     }
   };
   window.YooYStudioRoute = route;
+  window.YooYStudioToast = showToast;
   window.YooYStudioOpenProject = openProjectDetail;
   window.YooYStudioContinueProject = continueProjectWork;
   window.YooYStudioPickProject = openProjectPicker;

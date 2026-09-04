@@ -75,7 +75,8 @@ $nav_sections = [
         'label' => 'Account',
         'items' => [
             ['route' => 'credits',  'label' => 'Credits',  'icon' => 'credits'],
-            ['route' => 'settings', 'label' => 'Settings', 'icon' => 'settings'],
+            ['route' => 'my',       'label' => 'MY',       'icon' => 'settings', 'section' => 'profile'],
+            ['route' => 'my',       'label' => 'Settings', 'icon' => 'settings', 'section' => 'settings'],
         ],
     ],
 ];
@@ -149,7 +150,11 @@ $studio_quick = [
                         <div class="yai-nav-section__label"><?php echo esc_html($section['label']); ?></div>
                     <?php endif; ?>
                     <?php foreach ($section['items'] as $item) : ?>
-                        <button class="yai-nav-item" data-route="<?php echo esc_attr($item['route']); ?>" type="button">
+                        <button class="yai-nav-item" data-route="<?php echo esc_attr($item['route']); ?>" type="button"<?php
+                        if (!empty($item['section'])) {
+                            echo ' data-my-section="' . esc_attr($item['section']) . '"';
+                        }
+                        ?>>
                             <?php echo YooY_UI_Icons::svg($item['icon'], 18); ?>
                             <span><?php echo esc_html($item['label']); ?></span>
                         </button>
@@ -182,8 +187,8 @@ $studio_quick = [
                     <span class="yai-sr-only" id="yai-sidebar-plan-name"><?php echo esc_html($plan_label); ?></span>
                 </article>
                 <nav class="yai-sidebar-util" aria-label="계정 메뉴">
-                    <button type="button" data-route="settings"><?php echo YooY_UI_Icons::svg('settings', 16); ?> 설정</button>
-                    <button type="button" data-yai-panel="help"><?php echo YooY_UI_Icons::svg('help', 16); ?> 도움말</button>
+                    <button type="button" data-route="my" data-my-section="settings"><?php echo YooY_UI_Icons::svg('settings', 16); ?> 설정</button>
+                    <button type="button" data-route="my" data-my-section="help"><?php echo YooY_UI_Icons::svg('help', 16); ?> 도움말</button>
                     <?php if ($is_admin) : ?>
                     <div class="yai-sidebar-admin-tools" aria-label="관리자 도구">
                         <div class="yai-sidebar-admin-tools__label">관리자 도구</div>
@@ -244,10 +249,11 @@ $studio_quick = [
                                     <span class="yai-my-menu__plan" id="yai-my-menu-plan"><?php echo esc_html($plan_label); ?> 플랜</span>
                                     <span class="yai-my-menu__credits" id="yai-my-menu-credits">— 크레딧</span>
                                 </div>
-                                <button type="button" role="menuitem" data-route="settings">내 프로필</button>
-                                <button type="button" role="menuitem" data-route="credits">내 플랜</button>
-                                <button type="button" role="menuitem" data-route="credits">크레딧</button>
-                                <button type="button" role="menuitem" data-route="settings">계정 정보</button>
+                                <button type="button" role="menuitem" data-route="my" data-my-section="profile">내 프로필</button>
+                                <button type="button" role="menuitem" data-route="my" data-my-section="plan">플랜 · 구독</button>
+                                <button type="button" role="menuitem" data-route="my" data-my-section="credits">크레딧</button>
+                                <button type="button" role="menuitem" data-route="my" data-my-section="settings">설정</button>
+                                <button type="button" role="menuitem" data-route="my" data-my-section="help">도움말</button>
                                 <?php if ($is_admin) : ?>
                                 <div class="yai-my-menu__admin" role="group" aria-label="관리자 도구">
                                     <span class="yai-my-menu__admin-label">관리자 도구</span>
@@ -443,9 +449,12 @@ $studio_quick = [
                 </header>
                 <div id="yai-history"></div>
             </section>
+            <section class="yai-view" data-page="my">
+                <div id="yai-my-account" class="yai-my-account" tabindex="-1"></div>
+            </section>
             <section class="yai-view" data-page="credits"><header class="yai-page-head"><h1>크레딧</h1><p>잔액, 최근 사용, 플랜을 확인하세요.</p></header><div id="yai-credits-panel"></div></section>
             <section class="yai-view" data-page="billing"><header class="yai-page-head"><h1>플랜 · 결제</h1><p>현재 플랜과 결제 내역을 관리합니다.</p></header><div id="yai-billing-panel"></div></section>
-            <section class="yai-view" data-page="settings"><header class="yai-page-head"><h1>Settings</h1><p>스튜디오 기본 설정과 한국 컨텍스트 옵션.</p></header><div class="yai-settings-grid" id="yai-settings"></div></section>
+            <section class="yai-view" data-page="settings"><header class="yai-page-head"><h1>Settings</h1><p>MY 설정으로 이동합니다.</p></header><div class="yai-settings-grid" id="yai-settings"></div></section>
 
             <?php if ($is_admin) : ?>
             <section class="yai-view yai-view--admin" data-page="admin-console">
@@ -479,19 +488,21 @@ $studio_quick = [
 
     <div class="yai-overlay" id="yai-panel-help" hidden>
         <div class="yai-panel yai-panel--wide">
-            <header><strong>Help & Guide</strong><button type="button" class="yai-icon-btn" data-yai-close-panel aria-label="Close">×</button></header>
+            <header><strong>도움말</strong><button type="button" class="yai-icon-btn" data-yai-close-panel aria-label="닫기">×</button></header>
             <div class="yai-panel-body">
-                <h4>Getting Started</h4>
+                <h4>시작하기</h4>
                 <ul class="yai-help-list">
-                    <li>Home에서 AI Assistant 또는 Project로 시작하세요.</li>
-                    <li>만들고 싶은 것을 말하면 Assistant가 Studio를 추천합니다.</li>
-                    <li>Create에서 Image / Video / Writing 등으로 생성하세요.</li>
-                    <li>결과는 Gallery에 저장되고 Project에 연결됩니다.</li>
-                    <li>Credits는 Account 메뉴에서 확인합니다.</li>
+                    <li>Home에서 만들고 싶은 것을 입력하거나 AI Assistant에게 말해 보세요.</li>
+                    <li>Studio에서 Image / Video / Writing 등으로 생성하세요.</li>
+                    <li>결과는 Gallery에 저장되고 Projects에 묶을 수 있습니다.</li>
                 </ul>
-                <h4>Credits</h4>
-                <p class="yai-muted">Each generation consumes credits based on studio type. View balance and upgrade options on the Credits page.</p>
-                <button type="button" class="yai-btn--outline" data-route="credits">Open Credits</button>
+                <h4>Credits · 플랜</h4>
+                <p class="yai-muted">생성할 때마다 크레딧이 사용됩니다. 잔액과 플랜은 MY 또는 크레딧 화면에서 확인하세요.</p>
+                <div class="yai-help-actions">
+                    <button type="button" class="yai-btn--outline" data-route="my" data-my-section="credits" data-yai-close-panel>MY 크레딧</button>
+                    <button type="button" class="yai-btn--outline" data-route="credits" data-yai-close-panel>크레딧 전체</button>
+                    <button type="button" class="yai-btn--outline" data-route="my" data-my-section="help" data-yai-close-panel>MY 도움말</button>
+                </div>
             </div>
         </div>
     </div>
