@@ -396,7 +396,7 @@
             '<p class="yai-assistant__subtitle">만들고 · 찾고 · 이어가는 크리에이터 커맨드 센터</p>' +
           '</div>' +
           '<div class="yai-assistant__meta" data-assistant-meta>' +
-            '<span class="yai-assistant__badge yai-assistant__badge--ready">System Ready</span>' +
+            '<span class="yai-assistant__badge yai-assistant__badge--ready" data-assistant-mode>Command Center</span>' +
             (project ? '<span class="yai-assistant__badge">Project · ' + esc(project) + '</span>' : '<span class="yai-assistant__badge">General Mode</span>') +
             '<button type="button" class="yai-assistant__badge" data-assistant-new-chat aria-label="새 대화">새 대화</button>' +
           '</div>' +

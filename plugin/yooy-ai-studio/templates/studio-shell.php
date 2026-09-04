@@ -161,6 +161,13 @@ $studio_quick = [
                 <nav class="yai-sidebar-util" aria-label="계정 메뉴">
                     <button type="button" data-route="settings"><?php echo YooY_UI_Icons::svg('settings', 16); ?> 설정</button>
                     <button type="button" data-yai-panel="help"><?php echo YooY_UI_Icons::svg('help', 16); ?> 도움말</button>
+                    <?php if ($is_admin) : ?>
+                    <div class="yai-sidebar-admin-tools" aria-label="관리자 도구">
+                        <div class="yai-sidebar-admin-tools__label">관리자 도구</div>
+                        <button type="button" data-admin-tool="sections"><?php echo YooY_UI_Icons::svg('settings', 16); ?> 섹션 관리</button>
+                        <button type="button" data-admin-tool="system-status"><?php echo YooY_UI_Icons::svg('admin', 16); ?> 시스템 상태</button>
+                    </div>
+                    <?php endif; ?>
                     <a href="<?php echo $logout_url; ?>">로그아웃</a>
                 </nav>
                 <div class="yai-profile yai-profile--compact yai-profile--<?php echo esc_attr($plan_id); ?>" id="yai-profile-card" hidden aria-hidden="true">

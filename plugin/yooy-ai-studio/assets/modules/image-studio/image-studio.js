@@ -2468,13 +2468,21 @@
     });
   }
 
-  // Essential-only pre-generate gate driven by the self-diagnosis engine.
-  // Blocks generation (no Running job) when REST / Provider / Credits /
-  // Gallery / Image Save are not healthy. Falls back to the REST-health gate
-  // when diagnostics are unavailable.
+  function diagnosticReportButtonsHtml() {
+    var isAdmin = !!(global.YooYCore && global.YooYCore.config && global.YooYCore.config.isAdmin);
+    if (!isAdmin) return '';
+    return '<div class="yis-diag-report">진단 리포트: ' +
+      '<button type="button" data-yoy-report="json">JSON</button>' +
+      '<button type="button" data-yoy-report="txt">TXT</button>' +
+      '<button type="button" data-yoy-report="md">Markdown</button>' +
+      '</div>';
+  }
+
+  // Essential-only pre-generate gate. Admins use full diagnostics; creators use REST-health fallback.
   function verifySystemThen(root, next) {
+    var isAdmin = !!(global.YooYCore && global.YooYCore.config && global.YooYCore.config.isAdmin);
     var D = global.YooYDiagnostics;
-    if (!D || !D.run) { verifyRestHealthThen(root, next); return; }
+    if (!isAdmin || !D || !D.run) { verifyRestHealthThen(root, next); return; }
     D.run(true).then(function (report) {
       if (report && report.essential_ok === false) {
         showSystemBlock(root, report);
@@ -2515,22 +2523,15 @@
       '</div>');
   }
 
-  function diagnosticReportButtonsHtml() {
-    return '<div class="yis-diag-report">진단 리포트: ' +
-      '<button type="button" data-yoy-report="json">JSON</button>' +
-      '<button type="button" data-yoy-report="txt">TXT</button>' +
-      '<button type="button" data-yoy-report="md">Markdown</button>' +
-      '</div>';
-  }
-
   // Prioritised root-cause analysis + inline Fix buttons for a known error.
   function errorAnalysisHtml(err) {
+    var isAdmin = !!(global.YooYCore && global.YooYCore.config && global.YooYCore.config.isAdmin);
     var D = global.YooYDiagnostics;
     if (!D || !D.analyzeError) return '';
     var analysis = D.analyzeError(err);
     if (!analysis) return '';
     var causeRows = analysis.causes.map(function (c) {
-      var fix = c.fix
+      var fix = (isAdmin && c.fix)
         ? '<button type="button" class="yis-sys-fix" data-yoy-fix="' + esc(c.fix.action) + '">' + esc(c.fix.label) + '</button>'
         : '';
       return '<li><span class="yis-cause-p">' + esc(c.priority) + '</span>' + esc(c.text) + fix + '</li>';

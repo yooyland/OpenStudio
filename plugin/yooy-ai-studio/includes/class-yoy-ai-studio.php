@@ -64,6 +64,9 @@ final class YooY_AI_Studio {
             $classes[] = 'yoy-creator-os-active';
             // Boot route is Home — hide Back before first paint / JS sync.
             $classes[] = 'yai-route-home';
+            if (current_user_can('manage_options')) {
+                $classes[] = 'yai-is-admin';
+            }
         }
         return $classes;
     }

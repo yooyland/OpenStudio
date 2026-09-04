@@ -155,31 +155,18 @@
     return md.join('\n');
   }
 
-  function download(format, extra) {
-    var report = collect(extra);
-    var content;
-    var mime;
-    var ext;
-    if (format === 'txt') { content = toText(report); mime = 'text/plain'; ext = 'txt'; }
-    else if (format === 'md') { content = toMarkdown(report); mime = 'text/markdown'; ext = 'md'; }
-    else { content = JSON.stringify(report, null, 2); mime = 'application/json'; ext = 'json'; }
-    var blob = new global.Blob([content], { type: mime + ';charset=utf-8' });
-    var url = global.URL.createObjectURL(blob);
-    var a = global.document.createElement('a');
-    a.href = url;
-    a.download = 'yooy-diagnostic-' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
-    global.document.body.appendChild(a);
-    a.click();
-    global.document.body.removeChild(a);
-    global.setTimeout(function () { global.URL.revokeObjectURL(url); }, 2000);
-    return report;
-  }
-
   // ---- Run / cache --------------------------------------------------------
   var last = null;
   var running = null;
 
+  function isAdminUser() {
+    return !!(config && config.isAdmin);
+  }
+
   function run(force) {
+    if (!isAdminUser()) {
+      return global.Promise.reject(new Error('Diagnostics are admin-only'));
+    }
     if (!Core || !Core.systemCheck) {
       return global.Promise.reject(new Error('System check unavailable'));
     }
@@ -199,6 +186,9 @@
   }
 
   function fix(action) {
+    if (!isAdminUser()) {
+      return global.Promise.reject(new Error('Diagnostics are admin-only'));
+    }
     if (action === 'open_providers' || action === 'open_credits') {
       // UI navigation fixes handled by the caller / router.
       if (global.YooYAdminConsole && action === 'open_providers') {
@@ -220,7 +210,28 @@
     });
   }
 
-  // ---- Top-right always-visible status widget -----------------------------
+  function download(format, extra) {
+    if (!isAdminUser()) return null;
+    var report = collect(extra);
+    var content;
+    var mime;
+    var ext;
+    if (format === 'txt') { content = toText(report); mime = 'text/plain'; ext = 'txt'; }
+    else if (format === 'md') { content = toMarkdown(report); mime = 'text/markdown'; ext = 'md'; }
+    else { content = JSON.stringify(report, null, 2); mime = 'application/json'; ext = 'json'; }
+    var blob = new global.Blob([content], { type: mime + ';charset=utf-8' });
+    var url = global.URL.createObjectURL(blob);
+    var a = global.document.createElement('a');
+    a.href = url;
+    a.download = 'yooy-diagnostic-' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
+    global.document.body.appendChild(a);
+    a.click();
+    global.document.body.removeChild(a);
+    global.setTimeout(function () { global.URL.revokeObjectURL(url); }, 2000);
+    return report;
+  }
+
+  // ---- Admin-only status widget (not shown to normal creators / guests) ----
   function overallMeta(report) {
     if (!report) return { dot: '\u26AA', label: 'Checking…', tone: 'idle' };
     var m = statusMeta(report.overall);
@@ -255,17 +266,33 @@
     return rows + footer;
   }
 
-  function renderWidget() {
+  function destroyWidget() {
     var doc = global.document;
     if (!doc) return;
+    var wrap = doc.querySelector('.yoy-sys-widget');
+    if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+  }
+
+  function renderWidget(opts) {
+    opts = opts || {};
+    var doc = global.document;
+    if (!doc) return;
+    if (!isAdminUser()) {
+      destroyWidget();
+      return;
+    }
     var host = doc.getElementById('yai-topbar-actions');
     if (!host) return;
     var btn = doc.getElementById('yoy-sys-status');
     if (!btn) {
+      // Compact admin indicator only when explicitly opened or when unhealthy.
+      if (!opts.force && (!last || last.overall === 'ok')) {
+        return;
+      }
       var wrap = doc.createElement('div');
       wrap.className = 'yoy-sys-widget';
       wrap.innerHTML =
-        '<button type="button" id="yoy-sys-status" class="yoy-sys-status" aria-expanded="false">' +
+        '<button type="button" id="yoy-sys-status" class="yoy-sys-status" aria-expanded="false" title="시스템 상태">' +
           '<span class="yoy-sys-status-dot"></span>' +
           '<span class="yoy-sys-status-text">Checking…</span>' +
         '</button>' +
@@ -281,7 +308,9 @@
     if (dot) dot.textContent = meta.dot;
     if (text) text.textContent = meta.label;
     var panel = doc.getElementById('yoy-sys-panel');
-    if (panel && !panel.hidden) {
+    if (panel && (!panel.hidden || opts.openPanel)) {
+      panel.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
       panel.innerHTML = widgetPanelHtml(last);
     }
   }
@@ -302,6 +331,7 @@
       }
       var fixBtn = e.target.closest('[data-yoy-fix]');
       if (fixBtn) {
+        if (!isAdminUser()) return;
         fixBtn.disabled = true;
         fixBtn.textContent = '수정 중…';
         fix(fixBtn.getAttribute('data-yoy-fix')).catch(function () {
@@ -311,8 +341,16 @@
         return;
       }
       var rep = e.target.closest('[data-yoy-report]');
-      if (rep) { download(rep.getAttribute('data-yoy-report')); return; }
-      if (e.target.closest('[data-yoy-recheck]')) { run(true); return; }
+      if (rep) {
+        if (!isAdminUser()) return;
+        download(rep.getAttribute('data-yoy-report'));
+        return;
+      }
+      if (e.target.closest('[data-yoy-recheck]')) {
+        if (!isAdminUser()) return;
+        run(true);
+        return;
+      }
     });
     doc.addEventListener('click', function (e) {
       if (wrap.contains(e.target)) return;
@@ -325,6 +363,26 @@
     });
   }
 
+  function openSystemStatus(opts) {
+    opts = opts || {};
+    if (!isAdminUser()) {
+      return global.Promise.reject(new Error('Admin only'));
+    }
+    if (opts.preferConsole && global.YooYStudioRoute) {
+      try {
+        if (global.YooYAdminConsole && typeof global.YooYAdminConsole.openOps === 'function') {
+          global.YooYAdminConsole.openOps('system-health');
+        }
+        global.YooYStudioRoute('admin-console');
+        return global.Promise.resolve(last);
+      } catch (e) { /* fall through to panel */ }
+    }
+    return run(true).then(function (report) {
+      renderWidget({ force: true, openPanel: true });
+      return report;
+    });
+  }
+
   var YooYDiagnostics = {
     STATUS: STATUS,
     statusMeta: statusMeta,
@@ -333,16 +391,23 @@
     analyzeError: analyzeError,
     report: download,
     collect: collect,
+    openSystemStatus: openSystemStatus,
+    isAdminOnly: true,
     get last() { return last; }
   };
 
   global.YooYDiagnostics = YooYDiagnostics;
 
-  // Auto-run once the shell is ready (logged-in Creator OS only).
+  // Admin only — never auto-mount developer health UI for creators/guests.
   function boot() {
-    if (!config || !config.loggedIn) return;
-    renderWidget();
-    run(false).catch(function () { renderWidget(); });
+    destroyWidget();
+    if (!isAdminUser()) return;
+    // Soft-prefetch for Admin Console / menu; do not show permanent Ready badge.
+    run(false).then(function (report) {
+      if (report && report.overall && report.overall !== 'ok') {
+        renderWidget({ force: true });
+      }
+    }).catch(function () { /* ignore */ });
   }
 
   if (global.document && global.document.readyState !== 'loading') {

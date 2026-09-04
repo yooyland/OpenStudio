@@ -4223,6 +4223,30 @@
       return;
     }
 
+    var adminTool = e.target.closest('[data-admin-tool]');
+    if (adminTool) {
+      e.preventDefault();
+      if (!isAdmin()) return;
+      var tool = adminTool.getAttribute('data-admin-tool');
+      if (tool === 'sections') {
+        route('home');
+        setTimeout(function () {
+          var manageBtn = document.getElementById('yai-section-manage-btn');
+          if (manageBtn) manageBtn.click();
+          else if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.openSectionManager === 'function') {
+            window.YooYHomeDashboard.openSectionManager();
+          }
+        }, 80);
+        return;
+      }
+      if (tool === 'system-status') {
+        pendingAdminSection = 'system-health';
+        route('admin-console');
+        return;
+      }
+      return;
+    }
+
     var btn = e.target.closest('[data-route]');
     if (!btn) return;
     e.preventDefault();

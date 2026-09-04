@@ -35,7 +35,9 @@ final class YooY_REST_Controller {
         register_rest_route('yoy-ai-studio/v1', '/core/system-check', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'system_check'],
-            'permission_callback' => 'is_user_logged_in',
+            'permission_callback' => function () {
+                return current_user_can('manage_options');
+            },
         ]);
 
         register_rest_route('yoy-ai-studio/v1', '/core/system-fix', [
@@ -201,14 +203,20 @@ final class YooY_REST_Controller {
     }
 
     public function system_check(): WP_REST_Response {
+        if (!current_user_can('manage_options')) {
+            return new WP_REST_Response([
+                'success' => false,
+                'error'   => 'Admin permission required.',
+                'code'    => 'forbidden',
+            ], 403);
+        }
         if (!class_exists('YooY_System_Diagnostics')) {
             return new WP_REST_Response(['success' => false, 'error' => 'Diagnostics unavailable.'], 500);
         }
         $user_id = get_current_user_id();
-        $admin = current_user_can('manage_options');
         return new WP_REST_Response([
             'success' => true,
-            'data'    => YooY_System_Diagnostics::run($user_id, $admin),
+            'data'    => YooY_System_Diagnostics::run($user_id, true),
         ], 200);
     }
 

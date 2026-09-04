@@ -932,6 +932,11 @@
     updateCredits: updateCreditCard,
     getSections: function () { return state.sections.slice(); },
     storeRemixShell: storeRemixShell,
+    openSectionManager: function () {
+      if (!isAdmin()) return;
+      renderSectionManager();
+      openSectionDrawer();
+    }
   };
 
   if (document.readyState === 'loading') {
