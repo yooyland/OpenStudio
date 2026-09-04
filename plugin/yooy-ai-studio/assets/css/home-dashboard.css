@@ -883,7 +883,9 @@
 
 .yai-hd-studio-card__media {
   position: relative;
-  height: 260px;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  flex: 0 0 auto;
   overflow: hidden;
   background: #080808;
 }
@@ -1045,7 +1047,7 @@
     width: min(78vw, 250px);
   }
   .yai-hd-studio-card__media {
-    height: 240px;
+    aspect-ratio: 4 / 4.6;
   }
   .yai-hd-studio-benefits {
     grid-template-columns: 1fr;
