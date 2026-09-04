@@ -84,22 +84,38 @@ $user_initials = 'G';
 $user_email    = '';
 $user_display  = 'Guest';
 $user_avatar   = '';
+$user_avatar_alt = '';
 if ($is_logged_in) {
     $user_email   = (string) $user->user_email;
     $user_display = trim((string) ($user->display_name ?: $user->user_login));
     if ($user_display === '') {
         $user_display = 'User';
     }
+    $user_avatar_alt = $user_display . ' 프로필';
     $name_src = $user_display;
     if ($name_src !== '') {
-        $parts = preg_split('/\s+/', $name_src);
+        $parts = preg_split('/\s+/u', $name_src);
+        if (is_array($parts)) {
+            $parts = array_values(array_filter($parts, static function ($p) {
+                return $p !== '';
+            }));
+        }
         if (is_array($parts) && count($parts) >= 2) {
-            $user_initials = strtoupper(mb_substr($parts[0], 0, 1) . mb_substr($parts[1], 0, 1));
+            $a = function_exists('mb_substr') ? mb_substr($parts[0], 0, 1) : substr($parts[0], 0, 1);
+            $b = function_exists('mb_substr') ? mb_substr($parts[count($parts) - 1], 0, 1) : substr($parts[count($parts) - 1], 0, 1);
+            $user_initials = strtoupper($a . $b);
         } else {
-            $user_initials = strtoupper(mb_substr($name_src, 0, 2));
+            $ch = function_exists('mb_substr') ? mb_substr($name_src, 0, 1) : substr($name_src, 0, 1);
+            $user_initials = strtoupper($ch);
         }
     }
-    $user_avatar = (string) get_avatar_url($user->ID, ['size' => 64]);
+    $avatar_url = get_avatar_url($user->ID, array('size' => 64));
+    if (is_string($avatar_url)) {
+        $avatar_url = trim($avatar_url);
+        if ($avatar_url !== '' && stripos($avatar_url, 'http') === 0) {
+            $user_avatar = $avatar_url;
+        }
+    }
 }
 
 $studio_quick = [
@@ -210,10 +226,11 @@ $studio_quick = [
                 <div class="yai-topbar-actions" id="yai-topbar-actions">
                     <?php if ($is_logged_in) : ?>
                         <div class="yai-my-menu" id="yai-my-menu">
-                            <button type="button" class="yai-my-menu__trigger" id="yai-my-menu-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="yai-my-menu-panel">
+                            <button type="button" class="yai-my-menu__trigger" id="yai-my-menu-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="yai-my-menu-panel" aria-label="<?php echo esc_attr($user_avatar_alt); ?>">
                                 <span class="yai-my-menu__avatar" aria-hidden="true">
                                     <?php if ($user_avatar !== '') : ?>
-                                        <img src="<?php echo esc_url($user_avatar); ?>" alt="" width="28" height="28">
+                                        <img class="yai-my-menu__avatar-img" src="<?php echo esc_url($user_avatar); ?>" alt="<?php echo esc_attr($user_avatar_alt); ?>" width="28" height="28" decoding="async" data-yai-avatar-fallback="1">
+                                        <span class="yai-my-menu__initials" hidden><?php echo esc_html($user_initials); ?></span>
                                     <?php else : ?>
                                         <span class="yai-my-menu__initials"><?php echo esc_html($user_initials); ?></span>
                                     <?php endif; ?>

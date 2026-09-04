@@ -3864,11 +3864,33 @@
     if (trigger) trigger.setAttribute('aria-expanded', 'true');
   }
 
+  function bindAvatarFallback() {
+    var root = document.getElementById('yai-my-menu');
+    if (!root) return;
+    var img = root.querySelector('[data-yai-avatar-fallback]');
+    var initials = root.querySelector('.yai-my-menu__initials');
+    if (!img || !initials) return;
+
+    function showInitials() {
+      if (!img || !img.parentNode) return;
+      img.parentNode.removeChild(img);
+      img = null;
+      initials.hidden = false;
+    }
+
+    img.addEventListener('error', showInitials);
+    // Already failed / empty decode (cached broken response).
+    if (img.complete && img.naturalWidth === 0) {
+      showInitials();
+    }
+  }
+
   function bindMyMenu() {
     var trigger = document.getElementById('yai-my-menu-trigger');
     var panel = document.getElementById('yai-my-menu-panel');
     if (!trigger || !panel || trigger.dataset.bound === '1') return;
     trigger.dataset.bound = '1';
+    bindAvatarFallback();
 
     trigger.addEventListener('click', function (e) {
       e.preventDefault();
