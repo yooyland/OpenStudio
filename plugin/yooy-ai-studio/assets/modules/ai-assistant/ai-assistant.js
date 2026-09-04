@@ -398,9 +398,7 @@
           '<div class="yai-assistant__meta" data-assistant-meta>' +
             '<span class="yai-assistant__badge yai-assistant__badge--ready">System Ready</span>' +
             (project ? '<span class="yai-assistant__badge">Project · ' + esc(project) + '</span>' : '<span class="yai-assistant__badge">General Mode</span>') +
-            '<button type="button" class="yai-assistant__badge" data-assistant-back aria-label="이전 단계로">← 뒤로</button>' +
             '<button type="button" class="yai-assistant__badge" data-assistant-new-chat aria-label="새 대화">새 대화</button>' +
-            '<button type="button" class="yai-assistant__badge" data-assistant-reset aria-label="대화 입력 초기화">입력 초기화</button>' +
           '</div>' +
         '</header>' +
 

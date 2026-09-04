@@ -13,8 +13,20 @@
   var stepStacks = Object.create(null);
   var leaveGuardBusy = false;
 
+  /** Generative studios + Assistant — may show a right-side chrome action. */
   var STUDIO_ROUTES = {
     assistant: true,
+    image: true,
+    video: true,
+    writing: true,
+    music: true,
+    voice: true,
+    avatar: true,
+    translator: true
+  };
+
+  /** Pages with editable/generative state that show 「초기화」 (not Assistant). */
+  var RESET_LABEL_ROUTES = {
     image: true,
     video: true,
     writing: true,
@@ -335,10 +347,81 @@
 
   function canReset(studioId) {
     var id = studioId || currentRoute;
-    if (!STUDIO_ROUTES[id] && id !== 'writing') return false;
+    if (!STUDIO_ROUTES[id]) return false;
     var h = handlers[id];
     if (h && typeof h.canReset === 'function') return !!h.canReset();
-    return !!STUDIO_ROUTES[id] || id === 'writing';
+    return true;
+  }
+
+  function hasRemixOrAssetContext() {
+    var ctx = getContext();
+    if (ctx.source_asset_id) return true;
+    if (ctx.source_context === 'gallery' || ctx.source_context === 'works' || ctx.source_context === 'remix') {
+      return true;
+    }
+    var peek = peekBack();
+    if (peek && (peek.route === 'works' || peek.source_context === 'remix' || peek.source_asset_id)) {
+      return true;
+    }
+    try {
+      if (global.sessionStorage.getItem('yoy_home_remix') && peek &&
+        (peek.route === 'home' || peek.route === 'works' || peek.route === 'community' || peek.route === 'market')) {
+        return true;
+      }
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function hasProjectWorkflowContext() {
+    var ctx = getContext();
+    if (ctx.source_context === 'project' || ctx.source_context === 'project-workspace') return true;
+    if (ctx.previous_route === 'project-detail') return true;
+    var peek = peekBack();
+    if (peek && peek.route === 'project-detail') return true;
+    if (peek && peek.source_context === 'project-workspace') return true;
+    return false;
+  }
+
+  /**
+   * Semantic back only — never generic history labels like 「← Templates」.
+   * @return {{label:string,aria:string,route:string}|null}
+   */
+  function resolveSemanticBack(route) {
+    var id = route || currentRoute;
+    if (id === 'home') return null;
+
+    var h = handlers[id];
+    if (h && typeof h.canGoBack === 'function' && h.canGoBack()) {
+      return { label: '이전', aria: '이전 단계로', route: '' };
+    }
+    if ((stepStacks[id] || []).length) {
+      return { label: '이전', aria: '이전 단계로', route: '' };
+    }
+
+    if (id === 'project-detail') {
+      return { label: '프로젝트로', aria: '프로젝트 목록으로', route: 'projects' };
+    }
+    if (id === 'history') {
+      return { label: 'Gallery로', aria: 'Gallery로', route: 'works' };
+    }
+
+    var isStudio = !!STUDIO_ROUTES[id];
+    if (!isStudio) return null;
+
+    if (hasProjectWorkflowContext()) {
+      return { label: '프로젝트로', aria: '프로젝트로', route: 'project-detail' };
+    }
+    if (hasRemixOrAssetContext()) {
+      var ctx = getContext();
+      if (ctx.source_asset_id || (function () {
+        try { return !!global.sessionStorage.getItem('yoy_home_remix'); } catch (e) { return false; }
+      })()) {
+        return { label: '작품으로', aria: '작품으로', route: 'works' };
+      }
+      return { label: 'Gallery로', aria: 'Gallery로', route: 'works' };
+    }
+
+    return null;
   }
 
   function dirtyFlags(studioId) {
@@ -391,7 +474,11 @@
         }
       }
       stepStacks[id] = [];
-      toast(opts.toastMessage || '작업을 초기화했습니다.');
+      if (!opts.silent) {
+        toast(opts.toastMessage || (id === 'assistant' ? '새 대화를 시작했습니다.' : '작업을 초기화했습니다.'));
+      } else if (id === 'assistant') {
+        toast(opts.toastMessage || '새 대화를 시작했습니다.');
+      }
       syncChrome();
       return true;
     } catch (err) {
@@ -406,7 +493,7 @@
           assistant: 'YooYAIAssistant'
         }[id]);
       } catch (e2) { /* ignore */ }
-      toast('초기화 중 문제가 있어 화면을 새로 그렸습니다.');
+      toast(id === 'assistant' ? '대화를 새로 시작했습니다.' : '초기화 중 문제가 있어 화면을 새로 그렸습니다.');
       syncChrome();
       return false;
     }
@@ -414,6 +501,27 @@
 
   function resetWithConfirm(studioId) {
     var id = studioId || currentRoute;
+
+    if (id === 'assistant') {
+      var aDirty = isDirty(id);
+      if (!aDirty) {
+        runReset(id, { silent: true, toastMessage: '새 대화를 시작했습니다.' });
+        return Promise.resolve('reset');
+      }
+      return confirmDialog({
+        title: '새 대화를 시작할까요?',
+        body: '현재 대화 화면만 새 세션으로 바뀝니다. Active Project와 선택 작품 맥락은 유지됩니다.',
+        buttons: [
+          { id: 'cancel', label: '취소', variant: 'ghost' },
+          { id: 'reset', label: '새 대화', variant: 'gold' }
+        ]
+      }).then(function (action) {
+        if (action === 'cancel') return 'cancel';
+        runReset(id, { toastMessage: '새 대화를 시작했습니다.' });
+        return 'reset';
+      });
+    }
+
     var flags = dirtyFlags(id);
     var dirty = !!flags.dirty || isDirty(id);
     if (!dirty) {
@@ -483,51 +591,60 @@
     });
   }
 
+  function hideBackButton(backBtn) {
+    if (!backBtn) return;
+    backBtn.hidden = true;
+    backBtn.setAttribute('hidden', 'hidden');
+    backBtn.disabled = true;
+    backBtn.setAttribute('aria-disabled', 'true');
+    backBtn.style.display = 'none';
+    backBtn.removeAttribute('data-semantic-route');
+  }
+
   function syncChrome() {
     var backBtn = document.getElementById('yai-nav-back');
     var resetBtn = document.getElementById('yai-nav-reset');
     var showReset = canReset(currentRoute);
+    var semantic = resolveSemanticBack(currentRoute);
     try {
       document.body.classList.toggle('yai-route-home', currentRoute === 'home');
+      document.body.classList.toggle('yai-nav-has-back', !!semantic);
+      document.body.classList.toggle('yai-nav-has-reset', !!showReset);
     } catch (eBody) { /* ignore */ }
+
     if (backBtn) {
-      if (currentRoute === 'home') {
-        backBtn.hidden = true;
-        backBtn.setAttribute('hidden', 'hidden');
-        backBtn.disabled = true;
-        backBtn.setAttribute('aria-disabled', 'true');
-        backBtn.style.display = 'none';
+      if (!semantic) {
+        hideBackButton(backBtn);
       } else {
-        var enabled = canGoBack(currentRoute);
-        var peek = peekBack();
-        var label = 'Home';
-        if (peek && peek.route) {
-          label = String(peek.route).charAt(0).toUpperCase() + String(peek.route).slice(1);
-          if (peek.route === 'home') label = 'Home';
-          if (peek.route === 'works' || peek.route === 'gallery') label = 'Gallery';
-          if (peek.route === 'projects') label = 'Projects';
-        } else if (currentRoute !== 'home') {
-          label = 'Home';
-        }
         var labelEl = backBtn.querySelector('.yai-nav-chrome-label');
-        if (labelEl) labelEl.textContent = label;
-        backBtn.setAttribute('aria-label', label + '으로');
-        backBtn.title = label + '으로';
+        if (labelEl) labelEl.textContent = semantic.label;
+        backBtn.setAttribute('aria-label', semantic.aria || semantic.label);
+        backBtn.title = semantic.aria || semantic.label;
+        if (semantic.route) backBtn.setAttribute('data-semantic-route', semantic.route);
+        else backBtn.removeAttribute('data-semantic-route');
         backBtn.hidden = false;
         backBtn.removeAttribute('hidden');
         backBtn.style.display = '';
-        backBtn.disabled = !enabled && currentRoute === 'home';
-        backBtn.setAttribute('aria-disabled', (!enabled && currentRoute === 'home') ? 'true' : 'false');
-        if (!enabled && currentRoute !== 'home') {
-          backBtn.disabled = false;
-          backBtn.setAttribute('aria-disabled', 'false');
-        }
+        backBtn.disabled = false;
+        backBtn.setAttribute('aria-disabled', 'false');
       }
     }
+
     if (resetBtn) {
-      resetBtn.hidden = !showReset;
-      resetBtn.disabled = !showReset;
-      resetBtn.setAttribute('aria-disabled', showReset ? 'false' : 'true');
+      var resetLabel = currentRoute === 'assistant' ? '새 대화' : '초기화';
+      var resetLabelEl = resetBtn.querySelector('.yai-nav-chrome-label');
+      if (resetLabelEl) resetLabelEl.textContent = resetLabel;
+      resetBtn.setAttribute('aria-label', resetLabel);
+      resetBtn.title = currentRoute === 'assistant'
+        ? '현재 대화를 새 세션으로'
+        : '현재 작업 초기화';
+      // Hide 「초기화」 on list/browse pages; Assistant uses 「새 대화」.
+      var showAction = showReset && (RESET_LABEL_ROUTES[currentRoute] || currentRoute === 'assistant');
+      resetBtn.hidden = !showAction;
+      resetBtn.disabled = !showAction;
+      resetBtn.setAttribute('aria-disabled', showAction ? 'false' : 'true');
+      if (!showAction) resetBtn.setAttribute('hidden', 'hidden');
+      else resetBtn.removeAttribute('hidden');
     }
   }
 
@@ -537,6 +654,11 @@
     if (backBtn && backBtn.dataset.bound !== '1') {
       backBtn.dataset.bound = '1';
       backBtn.addEventListener('click', function () {
+        var semanticRoute = backBtn.getAttribute('data-semantic-route');
+        if (semanticRoute) {
+          navigate(semanticRoute, { replace: true, fromBack: true });
+          return;
+        }
         goBack(currentRoute);
       });
     }
@@ -549,13 +671,9 @@
     syncChrome();
   }
 
+  /** Local page headers no longer duplicate topbar back/reset. */
   function headerActionsHtml(studioId) {
-    return '<div class="yai-studio-nav-actions" data-studio-nav="' + String(studioId || '') + '">' +
-      '<button type="button" class="yai-studio-nav-btn yai-studio-nav-btn--back" data-yai-studio-back aria-label="Home으로">' +
-        '<span aria-hidden="true">←</span> Home</button>' +
-      '<button type="button" class="yai-studio-nav-btn yai-studio-nav-btn--reset" data-yai-studio-reset aria-label="초기화">' +
-        '<span aria-hidden="true">↻</span> 초기화</button>' +
-      '</div>';
+    return '';
   }
 
   function bindHeaderActions(root, studioId) {

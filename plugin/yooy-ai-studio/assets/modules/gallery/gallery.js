@@ -618,8 +618,15 @@
         sessionStorage.setItem('yoy_regenerate', sessionStorage.getItem('yoy_home_remix'));
       } catch (e) { /* ignore */ }
     }
+    if (global.YooYNavigation && typeof global.YooYNavigation.rememberSource === 'function') {
+      global.YooYNavigation.rememberSource({
+        previous_route: 'works',
+        source_context: 'remix',
+        source_asset_id: item && item.id ? String(item.id) : ''
+      });
+    }
     var route = STUDIO_ROUTES[item.studio] || item.type || 'image';
-    if (global.YooYStudioRoute) global.YooYStudioRoute(route);
+    if (global.YooYStudioRoute) global.YooYStudioRoute(route, { source_context: 'remix', source_asset_id: item && item.id ? String(item.id) : '' });
     else {
       var nav = document.querySelector('[data-route="' + route + '"]');
       if (nav) nav.click();

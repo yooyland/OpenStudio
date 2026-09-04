@@ -824,21 +824,32 @@
       });
     }
 
+    // Plain sidebar/list entry: drop stale remix back-label context (keep project-workspace).
+    if (!opts.fromBack && !opts.source_context && !opts.source_asset_id && window.YooYNavigation && typeof window.YooYNavigation.getContext === 'function') {
+      try {
+        var navCtx = window.YooYNavigation.getContext() || {};
+        if (navCtx.source_context === 'remix' || navCtx.source_context === 'gallery' || navCtx.source_context === 'works') {
+          window.YooYNavigation.rememberSource({
+            source_context: '',
+            source_asset_id: '',
+            previous_route: navCtx.previous_route || from || ''
+          });
+        }
+      } catch (eClearRemix) { /* ignore */ }
+    }
+
     document.querySelectorAll('.yai-view').forEach(function (el) {
       el.classList.toggle('is-active', el.dataset.page === name);
     });
 
     try {
       document.body.classList.toggle('yai-route-home', name === 'home');
+      // Back visibility is owned by YooYNavigation.syncChrome (semantic only).
       var backBtnEarly = document.getElementById('yai-nav-back');
-      if (backBtnEarly) {
-        if (name === 'home') {
-          backBtnEarly.hidden = true;
-          backBtnEarly.setAttribute('hidden', 'hidden');
-          backBtnEarly.style.display = 'none';
-        } else {
-          backBtnEarly.style.display = '';
-        }
+      if (backBtnEarly && name === 'home') {
+        backBtnEarly.hidden = true;
+        backBtnEarly.setAttribute('hidden', 'hidden');
+        backBtnEarly.style.display = 'none';
       }
     } catch (eRouteHome) { /* ignore */ }
 

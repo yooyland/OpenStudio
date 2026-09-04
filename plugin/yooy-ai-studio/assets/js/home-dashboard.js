@@ -704,7 +704,14 @@
           return;
         }
         if (global.YooYStudioRoute) {
-          global.YooYStudioRoute(studio);
+          if (global.YooYNavigation && typeof global.YooYNavigation.rememberSource === 'function') {
+            global.YooYNavigation.rememberSource({
+              previous_route: 'home',
+              source_context: 'remix',
+              source_asset_id: remixId || ''
+            });
+          }
+          global.YooYStudioRoute(studio, { source_context: 'remix', source_asset_id: remixId || '' });
         }
         return;
       }

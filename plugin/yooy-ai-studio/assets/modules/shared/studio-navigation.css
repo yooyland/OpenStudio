@@ -13,6 +13,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .yai-nav-chrome-btn {
@@ -36,8 +38,23 @@
 .yai-nav-chrome-btn[hidden],
 #yai-nav-back[hidden],
 #yai-nav-reset[hidden],
-body.yai-route-home #yai-nav-back {
+body.yai-route-home #yai-nav-back,
+body.yoy-creator-os-active:not(.yai-nav-has-back) #yai-nav-back,
+body.yoy-creator-os-active:not(.yai-nav-has-reset) #yai-nav-reset {
   display: none !important;
+}
+
+@media (max-width: 719px) {
+  .yai-nav-chrome-btn .yai-nav-chrome-label {
+    max-width: 7.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .yai-studio-nav-actions {
+    display: none !important;
+  }
 }
 
 .yai-nav-chrome-btn:hover:not(:disabled) {

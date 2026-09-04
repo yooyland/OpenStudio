@@ -370,7 +370,7 @@ $studio_quick = [
             <section class="yai-view yai-view--workspace" data-page="project-detail">
                 <header class="yai-page-head yai-page-head--row">
                     <div>
-                        <button type="button" class="yai-text-btn yai-back-btn" data-route="projects">← Projects</button>
+                        <button type="button" class="yai-text-btn yai-back-btn" data-route="projects">← 프로젝트로</button>
                         <p class="yai-eyebrow" id="yai-workspace-eyebrow">Project Workspace</p>
                         <h1 id="yai-project-detail-title">Project Workspace</h1>
                         <p id="yai-project-detail-desc">프로젝트 제작 공간</p>
