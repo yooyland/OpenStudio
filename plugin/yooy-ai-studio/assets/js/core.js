@@ -346,7 +346,8 @@
       },
 
       marketplace: {
-        items: function () { return Core.get('marketplace', '/items'); }
+        items: function () { return Core.get('marketplace', '/items'); },
+        item: function (id) { return Core.get('marketplace', '/items/' + encodeURIComponent(id)); }
       },
 
       importEngine: {
@@ -390,7 +391,11 @@
       },
 
       community: {
-        feed: function () { return Core.get('community', '/feed'); }
+        feed: function () { return Core.get('community', '/feed'); },
+        post: function (id) { return Core.get('community', '/posts/' + encodeURIComponent(id)); },
+        share: function (galleryId, data) {
+          return Core.post('community', '/posts', Object.assign({ gallery_id: galleryId }, data || {}));
+        }
       },
 
       settings: {

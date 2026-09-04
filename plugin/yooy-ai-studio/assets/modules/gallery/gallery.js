@@ -218,11 +218,46 @@
       }).join('') + '</div></div>';
   }
 
+  function publicationOf(item) {
+    var pub = item && item.publication ? item.publication : null;
+    var community = pub ? !!pub.community : !!(item && item.community_shared);
+    var marketStatus = String((item && item.marketplace_status) || 'none');
+    var marketplace = pub
+      ? !!pub.marketplace
+      : !!(item && item.marketplace) && marketStatus !== 'none' && marketStatus !== 'delisted';
+    return { community: community, marketplace: marketplace };
+  }
+
+  function publicationBadgesHtml(item) {
+    var pub = publicationOf(item);
+    var bits = [];
+    if (pub.community) bits.push('<span class="ygl-pub-badge ygl-pub-badge--community">Community</span>');
+    if (pub.marketplace) bits.push('<span class="ygl-pub-badge ygl-pub-badge--market">Marketplace</span>');
+    if (!bits.length && !(item && item.public)) bits.push('<span class="ygl-pub-badge ygl-pub-badge--private">비공개</span>');
+    return bits.length ? '<div class="ygl-pub-badges">' + bits.join('') + '</div>' : '';
+  }
+
+  function publicationStateHtml(item) {
+    var pub = publicationOf(item);
+    return '<section class="ygl-pub-state" aria-label="공개 상태">' +
+      '<h4>공개 상태</h4>' +
+      '<div class="ygl-pub-state-rows">' +
+        '<div class="ygl-pub-state-row"><span>Community</span><strong>' + (pub.community ? '공개 중' : '비공개') + '</strong></div>' +
+        '<div class="ygl-pub-state-row"><span>Marketplace</span><strong>' + (pub.marketplace ? '등록됨' : '미등록') + '</strong></div>' +
+      '</div>' +
+      '<div class="ygl-actions ygl-actions--pub">' +
+        actionBtn('공개하기', 'publish-sheet', 'ygl-btn-primary') +
+        actionBtn('공개 관리', 'publish-manage') +
+      '</div></section>';
+  }
+
   function drawerActionsHtml(item) {
     return '<div class="ygl-action-groups">' +
       '<div class="ygl-action-group ygl-action-group--primary"><div class="ygl-actions ygl-actions--stack">' +
         actionBtn(remixCta(item.type), 'regenerate', 'ygl-btn-primary') +
+        actionBtn('공개하기', 'publish-sheet', 'ygl-btn-primary') +
       '</div></div>' +
+      publicationStateHtml(item) +
       '<div class="ygl-action-group"><div class="ygl-actions">' +
         actionBtn('프로젝트에 추가', 'project') +
         actionBtn('다운로드', 'download') +
@@ -330,52 +365,187 @@
     });
   }
 
+  function closePublishHost(host) {
+    if (!host) return;
+    host.remove();
+    document.body.classList.remove('ygl-publish-open');
+  }
+
+  function openPublishSheet(item, opts) {
+    opts = opts || {};
+    if (!item || !item.id) return;
+    var pub = publicationOf(item);
+    var host = document.createElement('div');
+    host.className = 'ygl-drawer-overlay ygl-publish-host';
+    host.setAttribute('role', 'dialog');
+    host.setAttribute('aria-modal', 'true');
+    host.setAttribute('aria-label', '작품 공개');
+    host.innerHTML =
+      '<div class="ygl-publish-sheet" tabindex="-1">' +
+        '<button type="button" class="ygl-close" data-ygl-pub-close aria-label="닫기">×</button>' +
+        '<h3>이 작품을 어디에 공개할까요?</h3>' +
+        '<div class="ygl-publish-preview">' + previewHtml(item) + '</div>' +
+        '<p class="ygl-muted">' + esc(item.title || '작품') + '</p>' +
+        '<div class="ygl-publish-targets">' +
+          '<button type="button" class="ygl-btn ygl-btn-primary" data-ygl-pub-target="community"' +
+            (pub.community ? ' disabled' : '') + '>' +
+            (pub.community ? 'Community 공유됨' : 'Community에 공유') + '</button>' +
+          '<button type="button" class="ygl-btn ygl-btn-primary" data-ygl-pub-target="marketplace"' +
+            (pub.marketplace ? ' disabled' : '') + '>' +
+            (pub.marketplace ? 'Marketplace 등록됨' : 'Marketplace에 등록') + '</button>' +
+          (!pub.community && !pub.marketplace
+            ? '<button type="button" class="ygl-btn" data-ygl-pub-target="both">둘 다</button>'
+            : '') +
+        '</div>' +
+        (opts.manage
+          ? '<div class="ygl-publish-manage">' +
+              (pub.community
+                ? '<button type="button" class="ygl-btn" data-ygl-pub-target="unshare-community">Community에서 내리기</button>'
+                : '') +
+              (pub.marketplace
+                ? '<button type="button" class="ygl-btn" data-ygl-pub-target="delist-marketplace">Marketplace 등록 해제</button>'
+                : '') +
+            '</div>'
+          : '') +
+        '<button type="button" class="ygl-btn" data-ygl-pub-close>닫기</button>' +
+      '</div>';
+    document.body.appendChild(host);
+    document.body.classList.add('ygl-publish-open');
+    var sheet = host.querySelector('.ygl-publish-sheet');
+    if (sheet) sheet.focus();
+
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        closePublishHost(host);
+        document.removeEventListener('keydown', onKey);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+
+    host.addEventListener('click', function (e) {
+      if (e.target === host || e.target.closest('[data-ygl-pub-close]')) {
+        closePublishHost(host);
+        document.removeEventListener('keydown', onKey);
+      }
+    });
+
+    host.querySelectorAll('[data-ygl-pub-target]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var target = btn.getAttribute('data-ygl-pub-target');
+        if (target === 'community' || target === 'both') {
+          openCommunityPublish(item, host, target === 'both');
+          return;
+        }
+        if (target === 'marketplace') {
+          openMarketplaceModal(item, host);
+          return;
+        }
+        if (target === 'unshare-community') {
+          Core.gallery.unshareCommunity(item.id).then(function (res) {
+            var updated = (res.data && res.data.item) || item;
+            updateItemInState(updated);
+            closePublishHost(host);
+            toast('Community에서 내렸습니다. Gallery 작품은 그대로입니다.');
+            notifyUpdated();
+          }).catch(function (err) { toast(err.message); });
+          return;
+        }
+        if (target === 'delist-marketplace') {
+          Core.gallery.delistMarketplace(item.id).then(function (res) {
+            var updated = (res.data && res.data.item) || item;
+            updateItemInState(updated);
+            closePublishHost(host);
+            toast('Marketplace 등록을 해제했습니다. Gallery 작품은 그대로입니다.');
+            notifyUpdated();
+          }).catch(function (err) { toast(err.message); });
+        }
+      });
+    });
+  }
+
+  function openCommunityPublish(item, host, continueToMarket) {
+    var panel = document.createElement('div');
+    panel.className = 'ygl-publish-panel';
+    panel.innerHTML =
+      '<h3>Community에 공유</h3>' +
+      '<div class="ygl-publish-preview">' + previewHtml(item) + '</div>' +
+      '<label class="yai-field"><span>한 줄 소개</span>' +
+        '<input id="ygl-comm-caption" maxlength="120" value="' + esc(item.title || '') + '"></label>' +
+      '<label class="yai-field"><span>공개 범위</span>' +
+        '<input value="전체 공개" readonly></label>' +
+      '<div class="ygl-market-actions">' +
+        '<button type="button" class="ygl-btn ygl-btn-primary" id="ygl-comm-save">Community에 공유</button>' +
+        '<button type="button" class="ygl-btn" id="ygl-comm-cancel">취소</button>' +
+      '</div>';
+    var sheet = host.querySelector('.ygl-publish-sheet');
+    if (sheet) {
+      sheet.innerHTML = '';
+      sheet.appendChild(panel);
+    } else {
+      host.appendChild(panel);
+    }
+
+    panel.querySelector('#ygl-comm-cancel').addEventListener('click', function () {
+      closePublishHost(host);
+    });
+    panel.querySelector('#ygl-comm-save').addEventListener('click', function () {
+      var caption = (panel.querySelector('#ygl-comm-caption').value || '').trim();
+      Core.gallery.community(item.id, { caption: caption }).then(function (res) {
+        var updated = (res.data && res.data.item) || item;
+        updateItemInState(updated);
+        toast('Community에 공유했습니다.');
+        notifyUpdated();
+        if (continueToMarket) {
+          openMarketplaceModal(updated, host);
+          return;
+        }
+        closePublishHost(host);
+      }).catch(function (err) { toast(err.message); });
+    });
+  }
+
   function openMarketplaceModal(item, overlay) {
     var modal = document.createElement('div');
     modal.className = 'ygl-market-modal';
     modal.innerHTML =
       '<div class="ygl-market-panel yai-form-grid yai-form-grid--2">' +
-      '<h3 class="yai-form-span-2">Marketplace 등록</h3>' +
-      '<label class="yai-field yai-form-span-2"><span>판매 제목</span><input id="ygl-mkt-title" value="' + esc(item.title || '') + '"></label>' +
+      '<h3 class="yai-form-span-2">Marketplace에 등록</h3>' +
+      '<div class="yai-form-span-2 ygl-publish-preview">' + previewHtml(item) + '</div>' +
+      '<label class="yai-field yai-form-span-2"><span>등록 제목</span><input id="ygl-mkt-title" value="' + esc(item.title || '') + '"></label>' +
       '<label class="yai-field yai-form-span-2"><span>설명</span><textarea id="ygl-mkt-desc" rows="3">' + esc(item.description || '') + '</textarea></label>' +
-      '<label class="yai-field"><span>가격 (KRW)</span><input type="number" id="ygl-mkt-price" value="0" min="0"></label>' +
       '<label class="yai-field"><span>카테고리</span><input id="ygl-mkt-cat" value="general"></label>' +
-      '<label class="yai-field yai-form-span-2"><span>태그 (쉼표 구분)</span><input id="ygl-mkt-tags" placeholder="광고,제품,이미지"></label>' +
-      '<label class="yai-field"><span>라이선스</span><input id="ygl-mkt-license" value="standard"></label>' +
-      '<label class="ygl-check yai-form-span-2"><input type="checkbox" id="ygl-mkt-prompt"> Prompt 공개</label>' +
-      '<label class="ygl-check yai-form-span-2"><input type="checkbox" id="ygl-mkt-ref"> Reference 공개</label>' +
-      '<label class="ygl-check yai-form-span-2"><input type="checkbox" id="ygl-mkt-dl"> 원본 다운로드 허용</label>' +
+      '<label class="yai-field"><span>표시 가격 (KRW, 참고)</span><input type="number" id="ygl-mkt-price" value="0" min="0"></label>' +
+      '<label class="yai-field yai-form-span-2"><span>라이선스 표기</span><input id="ygl-mkt-license" value="standard"></label>' +
+      '<p class="yai-form-span-2 ygl-muted">결제·구매 기능은 아직 없습니다. 카탈로그 등록만 진행됩니다.</p>' +
       '<div class="ygl-market-actions yai-form-span-2">' +
-        '<button type="button" class="ygl-btn ygl-btn-primary" id="ygl-mkt-save">등록</button>' +
+        '<button type="button" class="ygl-btn ygl-btn-primary" id="ygl-mkt-save">Marketplace에 등록</button>' +
         '<button type="button" class="ygl-btn" id="ygl-mkt-cancel">취소</button>' +
       '</div></div>';
     overlay.appendChild(modal);
 
     function closeMarketModal() {
       modal.remove();
-      if (overlay.classList.contains('ygl-market-host')) {
-        overlay.remove();
+      if (overlay.classList.contains('ygl-market-host') || overlay.classList.contains('ygl-publish-host')) {
+        closePublishHost(overlay);
       }
     }
 
     modal.querySelector('#ygl-mkt-cancel').addEventListener('click', closeMarketModal);
     modal.querySelector('#ygl-mkt-save').addEventListener('click', function () {
-      var tags = (modal.querySelector('#ygl-mkt-tags').value || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
       Core.gallery.marketplace(item.id, {
         title: modal.querySelector('#ygl-mkt-title').value,
         description: modal.querySelector('#ygl-mkt-desc').value,
         price: parseInt(modal.querySelector('#ygl-mkt-price').value, 10) || 0,
         category: modal.querySelector('#ygl-mkt-cat').value,
-        tags: tags,
         license: modal.querySelector('#ygl-mkt-license').value,
-        prompt_public: modal.querySelector('#ygl-mkt-prompt').checked,
-        reference_public: modal.querySelector('#ygl-mkt-ref').checked,
-        allow_download: modal.querySelector('#ygl-mkt-dl').checked
+        prompt_public: false,
+        reference_public: false,
+        allow_download: false
       }).then(function (res) {
         var updated = (res.data && res.data.item) || item;
         updateItemInState(updated);
         closeMarketModal();
-        toast('Marketplace draft가 생성되었습니다.');
+        toast('Marketplace에 등록했습니다.');
         notifyUpdated();
       }).catch(function (err) { toast(err.message); });
     });
@@ -389,15 +559,23 @@
         toast('작품을 찾을 수 없습니다.');
         return;
       }
-      var host = document.createElement('div');
-      host.className = 'ygl-drawer-overlay ygl-market-host';
-      document.body.appendChild(host);
-      host.addEventListener('click', function (e) {
-        if (e.target === host) host.remove();
-      });
-      openMarketplaceModal(item, host);
+      openPublishSheet(item, { manage: true });
     }).catch(function (err) {
-      toast(err.message || 'Marketplace 등록을 시작할 수 없습니다.');
+      toast(err.message || '작품을 불러올 수 없습니다.');
+    });
+  }
+
+  function openPublish(id) {
+    if (!id) return;
+    Core.gallery.item(id).then(function (res) {
+      var item = (res.data && res.data.item) || null;
+      if (!item) {
+        toast('작품을 찾을 수 없습니다.');
+        return;
+      }
+      openPublishSheet(item);
+    }).catch(function (err) {
+      toast(err.message || '작품을 불러올 수 없습니다.');
     });
   }
 
@@ -522,10 +700,16 @@
         break;
 
       case 'community':
-        Core.gallery.community(item.id).then(function () {
-          toast('Community에 공유했습니다.');
-          notifyUpdated();
-        }).catch(function (err) { toast(err.message); });
+        openPublishSheet(item);
+        break;
+
+      case 'publish':
+      case 'publish-sheet':
+        openPublishSheet(item);
+        break;
+
+      case 'publish-manage':
+        openPublishSheet(item, { manage: true });
         break;
 
       case 'share':
@@ -543,7 +727,7 @@
         break;
 
       case 'marketplace-modal':
-        openMarketplaceModal(item, overlay);
+        openPublishSheet(item);
         break;
 
       case 'project':
@@ -567,7 +751,12 @@
         break;
 
       case 'delete':
-        if (!confirm('이 작품을 Gallery에서 삭제하시겠습니까?')) return;
+        var pubDel = publicationOf(item);
+        var warn = '이 작품을 Gallery에서 삭제하시겠습니까?';
+        if (pubDel.community || pubDel.marketplace) {
+          warn = '이 작품은 Community 또는 Marketplace에 공개되어 있습니다.\n작품을 삭제하면 공개 게시물도 더 이상 사용할 수 없습니다.\n계속할까요?';
+        }
+        if (!confirm(warn)) return;
         Core.gallery.remove(item.id).then(function () {
           state.items = state.items.filter(function (i) { return i.id !== item.id; });
           closeDetail();
@@ -585,6 +774,7 @@
       '<button type="button" class="ygl-card-menu-btn" data-ygl-menu-toggle="' + esc(item.id) + '" aria-label="더보기" aria-haspopup="true" aria-expanded="false">⋯</button>' +
       '<div class="ygl-card-menu-pop" hidden role="menu">' +
         '<button type="button" role="menuitem" data-ygl-quick="open">상세 보기</button>' +
+        '<button type="button" role="menuitem" data-ygl-quick="publish">공개하기</button>' +
         '<button type="button" role="menuitem" data-ygl-quick="project">프로젝트에 추가</button>' +
         '<button type="button" role="menuitem" data-ygl-quick="download">다운로드</button>' +
         '<button type="button" role="menuitem" data-ygl-quick="duplicate">복제</button>' +
@@ -620,6 +810,7 @@
         '<div class="ygl-thumb">' + thumbHtml(item) +
         '<span class="ygl-type-badge">' + esc(cardTypeBadge(item)) + '</span>' +
         (item.favorite ? '<span class="ygl-fav-badge">★</span>' : '') +
+        publicationBadgesHtml(item) +
         '<div class="ygl-card-hover">' +
           '<button type="button" data-ygl-hover="regenerate">' + esc(remixCta(item.type)) + '</button>' +
         '</div></div>' +
@@ -837,6 +1028,7 @@
     reload: reload,
     openDetail: openDetail,
     closeDetail: closeDetail,
-    openMarketplace: openMarketplace
+    openMarketplace: openMarketplace,
+    openPublish: openPublish
   };
 })(window);

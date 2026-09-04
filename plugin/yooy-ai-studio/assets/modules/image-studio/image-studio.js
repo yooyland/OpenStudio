@@ -2091,6 +2091,7 @@
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
         resultToolbarBtn('reuse', '이어서 만들기') +
+        resultToolbarBtn('publish', '공개하기') +
         resultToolbarBtn('project', '프로젝트에 추가') +
         resultToolbarBtn('download', '다운로드') +
         resultToolbarBtn('gallery', 'Gallery에서 보기') +
@@ -2244,6 +2245,15 @@
       if (global.YooYStudioRoute) global.YooYStudioRoute('works');
       if (global.YooYGallery && typeof global.YooYGallery.openDetail === 'function') {
         global.YooYGallery.openDetail(galleryId);
+      }
+      return;
+    }
+
+    if (action === 'publish') {
+      if (global.YooYGallery && typeof global.YooYGallery.openPublish === 'function') {
+        global.YooYGallery.openPublish(galleryId);
+      } else {
+        alert('공개 기능을 불러오지 못했습니다.');
       }
       return;
     }

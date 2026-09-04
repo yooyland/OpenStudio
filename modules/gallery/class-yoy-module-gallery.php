@@ -93,14 +93,34 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
         ]);
 
         $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/marketplace', [
-            'methods'             => WP_REST_Server::CREATABLE,
-            'callback'            => [$this, 'marketplace'],
-            'permission_callback' => 'is_user_logged_in',
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [$this, 'marketplace'],
+                'permission_callback' => 'is_user_logged_in',
+            ],
+            [
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => [$this, 'delist_marketplace'],
+                'permission_callback' => 'is_user_logged_in',
+            ],
         ]);
 
         $this->register_route('/items/(?P<id>[a-zA-Z0-9_-]+)/community', [
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [$this, 'community'],
+                'permission_callback' => 'is_user_logged_in',
+            ],
+            [
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => [$this, 'unshare_community'],
+                'permission_callback' => 'is_user_logged_in',
+            ],
+        ]);
+
+        $this->register_route('/public-remix', [
             'methods'             => WP_REST_Server::CREATABLE,
-            'callback'            => [$this, 'community'],
+            'callback'            => [$this, 'public_remix'],
             'permission_callback' => 'is_user_logged_in',
         ]);
 
@@ -362,6 +382,19 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             $body = $request->get_json_params() ?: [];
             return $this->success($this->actions->register_marketplace($user, $id, is_array($body) ? $body : []));
         } catch (Exception $e) {
+            $code = (strpos($e->getMessage(), '이미') !== false) ? 409 : 404;
+            return $this->error($e->getMessage(), $code);
+        }
+    }
+
+    public function delist_marketplace(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            return $this->success($this->actions->delist_marketplace($user, $id));
+        } catch (Exception $e) {
             return $this->error($e->getMessage(), 404);
         }
     }
@@ -372,7 +405,34 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
 
         try {
             $id = sanitize_text_field($request->get_param('id'));
-            return $this->success($this->actions->share_community($user, $id));
+            $body = $request->get_json_params() ?: [];
+            return $this->success($this->actions->share_community($user, $id, is_array($body) ? $body : []));
+        } catch (Exception $e) {
+            $code = (strpos($e->getMessage(), '이미') !== false) ? 409 : 404;
+            return $this->error($e->getMessage(), $code);
+        }
+    }
+
+    public function unshare_community(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $id = sanitize_text_field($request->get_param('id'));
+            return $this->success($this->actions->unshare_community($user, $id));
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 404);
+        }
+    }
+
+    public function public_remix(WP_REST_Request $request): WP_REST_Response {
+        $user = $this->require_user();
+        if ($user instanceof WP_REST_Response) return $user;
+
+        try {
+            $body = $request->get_json_params() ?: [];
+            $gallery_id = sanitize_text_field($body['gallery_id'] ?? $request->get_param('gallery_id') ?? '');
+            return $this->success($this->actions->public_remix_payload($gallery_id));
         } catch (Exception $e) {
             return $this->error($e->getMessage(), 404);
         }
@@ -473,6 +533,13 @@ final class YooY_Module_Gallery extends YooY_Module_Base {
             'visibility'       => !empty($item['public']) ? 'public' : 'private',
             'is_favorite'      => !empty($item['favorite']),
             'marketplace_status' => (string) ($item['marketplace_status'] ?? 'none'),
+            'community_shared' => !empty($item['community_shared']),
+            'marketplace'      => !empty($item['marketplace']),
+            'publication'      => [
+                'community'   => !empty($item['community_shared']),
+                'marketplace' => !empty($item['marketplace'])
+                    && !in_array((string) ($item['marketplace_status'] ?? 'none'), ['none', 'delisted'], true),
+            ],
             'content'          => $this->writing_content($item),
             'text'             => $this->writing_content($item),
         ]);

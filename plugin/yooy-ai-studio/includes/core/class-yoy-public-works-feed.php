@@ -157,18 +157,32 @@ final class YooY_Public_Works_Feed {
         $feed = get_option('yoy_community_feed', []);
         $feed = is_array($feed) ? $feed : [];
         usort($feed, function ($a, $b) {
-            return (int) ($b['likes'] ?? 0) <=> (int) ($a['likes'] ?? 0);
+            return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
         });
 
         $out = [];
-        foreach (array_slice($feed, 0, $limit) as $item) {
+        foreach ($feed as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            if (($item['status'] ?? 'active') === 'inactive') {
+                continue;
+            }
+            if ((string) ($item['gallery_id'] ?? '') === '') {
+                continue;
+            }
             if ($this->is_placeholder_or_demo($item)) {
                 continue;
             }
             $out[] = array_merge($item, [
+                'id'          => (string) ($item['gallery_id'] ?? $item['id'] ?? ''),
+                'gallery_id'  => (string) ($item['gallery_id'] ?? ''),
                 'feed_source' => 'community',
                 'is_platform' => true,
             ]);
+            if (count($out) >= $limit) {
+                break;
+            }
         }
 
         $public_gallery = $this->scan_public_gallery($limit, 'community');
@@ -182,15 +196,32 @@ final class YooY_Public_Works_Feed {
         $catalog = get_option('yoy_marketplace_catalog', []);
         $catalog = is_array($catalog) ? $catalog : [];
         $out = [];
-        foreach (array_slice($catalog, 0, $limit) as $item) {
+        $seen = [];
+        foreach ($catalog as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            if (($item['status'] ?? '') === 'delisted') {
+                continue;
+            }
+            $gid = (string) ($item['gallery_id'] ?? '');
+            if ($gid === '' || isset($seen[$gid])) {
+                continue;
+            }
             if ($this->is_placeholder_or_demo($item)) {
                 continue;
             }
+            $seen[$gid] = true;
             $out[] = array_merge($item, [
-                'feed_source'   => 'marketplace',
-                'is_platform'   => true,
-                'marketplace_status' => (string) ($item['status'] ?? 'listed'),
+                'id'                 => $gid,
+                'gallery_id'         => $gid,
+                'feed_source'        => 'marketplace',
+                'is_platform'        => true,
+                'marketplace_status' => (string) (($item['status'] ?? '') === '' ? 'listed' : $item['status']),
             ]);
+            if (count($out) >= $limit) {
+                break;
+            }
         }
         return $out;
     }
@@ -232,6 +263,7 @@ final class YooY_Public_Works_Feed {
                 $item['creator'] = $user->display_name;
                 $item['creator_name'] = $user->display_name;
                 $item['creator_id'] = (int) $user->ID;
+                $item['gallery_id'] = (string) ($item['id'] ?? '');
                 $item['feed_source'] = $source;
                 $item['is_platform'] = true;
                 $item['visibility'] = 'public';
@@ -276,10 +308,17 @@ final class YooY_Public_Works_Feed {
         $full = (string) ($item['full_url'] ?? $item['original_url'] ?? $item['image_url'] ?? $display);
         $creator = (string) ($item['creator_name'] ?? $item['creator'] ?? 'Creator');
 
+        $gallery_id = (string) ($item['gallery_id'] ?? '');
+        if ($gallery_id === '' && in_array($source, ['community', 'marketplace'], true)) {
+            $gallery_id = (string) ($item['id'] ?? '');
+        }
+        $card_id = $gallery_id !== '' ? $gallery_id : (string) ($item['id'] ?? '');
+
         return [
-            'id'                 => (string) ($item['id'] ?? ''),
-            'title'              => (string) ($item['title'] ?? 'Work'),
-            'description'        => (string) ($item['description'] ?? $item['title'] ?? ''),
+            'id'                 => $card_id,
+            'gallery_id'         => $gallery_id,
+            'title'              => (string) ($item['caption'] ?? $item['title'] ?? 'Work'),
+            'description'        => (string) ($item['description'] ?? $item['caption'] ?? $item['title'] ?? ''),
             'type'               => (string) ($item['type'] ?? 'image'),
             'type_label'         => (string) ($item['type_label'] ?? $this->type_label((string) ($item['type'] ?? 'image'))),
             'thumbnail_url'      => esc_url_raw($thumb),
@@ -352,11 +391,15 @@ final class YooY_Public_Works_Feed {
      * @param array<string, mixed> $item
      */
     private function dedupe_key(array $item): string {
+        $gallery_id = (string) ($item['gallery_id'] ?? '');
+        if ($gallery_id !== '') {
+            return 'gal:' . $gallery_id;
+        }
         $id = (string) ($item['id'] ?? '');
-        $source = (string) ($item['feed_source'] ?? $item['source'] ?? '');
         if ($id === '') {
             return '';
         }
+        $source = (string) ($item['feed_source'] ?? $item['source'] ?? '');
         return $source . ':' . $id;
     }
 

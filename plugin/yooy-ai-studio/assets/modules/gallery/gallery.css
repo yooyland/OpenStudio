@@ -107,6 +107,33 @@
 .ygl-history-open:hover,.ygl-history-open:focus-visible{border-color:rgba(220,170,45,.45)}
 .ygl-empty h3{color:#ffd76a;margin:0 0 8px}
 .ygl-empty .ygl-btn{margin-top:16px}
+.ygl-pub-badges{display:flex;flex-wrap:wrap;gap:4px;left:10px;position:absolute;top:10px;z-index:2}
+.ygl-pub-badge{background:rgba(0,0,0,.72);border:1px solid rgba(220,170,45,.35);border-radius:999px;color:#ffd76a;font-size:10px;font-weight:700;padding:3px 8px}
+.ygl-pub-badge--private{color:#bbb;border-color:rgba(255,255,255,.2)}
+.ygl-pub-badge--community,.ygl-pub-badge--market{color:#111;background:#f2c14e;border-color:#f2c14e}
+.ygl-pub-state{background:#121212;border:1px solid rgba(220,170,45,.2);border-radius:14px;margin:12px 0;padding:14px}
+.ygl-pub-state h4{color:#ffd76a;font-size:13px;margin:0 0 10px}
+.ygl-pub-state-rows{display:grid;gap:8px;margin-bottom:12px}
+.ygl-pub-state-row{display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.ygl-pub-state-row span{color:#999}
+.ygl-pub-state-row strong{color:#eee;font-weight:600}
+.ygl-actions--pub{display:flex;flex-wrap:wrap;gap:8px}
+.ygl-publish-host{align-items:flex-end}
+.ygl-publish-sheet,.ygl-publish-panel{background:#111;border:1px solid rgba(220,170,45,.28);border-radius:18px 18px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.45);color:#eee;max-height:92vh;overflow:auto;padding:20px 18px 24px;position:relative;width:min(560px,100%)}
+.ygl-publish-sheet h3,.ygl-publish-panel h3{color:#ffd76a;font-size:18px;margin:0 0 14px;padding-right:36px}
+.ygl-publish-preview{background:#0a0a0a;border-radius:14px;margin-bottom:12px;max-height:240px;overflow:hidden}
+.ygl-publish-preview img,.ygl-publish-preview video{display:block;height:auto;max-height:240px;object-fit:contain;width:100%}
+.ygl-publish-targets,.ygl-publish-manage,.ygl-market-actions{display:grid;gap:10px;margin:14px 0}
+.ygl-publish-sheet .ygl-btn,.ygl-publish-panel .ygl-btn,.ygl-market-modal .ygl-btn{min-height:44px}
+.ygl-publish-sheet .ygl-btn:focus-visible,.ygl-publish-panel .ygl-btn:focus-visible,.ygl-btn:focus-visible{outline:2px solid #f2c14e;outline-offset:2px}
+.ygl-market-modal{inset:0;position:absolute;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45);padding:0}
+.ygl-market-panel{background:#111;border-radius:18px 18px 0 0;max-height:92vh;overflow:auto;padding:20px;width:min(560px,100%)}
+
+@media(min-width:721px){
+  .ygl-publish-host{align-items:center;justify-content:center}
+  .ygl-publish-sheet,.ygl-publish-panel,.ygl-market-panel{border-radius:18px;width:min(520px,92vw)}
+  .ygl-market-modal{align-items:center}
+}
 
 @media(max-width:900px){
   .ygl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

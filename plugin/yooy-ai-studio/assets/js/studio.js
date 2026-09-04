@@ -2536,6 +2536,7 @@
         : (esc(typeBadgeLabel(w.type || 'image')) + ' · ' + relTime(w.created_at || w.updated_at))) + '</span>' +
       '<div class="yai-project-actions">' +
         (w.asset_missing ? '' :
+        '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ws-asset-action="publish" data-work-id="' + esc(id) + '">공개하기</button>' +
         '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="open" data-work-id="' + esc(id) + '">상세 보기</button>') +
         '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="remove" data-work-id="' + esc(id) + '">프로젝트에서 제거</button>' +
       '</div></article>';
@@ -3146,15 +3147,188 @@
     });
   }
 
+  function publicDiscoverThumb(item) {
+    var url = item.thumbnail_url || item.display_url || item.image_url || item.thumbnail || '';
+    if (!url) {
+      return '<div class="yai-pub-card__thumb yai-pub-card__thumb--empty" aria-hidden="true"></div>';
+    }
+    return '<div class="yai-pub-card__thumb"><img src="' + esc(url) + '" alt="" loading="lazy" decoding="async"></div>';
+  }
+
+  function storePublicRemixShell(item) {
+    var id = item.gallery_id || item.id || '';
+    var type = item.type || 'image';
+    var preview = item.thumbnail_url || item.display_url || item.image_url || item.thumbnail || '';
+    var shell = {
+      source: 'community_remix',
+      gallery_id: id,
+      id: id,
+      type: type,
+      studio: studioRouteForType(type),
+      prompt: '',
+      thumbnail_url: preview,
+      preview_url: preview,
+      reference_assets: preview ? [{ gallery_id: id, url: preview, type: type, label: item.title || '' }] : [],
+      content_type: type,
+      public_safe: true,
+      title: item.title || item.caption || ''
+    };
+    try {
+      sessionStorage.setItem('yoy_home_remix', JSON.stringify(shell));
+      sessionStorage.setItem('yoy_regenerate', JSON.stringify(shell));
+      if (shell.reference_assets[0]) {
+        sessionStorage.setItem('yoy_reference_asset', JSON.stringify(shell.reference_assets[0]));
+        sessionStorage.setItem('yoy_home_attachment', JSON.stringify({
+          type: type,
+          source: 'public',
+          gallery_id: id,
+          url: preview,
+          preview: preview,
+          name: item.title || '',
+          title: item.title || ''
+        }));
+      }
+    } catch (e) { /* ignore */ }
+    return shell;
+  }
+
+  function remixPublicWork(item) {
+    if (!item) return;
+    var galleryId = item.gallery_id || item.id || '';
+    storePublicRemixShell(item);
+    if (!isLoggedIn()) {
+      try { sessionStorage.setItem('yoy_pending_after_auth', 'remix'); } catch (e) { /* ignore */ }
+      requireLogin();
+      return;
+    }
+    function go(payload) {
+      routeToStudioFromWork(payload, payload.studio || payload.type || 'image');
+      showToast('공개 작품을 참고해 Studio를 엽니다.');
+    }
+    if (Core.gallery && typeof Core.gallery.publicRemix === 'function' && galleryId) {
+      Core.gallery.publicRemix(galleryId).then(function (res) {
+        var payload = res.data || {};
+        try {
+          sessionStorage.setItem('yoy_regenerate', JSON.stringify(payload));
+          if (payload.reference_assets && payload.reference_assets[0]) {
+            sessionStorage.setItem('yoy_reference_asset', JSON.stringify(payload.reference_assets[0]));
+          }
+        } catch (e) { /* ignore */ }
+        go(payload);
+      }).catch(function () {
+        go(storePublicRemixShell(item));
+      });
+      return;
+    }
+    go(storePublicRemixShell(item));
+  }
+
+  function communityCardHtml(it) {
+    var id = it.gallery_id || it.id || '';
+    return '<article class="yai-pub-card yai-pub-card--community" data-public-id="' + esc(id) + '">' +
+      publicDiscoverThumb(it) +
+      '<div class="yai-pub-card__body">' +
+        '<strong>' + esc(it.caption || it.title || '작품') + '</strong>' +
+        '<span>' + esc(it.creator_name || it.creator || 'Creator') + '</span>' +
+        '<div class="yai-pub-card__actions">' +
+          '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-pub-action="remix" data-gallery-id="' + esc(id) + '">따라 만들기</button>' +
+          '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-pub-action="detail" data-gallery-id="' + esc(id) + '">자세히 보기</button>' +
+        '</div>' +
+      '</div></article>';
+  }
+
+  function marketplaceCardHtml(it) {
+    var id = it.gallery_id || it.id || '';
+    var priceLabel = (it.price === 0 || it.price === '0')
+      ? '표시 가격 · Free'
+      : (it.price != null ? '표시 가격 · ' + fmt(it.price) + ' KRW' : '');
+    var meta = [it.creator_name || it.creator || 'Creator', it.category || '', priceLabel].filter(Boolean).join(' · ');
+    return '<article class="yai-pub-card yai-pub-card--market" data-public-id="' + esc(id) + '">' +
+      publicDiscoverThumb(it) +
+      '<div class="yai-pub-card__body">' +
+        '<strong>' + esc(it.title || '작품') + '</strong>' +
+        '<span>' + esc(meta) + '</span>' +
+        '<div class="yai-pub-card__actions">' +
+          '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-pub-action="detail" data-gallery-id="' + esc(id) + '">자세히 보기</button>' +
+          '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-pub-action="remix" data-gallery-id="' + esc(id) + '">따라 만들기</button>' +
+        '</div>' +
+      '</div></article>';
+  }
+
+  function bindPublicFeedActions(el, items, kind) {
+    if (!el) return;
+    el.querySelectorAll('[data-pub-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var gid = btn.getAttribute('data-gallery-id') || '';
+        var item = (items || []).find(function (x) {
+          return String(x.gallery_id || x.id || '') === String(gid);
+        });
+        if (!item) return;
+        if (btn.getAttribute('data-pub-action') === 'remix') {
+          remixPublicWork(item);
+          return;
+        }
+        openPublicDetail(item, kind);
+      });
+    });
+  }
+
+  function openPublicDetail(item, kind) {
+    var id = item.gallery_id || item.id || '';
+    var host = document.createElement('div');
+    host.className = 'yai-pub-detail-host';
+    host.setAttribute('role', 'dialog');
+    host.setAttribute('aria-modal', 'true');
+    var desc = item.description || item.caption || '';
+    var metaBits = [
+      item.creator_name || item.creator || 'Creator',
+      item.category || '',
+      item.license ? ('라이선스 ' + item.license) : '',
+      (kind === 'market' && item.price != null) ? ('표시 가격 ' + (item.price === 0 ? 'Free' : fmt(item.price) + ' KRW')) : ''
+    ].filter(Boolean);
+    host.innerHTML =
+      '<div class="yai-pub-detail" tabindex="-1">' +
+        '<button type="button" class="yai-icon-btn" data-pub-close aria-label="닫기">×</button>' +
+        publicDiscoverThumb(item) +
+        '<h3>' + esc(item.title || item.caption || '작품') + '</h3>' +
+        '<p class="yai-muted">' + esc(metaBits.join(' · ')) + '</p>' +
+        (desc ? '<p>' + esc(desc) + '</p>' : '') +
+        (kind === 'market'
+          ? '<p class="yai-muted">구매·결제 기능은 아직 제공되지 않습니다.</p>'
+          : '') +
+        '<div class="yai-pub-card__actions">' +
+          '<button type="button" class="yai-btn yai-btn--gold" data-pub-remix>따라 만들기</button>' +
+          '<button type="button" class="yai-btn yai-btn--outline" data-pub-close>닫기</button>' +
+        '</div></div>';
+    document.body.appendChild(host);
+    function close() { host.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    host.addEventListener('click', function (e) {
+      if (e.target === host || e.target.closest('[data-pub-close]')) close();
+    });
+    var remixBtn = host.querySelector('[data-pub-remix]');
+    if (remixBtn) {
+      remixBtn.addEventListener('click', function () {
+        close();
+        remixPublicWork(item);
+      });
+    }
+  }
+
   function loadMarket() {
     var el = document.getElementById('yai-marketplace');
     if (!el) return;
     Core.marketplace.items().then(function (res) {
       var items = (res.data && res.data.items) || [];
-      if (!items.length) { el.innerHTML = emptyBlock('', 'Marketplace empty', 'No listings yet.', 'Community', 'community'); return; }
-      el.innerHTML = items.map(function (it) {
-        return '<div class="yai-card"><strong>' + esc(it.title) + '</strong><span>' + esc(it.creator) + ' · ' + (it.price === 0 ? 'Free' : fmt(it.price) + ' KRW') + '</span></div>';
-      }).join('');
+      if (!items.length) {
+        el.innerHTML = emptyBlock('', '아직 Marketplace에 등록된 작품이 없습니다.', 'Gallery 작품을 카탈로그에 올려 보세요.', '내 작품 등록하기', 'works');
+        return;
+      }
+      el.innerHTML = '<div class="yai-pub-grid">' + items.map(marketplaceCardHtml).join('') + '</div>';
+      bindPublicFeedActions(el, items, 'market');
+    }).catch(function (err) {
+      el.innerHTML = emptyBlock('', 'Marketplace를 불러오지 못했습니다.', err.message || '', '다시 시도', 'market');
     });
   }
 
@@ -3163,10 +3337,14 @@
     if (!el) return;
     Core.community.feed().then(function (res) {
       var feed = (res.data && res.data.feed) || [];
-      if (!feed.length) { el.innerHTML = emptyBlock('', 'Community empty', 'Share gallery works to start the feed.', 'Gallery', 'works'); return; }
-      el.innerHTML = feed.map(function (it) {
-        return '<div class="yai-card"><strong>' + esc(it.title) + '</strong><span>' + esc(it.creator) + ' · ♥' + fmt(it.likes || 0) + '</span></div>';
-      }).join('');
+      if (!feed.length) {
+        el.innerHTML = emptyBlock('', '아직 Community에 공개된 작품이 없습니다.', 'Gallery 작품을 사람들과 공유해 보세요.', '내 작품 공유하기', 'works');
+        return;
+      }
+      el.innerHTML = '<div class="yai-pub-grid">' + feed.map(communityCardHtml).join('') + '</div>';
+      bindPublicFeedActions(el, feed, 'community');
+    }).catch(function (err) {
+      el.innerHTML = emptyBlock('', 'Community를 불러오지 못했습니다.', err.message || '', '다시 시도', 'community');
     });
   }
 
@@ -3811,7 +3989,13 @@
       var wid = wsAsset.getAttribute('data-work-id');
       var wact = wsAsset.getAttribute('data-ws-asset-action');
       if (wact === 'open' || wact === 'preview') openWorkDetail(wid);
-      else if (wact === 'remove') {
+      else if (wact === 'publish') {
+        if (Y.YooYGallery && typeof Y.YooYGallery.openPublish === 'function') {
+          Y.YooYGallery.openPublish(wid);
+        } else {
+          showToast('공개 기능을 불러오지 못했습니다.', true);
+        }
+      } else if (wact === 'remove') {
         if (!window.confirm('프로젝트에서만 연결을 해제합니다. Gallery 원본은 삭제되지 않습니다.')) return;
         var removePid = currentProjectId ||
           (workspaceCache.project && workspaceCache.project.id) || '';
