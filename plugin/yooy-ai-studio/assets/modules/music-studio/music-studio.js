@@ -131,7 +131,7 @@
   function creditsBar() {
     var bal = state.credits.unlimited ? '∞' : (state.credits.balance ?? 0);
     var est = state.credits.estimate || state.estimate || 0;
-    return '<div class="yms-credits-bar"><span>Cost: <strong>' + est + '</strong> credits</span><span>Balance: <strong>' + bal + '</strong></span></div>';
+    return '<div class="yms-credits-bar"><span>예상 <strong>' + est + '</strong> 크레딧</span><span>잔액 <strong>' + bal + '</strong></span></div>';
   }
 
   function resultActionsHtml() {
@@ -213,6 +213,7 @@
       '<p class="yms-field-error" id="yms-prompt-error" hidden>어떤 음악인지 설명해 주세요.</p>' +
       '<button class="yms-btn-primary yai-btn-gold-primary" id="yms-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
         (state.generating ? '음악 만드는 중…' : '음악 만들기') +
+        ((state.credits.estimate || state.estimate) ? ' · 예상 ' + (state.credits.estimate || state.estimate) + ' 크레딧' : '') +
       '</button>' +
       resultActionsHtml();
 
@@ -379,6 +380,13 @@
       state.credits.unlimited = data.credits.unlimited;
     }
     notifyGalleryUpdated();
+    try {
+      var usedM = (data.credits && (data.credits.deducted || data.credits_used)) || data.credits_used || 0;
+      var balM = data.credits && data.credits.balance != null ? data.credits.balance : state.credits.balance;
+      document.dispatchEvent(new CustomEvent('yoy:creation-success', {
+        detail: { route: 'music', jobId: data.job_id || '', galleryId: state.activeGalleryId || '', creditsUsed: usedM, balance: balM }
+      }));
+    } catch (eM) { /* ignore */ }
     renderTab(root);
     return data;
   }

@@ -628,23 +628,24 @@
       '<div class="yai-current-plan-crystal">' + crystalHtml(planId, 'xl', isBusiness ? 'yai-crystal--current' : '') + '</div>' +
       '<div class="yai-current-plan-main">' +
         '<div class="yai-current-plan-title">' +
-          '<h2>' + esc(acc.plan_name || acc.tier || 'Free') + '</h2>' +
-          '<span class="yai-plan-current-badge">CURRENT PLAN</span>' +
+          '<h2>' + esc(acc.plan_name || acc.tier || 'Free') + ' 플랜</h2>' +
+          '<span class="yai-plan-current-badge">현재 플랜</span>' +
         '</div>' +
-        '<p class="yai-current-plan-allotment">' + fmt(acc.plan_credits || acc.credits || 0) + ' credits</p>' +
+        '<p class="yai-current-plan-allotment">포함 크레딧 ' + fmt(acc.plan_credits || acc.credits || 0) + '</p>' +
+        '<p class="yai-credits-page-note">작업할 때마다 필요한 만큼 크레딧이 사용됩니다.</p>' +
       '</div>' +
       '<div class="yai-current-plan-metrics">' +
-        '<div class="yai-current-plan-metric"><span>Credit Balance</span><strong class="yai-current-plan-balance">' + balance + '</strong></div>' +
+        '<div class="yai-current-plan-metric"><span>크레딧 잔액</span><strong class="yai-current-plan-balance">' + balance + '</strong></div>' +
         '<div class="yai-current-plan-metric yai-current-plan-metric--usage">' +
-          '<span>Monthly Usage</span><strong>' + fmt(mu.used || 0) + ' / ' + fmt(mu.limit || 0) + '</strong>' +
+          '<span>이번 달 사용</span><strong>' + fmt(mu.used || 0) + ' / ' + fmt(mu.limit || 0) + '</strong>' +
           '<div class="yai-progress yai-progress--plan" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100">' +
             '<i style="width:' + pct + '%"></i></div>' +
         '</div>' +
-        '<div class="yai-current-plan-metric"><span>Next Renewal</span><strong>' + esc(acc.renewal_label || '—') + '</strong><em>' + esc(autoRenew) + '</em></div>' +
+        '<div class="yai-current-plan-metric"><span>다음 갱신</span><strong>' + esc(acc.renewal_label || '—') + '</strong><em>' + esc(autoRenew) + '</em></div>' +
       '</div>' +
       '<div class="yai-current-plan-actions">' +
-        '<button type="button" class="yai-btn yai-btn--gold" id="yai-credits-scroll-plans">Upgrade</button>' +
-        '<button type="button" class="yai-btn yai-btn--outline" data-route="billing">Billing</button>' +
+        '<button type="button" class="yai-btn yai-btn--gold" id="yai-credits-scroll-plans">플랜 비교</button>' +
+        '<button type="button" class="yai-btn yai-btn--outline" data-route="billing">결제 내역</button>' +
       '</div>' +
     '</section>';
   }
@@ -1004,7 +1005,7 @@
       setText('yai-stat-projects', fmt(d.project_count || 0));
       setText('yai-stat-works', fmt(d.work_count || (d.works || []).length || 0));
       setText('yai-stat-likes', fmt(d.community_likes || 0));
-      setText('yai-top-credits', (cr.unlimited ? '∞' : fmt(cr.balance)) + ' Credits');
+      setText('yai-top-credits', (cr.unlimited ? '∞' : fmt(cr.balance)) + ' 크레딧');
       renderUsageWidget(mu);
       if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.updateCredits === 'function') {
         window.YooYHomeDashboard.updateCredits({
@@ -1016,6 +1017,16 @@
           balance: cr.balance,
           remaining: cr.balance,
           unlimited: cr.unlimited,
+        });
+      }
+      if (window.YooYCreditsUI && typeof window.YooYCreditsUI.applyShell === 'function') {
+        window.YooYCreditsUI.applyShell({
+          plan: cr.plan || cr.tier,
+          plan_name: cr.plan_name || cr.tier,
+          plan_credits: cr.plan_credits != null ? cr.plan_credits : cr.monthly_limit,
+          balance: cr.balance,
+          remaining: cr.balance,
+          unlimited: cr.unlimited
         });
       }
     } else {
@@ -2383,7 +2394,7 @@
       var cr = d.credits || {};
       var creditsEl = document.getElementById('yai-failure-credits');
       if (!creditsEl) return;
-      var userCredit = cr.unlimited ? '무제한 (∞)' : fmt(cr.balance) + ' Credits';
+      var userCredit = cr.unlimited ? '무제한 (∞)' : fmt(cr.balance) + ' 크레딧';
       var billingNote = item.error_code === 'insufficient_provider_credit'
         ? 'AI 공급업체 계정 크레딧 부족 (사용자 크레딧과 별도)'
         : '공급업체 계정 상태는 Operations Center에서 확인하세요.';
@@ -3402,12 +3413,13 @@
       Core.credits.plans().then(function (res) {
         var plans = (res.data && res.data.plans) || [];
         var billing = (res.data && res.data.billing) || {};
-        el.innerHTML = '<div class="yai-credits-upgrade-cta"><p>Login to view your balance, usage, and credit history.</p>' +
-          '<a class="yai-btn yai-btn--gold yai-login-link" href="' + esc(loginUrl()) + '">Login</a></div>' +
+        el.innerHTML = '<div class="yai-credits-upgrade-cta"><p>잔액과 사용 내역을 보려면 로그인해 주세요.</p>' +
+          '<p class="yai-muted">가입하면 첫 작품을 만들 수 있는 크레딧이 제공됩니다.</p>' +
+          '<a class="yai-btn yai-btn--gold yai-login-link" href="' + esc(loginUrl()) + '">로그인</a></div>' +
           renderPaymentSetupNotice(billing) +
-          '<h2 class="yai-credits-section-title">Plans</h2>' +
+          '<h2 class="yai-credits-section-title">플랜</h2>' +
           renderPlanCards(plans, 'free', billing, false) +
-          '<h2 class="yai-credits-section-title">Plan Comparison</h2>' +
+          '<h2 class="yai-credits-section-title">플랜 비교</h2>' +
           renderPlanComparison(plans, 'free');
         bindPlanUpgradeButtons(el, plans, billing);
       });
@@ -3423,13 +3435,16 @@
 
       var html = renderCurrentPlanDashboard(acc);
       html += renderPaymentSetupNotice(billing);
-      html += '<h2 class="yai-credits-section-title">Plans</h2>';
+      html += '<h2 class="yai-credits-section-title">플랜</h2>';
       html += renderPlanCards(plans, acc.plan || 'free', billing, true);
-      html += '<h2 class="yai-credits-section-title">Plan Comparison</h2>';
+      html += '<h2 class="yai-credits-section-title">플랜 비교</h2>';
       html += renderPlanComparison(plans, acc.plan || 'free');
-      html += '<h2 class="yai-credits-section-title">Credit Ledger</h2>';
+      html += '<h2 class="yai-credits-section-title">최근 사용</h2>';
       html += renderLedger(txs);
       el.innerHTML = html;
+      if (window.YooYCreditsUI && typeof window.YooYCreditsUI.applyShell === 'function') {
+        window.YooYCreditsUI.applyShell(Object.assign({}, acc, { billing: billing }));
+      }
 
       var scrollBtn = document.getElementById('yai-credits-scroll-plans');
       if (scrollBtn) {
@@ -3578,16 +3593,16 @@
         '<h3 class="yai-plan-card-name">' + esc(p.name) + '</h3>' +
         '<div class="yai-plan-price">' + esc(priceMonthly) + '</div>' +
         priceYearly +
-        '<div class="yai-plan-credits">' + fmt(p.credits) + ' credits included</div>' +
+        '<div class="yai-plan-credits">' + fmt(p.credits) + ' 크레딧 포함</div>' +
         '<ul class="yai-plan-features">' + features + '</ul>' + btnHtml + '</article>';
     });
     return html + '</div>';
   }
 
   function renderLedger(rows) {
-    if (!rows.length) return '<p class="yai-muted">No transactions yet.</p>';
+    if (!rows.length) return '<p class="yai-muted">아직 사용 내역이 없습니다.</p>';
     var html = '<div class="yai-ledger-table"><table><thead><tr>' +
-      '<th>Date</th><th>Action</th><th>Studio</th><th>Change</th><th>Balance</th><th>Status</th>' +
+      '<th>날짜</th><th>내용</th><th>Studio</th><th>변동</th><th>잔액</th><th>상태</th>' +
       '</tr></thead><tbody>';
     rows.slice(0, 50).forEach(function (tx) {
       var amt = tx.amount != null ? tx.amount : tx.delta;
@@ -3833,7 +3848,10 @@
       var usage = document.getElementById('yai-monthly-usage');
       if (usage) usage.textContent = 'Monthly: ' + fmt(mu.used || 0) + ' / ' + fmt(mu.limit || 0);
       if (document.getElementById('yai-top-credits')) {
-        setText('yai-top-credits', (acc.unlimited ? '∞' : fmt(acc.balance)) + ' Credits');
+        setText('yai-top-credits', (acc.unlimited ? '∞' : fmt(acc.balance)) + ' 크레딧');
+      if (window.YooYCreditsUI && typeof window.YooYCreditsUI.applyShell === 'function') {
+        window.YooYCreditsUI.applyShell(acc);
+      }
       }
       if (window.YooYHomeDashboard && typeof window.YooYHomeDashboard.updateCredits === 'function') {
         window.YooYHomeDashboard.updateCredits(acc);

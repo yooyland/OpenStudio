@@ -189,6 +189,7 @@
         '<p class="yvs-field-error" id="yvs-prompt-error" hidden>프롬프트를 입력해 주세요.</p>' +
         '<button class="yvs-btn-primary yai-btn-gold-primary" id="yvs-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
           (state.generating ? '영상 만드는 중…' : '영상 생성하기') +
+          (state.credits.estimate ? ' · 예상 ' + state.credits.estimate + ' 크레딧' : '') +
         '</button>' +
       '</div>' +
       resultActionsHtml();
@@ -222,10 +223,10 @@
   }
 
   function creditLabel() {
-    if (state.credits.unlimited) return 'Credits: ∞';
+    if (state.credits.unlimited) return '예상 — · 잔액 ∞';
     var est = state.credits.estimate || 0;
     var bal = state.credits.balance ?? 0;
-    return est + ' credits (잔액 ' + bal + ')';
+    return '예상 ' + est + ' 크레딧 · 잔액 ' + bal;
   }
 
   function resultActionsHtml() {
@@ -476,6 +477,13 @@
       showJobInfo(root, 'Using Mock provider (' + data.fallback_reason + ').');
     }
     notifyGalleryUpdated();
+    try {
+      var usedV = (data.credits && (data.credits.deducted || data.credits_used)) || data.credits_used || 0;
+      var balV = data.credits && data.credits.balance != null ? data.credits.balance : state.credits.balance;
+      document.dispatchEvent(new CustomEvent('yoy:creation-success', {
+        detail: { route: 'video', jobId: data.job_id || '', galleryId: state.activeGalleryId || '', creditsUsed: usedV, balance: balV }
+      }));
+    } catch (eV) { /* ignore */ }
     renderTab(root);
     return data;
   }

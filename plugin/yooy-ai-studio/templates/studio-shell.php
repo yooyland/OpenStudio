@@ -153,8 +153,8 @@ $studio_quick = [
                         <strong id="yai-credit-remaining">—</strong>
                     </div>
                     <div class="yai-hd-credit-row yai-hd-credit-row--sub">
-                        <span>전체 <strong id="yai-credit-total">—</strong></span>
-                        <button type="button" class="yai-hd-credit-charge" data-route="credits">충전</button>
+                        <span>플랜 한도 <strong id="yai-credit-total">—</strong></span>
+                        <button type="button" class="yai-hd-credit-charge" data-route="credits">플랜 보기</button>
                     </div>
                     <span class="yai-sr-only" id="yai-sidebar-plan-name"><?php echo esc_html($plan_label); ?></span>
                 </article>
@@ -229,8 +229,10 @@ $studio_quick = [
                                     <div class="yai-hd-plan-menu" id="yai-plan-dropdown-menu" role="menu" hidden>
                                         <span class="yai-hd-plan-menu__label">현재 플랜</span>
                                         <span class="yai-hd-plan-menu__current" id="yai-plan-dropdown-current"><?php echo esc_html($plan_label); ?></span>
+                                        <span class="yai-hd-plan-menu__balance" id="yai-plan-dropdown-balance">— 크레딧</span>
+                                        <button type="button" role="menuitem" data-route="credits" data-plan-action="compare">플랜 비교</button>
                                         <button type="button" role="menuitem" data-route="billing" data-plan-action="upgrade">업그레이드</button>
-                                        <button type="button" role="menuitem" data-route="billing" data-plan-action="downgrade">다운그레이드</button>
+                                        <button type="button" role="menuitem" data-route="billing" data-plan-action="downgrade">다운그레이드 문의</button>
                                     </div>
                                 </div>
                                 <?php endif; ?>
@@ -406,8 +408,8 @@ $studio_quick = [
                 </header>
                 <div id="yai-history"></div>
             </section>
-            <section class="yai-view" data-page="credits"><header class="yai-page-head"><h1>Credits</h1><p>Account 영역 — 잔액, 사용 내역, 플랜.</p></header><div id="yai-credits-panel"></div></section>
-            <section class="yai-view" data-page="billing"><header class="yai-page-head"><h1>Billing</h1><p>현재 플랜, 결제 내역, 구독 관리.</p></header><div id="yai-billing-panel"></div></section>
+            <section class="yai-view" data-page="credits"><header class="yai-page-head"><h1>크레딧</h1><p>잔액, 최근 사용, 플랜을 확인하세요.</p></header><div id="yai-credits-panel"></div></section>
+            <section class="yai-view" data-page="billing"><header class="yai-page-head"><h1>플랜 · 결제</h1><p>현재 플랜과 결제 내역을 관리합니다.</p></header><div id="yai-billing-panel"></div></section>
             <section class="yai-view" data-page="settings"><header class="yai-page-head"><h1>Settings</h1><p>스튜디오 기본 설정과 한국 컨텍스트 옵션.</p></header><div class="yai-settings-grid" id="yai-settings"></div></section>
 
             <?php if ($is_admin) : ?>
@@ -422,7 +424,7 @@ $studio_quick = [
         <div class="yai-modal yai-modal--auth">
             <h3>로그인이 필요합니다</h3>
             <p>작품을 저장하고 계속 사용하려면 로그인 또는 회원가입이 필요합니다.</p>
-            <p class="yai-muted">무료 가입 시 <strong>100 Credits</strong>와 Free 플랜이 제공됩니다.</p>
+            <p class="yai-muted">가입하면 첫 작품을 만들 수 있는 크레딧이 제공됩니다.</p>
             <div class="yai-modal-actions yai-modal-actions--stack">
                 <a class="yai-btn yai-btn--gold yai-login-link" href="<?php echo $login_url; ?>">로그인</a>
                 <a class="yai-btn yai-btn--outline yai-register-link" href="<?php echo esc_url($register_url); ?>">무료 회원가입</a>

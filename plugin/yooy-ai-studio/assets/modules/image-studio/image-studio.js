@@ -1351,6 +1351,21 @@
       message = message || 'Selected image size is not supported for this provider/model combination.';
     }
 
+    if (code === 'insufficient_credits' || code === 'billing_unavailable' || /not enough credits|insufficient credits/i.test(message)) {
+      var req = (d && d.debug && d.debug.estimate) || state.credits.estimate || null;
+      if (global.YooYCreditsUI && typeof global.YooYCreditsUI.showInsufficient === 'function') {
+        global.YooYCreditsUI.showInsufficient({
+          required: req,
+          balance: state.credits.balance
+        });
+      }
+      message = '크레딧이 부족합니다.';
+      area.insertAdjacentHTML('beforeend',
+        '<div class="yis-error" id="yis-generate-error" role="alert"><strong>' + esc(message) + '</strong>' +
+          '<p class="yis-error-copy">입력한 내용과 설정은 그대로 유지됩니다.</p></div>');
+      return;
+    }
+
     if (code === 'provider_not_tested') {
       var providerName = (d && d.provider_name) || (d && d.provider_requested) || 'OpenAI Image';
       message = providerName + ' must pass Test Connection before use.';
@@ -1705,7 +1720,8 @@
             }).join('') + '</select>') +
         '</div>' +
         '<div class="yis-actions"><button class="yis-btn-primary yai-btn-gold-primary" id="yis-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
-        (state.generating ? '이미지 만드는 중…' : '이미지 생성하기') + ' · ' + creditLabel() + '</button>' +
+        (state.generating ? '이미지 만드는 중…' : '이미지 생성하기') +
+        (state.credits.estimate ? ' · 예상 ' + (state.credits.estimate) + ' 크레딧' : '') + '</button>' +
         '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' + (state.generating ? generationProgressHtml() : '') + '</div>' +
         '<div class="yis-info" id="yis-generate-info" hidden></div></div>' +
         advancedSectionHtml() +
@@ -2160,10 +2176,17 @@
   }
 
   function creditLabel() {
-    if (state.credits.unlimited) return 'Credits: ∞';
+    if (global.YooYCreditsUI && typeof global.YooYCreditsUI.estimateLabel === 'function') {
+      return global.YooYCreditsUI.estimateLabel(
+        state.credits.estimate,
+        state.credits.balance,
+        state.credits.unlimited
+      );
+    }
+    if (state.credits.unlimited) return '예상 — · 잔액 ∞';
     var est = state.credits.estimate || 0;
     var bal = state.credits.balance != null ? state.credits.balance : 0;
-    return est + ' credits (잔액 ' + bal + ')';
+    return '예상 ' + est + ' 크레딧 · 잔액 ' + bal;
   }
 
   function resultActionsHtml() {
@@ -2694,8 +2717,16 @@
           jobId: data.job_id || ''
         });
       }
+      var used = (data.credits && (data.credits.deducted || data.credits_used)) || data.credits_used || 0;
+      var bal = data.credits && data.credits.balance != null ? data.credits.balance : state.credits.balance;
       document.dispatchEvent(new CustomEvent('yoy:creation-success', {
-        detail: { route: 'image', jobId: data.job_id || '', galleryId: state.activeGalleryId || '' }
+        detail: {
+          route: 'image',
+          jobId: data.job_id || '',
+          galleryId: state.activeGalleryId || '',
+          creditsUsed: used,
+          balance: bal
+        }
       }));
     } catch (obErr) { /* ignore */ }
     refreshAutoResultPanel(root);

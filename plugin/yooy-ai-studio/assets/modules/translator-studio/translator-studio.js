@@ -816,6 +816,14 @@
       }
       if (code === 'insufficient_credits') {
         msg = (e && e.message) || '크레딧이 부족합니다.';
+        try {
+          if (global.YooYCreditsUI && typeof global.YooYCreditsUI.showInsufficient === 'function') {
+            global.YooYCreditsUI.showInsufficient({
+              required: state.creditEstimate || null,
+              balance: state.creditsBalance != null ? state.creditsBalance : null
+            });
+          }
+        } catch (ciErr) { /* ignore */ }
       }
       if (code === 'gallery_save_failed') {
         msg = (e && e.message) || '저장에 실패하여 크레딧을 차감하지 않았습니다.';

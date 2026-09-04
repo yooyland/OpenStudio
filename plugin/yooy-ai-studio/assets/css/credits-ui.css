@@ -1,0 +1,84 @@
+/* Phase 8 — Credits / Plan UX */
+.yai-credits-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%) translateY(8px);
+  z-index: 13000;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(18, 18, 18, 0.96);
+  border: 1px solid rgba(242, 201, 76, 0.35);
+  color: #f2f2f2;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  max-width: min(420px, calc(100vw - 24px));
+  text-align: center;
+}
+.yai-credits-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.yai-credits-toast.is-error {
+  border-color: rgba(255, 120, 120, 0.45);
+}
+
+.yai-credits-insufficient {
+  position: fixed;
+  inset: 0;
+  z-index: 14000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.yai-credits-insufficient__dialog {
+  width: min(420px, 100%);
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px 18px 16px;
+  color: #f0f0f0;
+}
+.yai-credits-insufficient__dialog h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.yai-credits-insufficient__dialog p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #c8c8c8;
+}
+.yai-credits-insufficient__note {
+  font-size: 12px !important;
+  color: #9a9a9a !important;
+}
+.yai-credits-insufficient__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.yai-hd-plan-menu__balance {
+  display: block;
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: #f2c94c;
+  font-weight: 600;
+}
+
+.yai-credits-page-note {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #9a9a9a;
+}
+
+@media (max-width: 700px) {
+  .yai-credits-toast {
+    bottom: 120px;
+  }
+}
