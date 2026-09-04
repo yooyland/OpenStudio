@@ -2686,6 +2686,18 @@
       showGenerateInfo(root, '');
     }
     notifyGalleryUpdated();
+    try {
+      if (global.YooYOnboarding && typeof global.YooYOnboarding.notifyFirstSuccess === 'function') {
+        global.YooYOnboarding.notifyFirstSuccess({
+          galleryId: state.activeGalleryId || '',
+          route: 'image',
+          jobId: data.job_id || ''
+        });
+      }
+      document.dispatchEvent(new CustomEvent('yoy:creation-success', {
+        detail: { route: 'image', jobId: data.job_id || '', galleryId: state.activeGalleryId || '' }
+      }));
+    } catch (obErr) { /* ignore */ }
     refreshAutoResultPanel(root);
     renderTab(root);
     bindGenerateButton(root);

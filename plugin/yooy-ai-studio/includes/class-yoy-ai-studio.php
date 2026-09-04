@@ -175,6 +175,14 @@ final class YooY_AI_Studio {
         );
 
         wp_enqueue_script(
+            'yoy-home-onboarding',
+            YOY_AI_STUDIO_URL . 'assets/js/home-onboarding.js',
+            ['yoy-home-bottom-composer'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'yoy-studio-handoff',
             YOY_AI_STUDIO_URL . 'assets/js/studio-handoff.js',
             [],
@@ -276,7 +284,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-home-onboarding', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -395,6 +403,9 @@ final class YooY_AI_Studio {
                 'name'  => $user->display_name ?: 'Guest',
                 'email' => $user->user_email ?: '',
             ],
+            'onboarding' => class_exists('YooY_Onboarding')
+                ? YooY_Onboarding::payload_for_current_user()
+                : ['enabled' => false],
             'modules'   => $this->core->registry()->ids(),
             'routes'    => $this->nav_routes(),
         ]);

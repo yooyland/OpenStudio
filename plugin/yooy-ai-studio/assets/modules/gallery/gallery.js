@@ -819,6 +819,12 @@
         '<span>' + esc(formatDate(item.created_at)) + '</span></div></article>';
     }).join('');
 
+    try {
+      if (global.YooYOnboarding && typeof global.YooYOnboarding.maybeShowGalleryIntro === 'function') {
+        global.YooYOnboarding.maybeShowGalleryIntro(root);
+      }
+    } catch (obG) { /* ignore */ }
+
     gridEl.querySelectorAll('.ygl-card').forEach(function (card) {
       card.addEventListener('click', function (e) {
         if (e.target.closest('[data-ygl-menu-toggle]') || e.target.closest('.ygl-card-menu-pop') || e.target.closest('.ygl-card-hover')) return;

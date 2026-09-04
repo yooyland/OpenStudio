@@ -1510,3 +1510,204 @@ body.yai-hd-drawer-open {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* 式式 Phase 7 first-use onboarding (does not alter Studio card polish) 式式 */
+.yai-home-onboarding {
+  margin: 4px 0 14px;
+}
+
+.yai-ob-panel {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 18px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(242, 201, 76, 0.28);
+  background: linear-gradient(160deg, rgba(28, 24, 14, 0.96), rgba(12, 12, 12, 0.96));
+}
+
+.yai-ob-panel__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.yai-ob-panel h2 {
+  margin: 0 0 8px;
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 700;
+  color: #f5f5f5;
+  letter-spacing: -0.02em;
+}
+
+.yai-ob-panel__lead {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #b8b8b8;
+}
+
+.yai-ob-panel__credits {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #e6d08a;
+}
+
+.yai-ob-panel__credits-note {
+  display: block;
+  margin-top: 4px;
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.yai-ob-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.yai-ob-prompt {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8e8e8;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.yai-ob-prompt:hover,
+.yai-ob-prompt:focus-visible {
+  border-color: rgba(242, 201, 76, 0.45);
+  background: rgba(242, 201, 76, 0.08);
+  outline: none;
+}
+
+.yai-ob-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yai-ob-panel__dismiss {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #9a9a9a;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.yai-ob-panel__dismiss:hover,
+.yai-ob-panel__dismiss:focus-visible {
+  color: #f0f0f0;
+  outline: 2px solid rgba(242, 201, 76, 0.45);
+  outline-offset: 2px;
+}
+
+body.yai-first-use .yai-hd-studio-recos {
+  box-shadow: 0 0 0 1px rgba(242, 201, 76, 0.14);
+  border-radius: 18px;
+}
+
+body.yai-first-use #yai-home-bottom-composer:not([hidden]) {
+  box-shadow: 0 -8px 28px rgba(242, 201, 76, 0.08);
+}
+
+body.yai-first-use .yai-hd-quick-block {
+  outline: 1px solid rgba(242, 201, 76, 0.16);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+
+.yai-ob-success {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 12000;
+  width: min(520px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+.yai-ob-success__inner {
+  pointer-events: auto;
+  position: relative;
+  padding: 14px 40px 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(242, 201, 76, 0.35);
+  background: rgba(14, 14, 14, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.yai-ob-success__title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.yai-ob-success__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yai-ob-success__close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  color: #aaa;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.yai-ob-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(242, 201, 76, 0.06);
+  color: #e0e0e0;
+  font-size: 13px;
+}
+
+.yai-ob-callout p {
+  margin: 0;
+}
+
+.yai-ob-callout__dismiss {
+  flex: 0 0 auto;
+  border: 1px solid rgba(242, 201, 76, 0.35);
+  background: transparent;
+  color: #f2c94c;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .yai-ob-panel {
+    flex-direction: column;
+    padding: 14px;
+  }
+  .yai-ob-panel__dismiss {
+    align-self: flex-end;
+  }
+  .yai-ob-success {
+    bottom: 120px;
+  }
+}

@@ -2982,6 +2982,12 @@
       '</div>' +
       '<div id="yai-projects-suggest" class="yai-projects-suggest"><p class="yai-muted">Loading recent works…</p></div>';
 
+    try {
+      if (window.YooYOnboarding && typeof window.YooYOnboarding.maybeShowProjectIntro === 'function') {
+        window.YooYOnboarding.maybeShowProjectIntro(el);
+      }
+    } catch (obP) { /* ignore */ }
+
     if (!Core.gallery || typeof Core.gallery.works !== 'function') return;
 
     Core.gallery.works().then(function (res) {
@@ -3107,6 +3113,11 @@
         return;
       }
       el.innerHTML = '<div class="yai-project-grid">' + items.map(projectCardHtml).join('') + '</div>';
+      try {
+        if (window.YooYOnboarding && typeof window.YooYOnboarding.maybeShowProjectIntro === 'function') {
+          window.YooYOnboarding.maybeShowProjectIntro(el);
+        }
+      } catch (obP2) { /* ignore */ }
     }).catch(function (err) {
       var msg = friendlyProjectError(err) || 'Request failed.';
       var isNoRoute = !!(err && (err.restNoRoute || err.code === 'rest_no_route'));

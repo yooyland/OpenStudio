@@ -420,7 +420,16 @@
     showIntentChoice: showIntentChoice,
     hideIntentChoice: hideIntentChoice,
     setStatus: setStatus,
-    toast: toast
+    toast: toast,
+    setPrompt: function (text) {
+      var prompt = document.getElementById('yai-home-prompt');
+      if (!prompt) return;
+      prompt.value = String(text || '');
+      try {
+        prompt.dispatchEvent(new Event('input', { bubbles: true }));
+      } catch (e) { /* ignore */ }
+      prompt.focus();
+    }
   };
 
   function boot() {

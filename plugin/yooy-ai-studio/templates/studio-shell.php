@@ -238,6 +238,8 @@ $studio_quick = [
                         </header>
                         <?php endif; ?>
 
+                        <div id="yai-home-onboarding" class="yai-home-onboarding" hidden></div>
+
                         <section class="yai-hd-studio-recos" aria-labelledby="yai-home-studio-recos-title">
                             <header class="yai-hd-section__head yai-hd-studio-recos__head">
                                 <div>
