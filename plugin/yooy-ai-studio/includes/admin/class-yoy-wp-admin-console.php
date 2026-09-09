@@ -69,7 +69,10 @@ final class YooY_WP_Admin_Console {
             true
         );
         wp_localize_script('yoy-ai-studio-core', 'YooYStudio', [
-            'restUrl'  => esc_url_raw(rest_url('yoy-ai-studio/v1')),
+            'restUrl'      => (strpos((string) rest_url('yoy-ai-studio/v1'), 'wp-json') !== false)
+                ? (esc_url_raw(site_url('index.php')) . '?rest_route=/yoy-ai-studio/v1')
+                : esc_url_raw(rest_url('yoy-ai-studio/v1')),
+            'restRouteUrl' => esc_url_raw(site_url('index.php')) . '?rest_route=/yoy-ai-studio/v1',
             'nonce'    => wp_create_nonce('wp_rest'),
             'version'  => YOY_AI_STUDIO_VERSION,
             'loggedIn' => is_user_logged_in(),

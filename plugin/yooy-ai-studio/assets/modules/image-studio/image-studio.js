@@ -1409,9 +1409,8 @@
       message = String(errOrMessage || 'Generation failed.');
     }
 
-    // A REST route error is NOT a provider / OpenAI / billing failure.
-    // Show it as an infrastructure (endpoint registration) problem and always
-    // surface the exact endpoint + tried URLs so the failure is diagnosable.
+    // A REST route / transport error is NOT a provider / OpenAI / billing failure.
+    // Creators see a friendly Korean message; admins/dev still get console + meta.
     if (code === 'rest_no_route' || (errOrMessage && errOrMessage.restNoRoute)) {
       var rd = (d && d.endpoint) ? d : ((errOrMessage && errOrMessage.details) || {});
       var routeMeta = '';
@@ -1430,13 +1429,14 @@
       if (global.console && global.console.error) {
         global.console.error('[ImageStudio] rest_no_route surfaced to UI', rd);
       }
+      var isAdmin = !!(global.YooYCore && global.YooYCore.config && global.YooYCore.config.isAdmin);
       area.insertAdjacentHTML('beforeend',
         '<div class="yis-error yis-error--route" id="yis-generate-error" role="alert">' +
-          '<strong>REST API Route Not Found</strong>' +
-          '<p class="yis-error-copy">The requested endpoint is not registered. 이 오류는 OpenAI/공급업체/크레딧 문제가 아니라 WordPress REST 라우트 문제입니다.</p>' +
-          errorAnalysisHtml(errOrMessage) +
-          (routeMeta ? '<div class="yis-error-meta yis-error-meta--route">' + routeMeta + '</div>' : '') +
-          diagnosticReportButtonsHtml() +
+          '<strong>이미지 생성을 시작하지 못했습니다.</strong>' +
+          '<p class="yis-error-copy">서버 연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.</p>' +
+          (isAdmin ? errorAnalysisHtml(errOrMessage) : '') +
+          (isAdmin && routeMeta ? '<div class="yis-error-meta yis-error-meta--route">' + routeMeta + '</div>' : '') +
+          (isAdmin ? diagnosticReportButtonsHtml() : '') +
         '</div>');
       return;
     }
@@ -2674,21 +2674,25 @@
   }
 
   // Verifies the REST routes required for generation are registered before
-  // starting. This runs BEFORE any provider work so a rest_no_route condition
-  // is never misreported as an OpenAI / provider / billing failure.
+  // starting. Only blocks when the generate endpoint itself is missing — other
+  // optional required_endpoints gaps must not surface as rest_no_route.
   function verifyRestHealthThen(root, next) {
     if (state.restHealth && state.restHealth.ok === true) { next(); return; }
     if (state.restHealth && state.restHealth.ok === false) {
-      abortGenerateUi(root, '서버 연결을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.');
-      showRestRouteError(root, state.restHealth);
+      if (generateRouteMissing(state.restHealth)) {
+        abortGenerateUi(root, '이미지 생성을 시작하지 못했습니다.');
+        showRestRouteError(root, state.restHealth);
+        return;
+      }
+      next();
       return;
     }
     if (!(Core && Core.restHealth)) { next(); return; }
     Core.restHealth().then(function (res) {
       var data = (res && (res.data || res)) || {};
       state.restHealth = data;
-      if (data.ok === false) {
-        abortGenerateUi(root, '서버 연결을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+      if (data.ok === false && generateRouteMissing(data)) {
+        abortGenerateUi(root, '이미지 생성을 시작하지 못했습니다.');
         showRestRouteError(root, data);
       } else {
         next();
@@ -2697,6 +2701,22 @@
       // Health endpoint unreachable — let the actual generate call surface any error.
       next();
     });
+  }
+
+  function generateRouteMissing(health) {
+    var missing = (health && health.missing) || [];
+    var i;
+    for (i = 0; i < missing.length; i++) {
+      if (String(missing[i]).indexOf('/image-studio/generate') !== -1) return true;
+    }
+    var checks = (health && health.checks) || [];
+    for (i = 0; i < checks.length; i++) {
+      var c = checks[i];
+      if (c && String(c.route || '').indexOf('/image-studio/generate') !== -1 && (c.registered === false || c.method_ok === false)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function showRestRouteError(root, health) {

@@ -418,9 +418,20 @@ final class YooY_AI_Studio {
 
         $user = wp_get_current_user();
 
+        $rest_route_url = esc_url_raw(site_url('index.php')) . '?rest_route=/yoy-ai-studio/v1';
+        $rest_url       = esc_url_raw(rest_url('yoy-ai-studio/v1'));
+        // Whois/Apache often returns HTML 404 for /wp-json/. Prefer the plain
+        // rest_route form as the primary base the frontend tries first.
+        if (strpos($rest_url, 'wp-json') !== false && strpos($rest_url, 'rest_route=') === false) {
+            $rest_url = $rest_route_url;
+        }
+        if ($rest_url === '') {
+            $rest_url = $rest_route_url;
+        }
+
         wp_localize_script('yoy-ai-studio-core', 'YooYStudio', [
-            'restUrl'      => esc_url_raw(rest_url('yoy-ai-studio/v1')),
-            'restRouteUrl' => esc_url_raw(site_url('index.php')) . '?rest_route=/yoy-ai-studio/v1',
+            'restUrl'      => $rest_url,
+            'restRouteUrl' => $rest_route_url,
             'restRoot'     => esc_url_raw(rest_url()),
             'pluginUrl'    => esc_url_raw(YOY_AI_STUDIO_URL),
             'nonce'     => wp_create_nonce('wp_rest'),

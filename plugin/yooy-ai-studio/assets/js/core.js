@@ -15,19 +15,42 @@
     }
 
     function restConfig() {
-      var restUrl = config.restUrl || '';
-      var restRouteUrl = config.restRouteUrl || '';
-      var nonce = config.nonce || '';
+      // Always prefer the live localized object — Core.config can be a stale stub
+      // if another script initialized YooYCore before wp_localize_script ran.
+      var live = global.YooYStudio || {};
+      if (live && typeof live === 'object') {
+        if (live.restUrl) config.restUrl = live.restUrl;
+        if (live.restRouteUrl) config.restRouteUrl = live.restRouteUrl;
+        if (live.nonce) config.nonce = live.nonce;
+        if (live.version) config.version = live.version;
+      }
+      var restUrl = config.restUrl || live.restUrl || '';
+      var restRouteUrl = config.restRouteUrl || live.restRouteUrl || '';
+      var nonce = config.nonce || live.nonce || '';
       if (!restUrl && global.wpApiSettings && global.wpApiSettings.root) {
         restUrl = String(global.wpApiSettings.root).replace(/\/$/, '') + '/yoy-ai-studio/v1';
       }
       // Always be able to fall back to the index.php?rest_route= form, which
       // works on every host (Apache/Nginx) regardless of permalink settings.
-      if (!restRouteUrl && restUrl) {
-        var origin = restUrl.replace(/\/wp-json\/.*$/, '').replace(/\?rest_route=.*$/, '').replace(/\/$/, '');
-        if (restUrl.indexOf('rest_route=') === -1 && origin) {
+      if (!restRouteUrl) {
+        var origin = '';
+        if (restUrl) {
+          origin = restUrl.replace(/\/wp-json\/.*$/, '').replace(/\?rest_route=.*$/, '').replace(/\/index\.php$/, '').replace(/\/$/, '');
+        }
+        if (!origin && global.location && global.location.origin) {
+          origin = String(global.location.origin).replace(/\/$/, '');
+        }
+        if (origin) {
           restRouteUrl = origin + '/index.php?rest_route=/yoy-ai-studio/v1';
         }
+      }
+      // On hosts that 404 /wp-json/ (Apache HTML), use the plain form as the
+      // primary restUrl so the first attempt never hits a dead pretty URL.
+      if (restRouteUrl && restUrl && restUrl.indexOf('wp-json') !== -1 && restUrl.indexOf('rest_route=') === -1) {
+        restUrl = restRouteUrl;
+      }
+      if (!restUrl && restRouteUrl) {
+        restUrl = restRouteUrl;
       }
       if (!nonce && global.wpApiSettings && global.wpApiSettings.nonce) {
         nonce = global.wpApiSettings.nonce;
@@ -172,14 +195,25 @@
 
       var pretty = cfg.restUrl || '';
       var route = cfg.restRouteUrl || '';
+      // Prefer rest_route first: Whois/Apache often returns HTML 404 for /wp-json/.
+      // Session mode can still flip order after a successful pretty call.
       var order;
-      if (getRestMode() === 'rest_route' && route) {
-        order = [route, pretty];
-      } else {
+      if (getRestMode() === 'wp-json' && pretty && pretty.indexOf('rest_route=') === -1) {
         order = [pretty, route];
+      } else {
+        order = [route, pretty];
       }
       order = order.filter(function (b, i, arr) { return b && arr.indexOf(b) === i; });
-      if (!order.length) order = [pretty];
+      if (!order.length) {
+        var noBase = buildNoRouteError(path, options.method || 'GET', '', '', {
+          code: 'rest_no_route',
+          message: 'REST base URL is not configured.'
+        });
+        if (global.console && global.console.error) {
+          global.console.error('[YooY REST] missing restUrl/restRouteUrl', path);
+        }
+        return Promise.reject(noBase);
+      }
 
       var method = options.method || 'GET';
       var triedPretty = pretty ? joinRestUrl(pretty, path) : '';
@@ -198,7 +232,7 @@
             baseMode: mode,
             finalUrl: url,
             body: options.body || null,
-            assetVersion: config.version || ''
+            assetVersion: config.version || (global.YooYStudio && global.YooYStudio.version) || ''
           });
         }
 
@@ -207,7 +241,11 @@
             setRestMode(mode);
             return r.json;
           }
-          var unreachable = isNoRoute(r.res, r.json) || r.res.status === 404 || (r.parseError && !r.res.ok);
+          // HTML 404 / rest_no_route / non-JSON error pages = transport failure.
+          // Auth (401/403) and validation (400) must NOT be remapped to rest_no_route.
+          var unreachable = isNoRoute(r.res, r.json) ||
+            r.res.status === 404 ||
+            (r.parseError && (r.res.status === 404 || r.res.status === 0 || !r.res.ok));
           // Exactly one automatic fallback to the alternate permalink form.
           if (unreachable && (i + 1) < order.length) {
             debugLog('unreachable on', url, '(status ' + r.res.status + ') -> single fallback');

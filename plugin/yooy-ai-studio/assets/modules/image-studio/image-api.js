@@ -42,12 +42,35 @@
     }
 
     function restCall(module, endpoint, method, body) {
-      var cfg = Core.config || global.YooYStudio || {};
+      var live = global.YooYStudio || {};
+      var cfg = {};
+      var srcA = Core.config || {};
+      var k;
+      for (k in srcA) { if (Object.prototype.hasOwnProperty.call(srcA, k)) cfg[k] = srcA[k]; }
+      for (k in live) { if (Object.prototype.hasOwnProperty.call(live, k)) cfg[k] = live[k]; }
       var restUrl = cfg.restUrl || '';
       var restRouteUrl = cfg.restRouteUrl || '';
       var nonce = cfg.nonce || '';
       if (!restUrl && global.wpApiSettings && global.wpApiSettings.root) {
         restUrl = String(global.wpApiSettings.root).replace(/\/$/, '') + '/yoy-ai-studio/v1';
+      }
+      if (!restRouteUrl) {
+        var origin = '';
+        if (restUrl) {
+          origin = restUrl.replace(/\/wp-json\/.*$/, '').replace(/\?rest_route=.*$/, '').replace(/\/index\.php$/, '').replace(/\/$/, '');
+        }
+        if (!origin && global.location && global.location.origin) {
+          origin = String(global.location.origin).replace(/\/$/, '');
+        }
+        if (origin) {
+          restRouteUrl = origin + '/index.php?rest_route=/yoy-ai-studio/v1';
+        }
+      }
+      if (restRouteUrl && restUrl && restUrl.indexOf('wp-json') !== -1 && restUrl.indexOf('rest_route=') === -1) {
+        restUrl = restRouteUrl;
+      }
+      if (!restUrl && restRouteUrl) {
+        restUrl = restRouteUrl;
       }
       if (!nonce && global.wpApiSettings && global.wpApiSettings.nonce) {
         nonce = global.wpApiSettings.nonce;
@@ -57,7 +80,7 @@
         global.YooYLastGenerateRequest = path;
       }
       if (Core.debugLog) Core.debugLog('image-api', method, path);
-      if ((Core.config || {}).isAdmin && method === 'POST' && path.indexOf('/image-studio/generate') !== -1) {
+      if ((cfg.isAdmin) && method === 'POST' && path.indexOf('/image-studio/generate') !== -1) {
         if (global.console && global.console.log) {
           global.console.log('===== REST Fetch Body (pre-fetch) =====');
           global.console.log(JSON.stringify(body, null, 2));
@@ -65,8 +88,15 @@
         }
       }
 
-      var order = [restUrl, restRouteUrl].filter(function (b, i, arr) { return b && arr.indexOf(b) === i; });
-      if (!order.length) order = [restUrl];
+      // Prefer rest_route first (Whois/Apache often HTML-404s /wp-json/).
+      var order = [restRouteUrl, restUrl].filter(function (b, i, arr) { return b && arr.indexOf(b) === i; });
+      if (!order.length) {
+        var missingBase = new Error('이미지 생성을 시작하지 못했습니다.');
+        missingBase.code = 'rest_no_route';
+        missingBase.restNoRoute = true;
+        missingBase.details = { code: 'rest_no_route', endpoint: path, method: method };
+        return Promise.reject(missingBase);
+      }
       var triedPretty = restUrl ? joinRestUrl(restUrl, path) : '';
       var triedRoute = restRouteUrl ? joinRestUrl(restRouteUrl, path) : '';
 
@@ -94,12 +124,13 @@
             var parseError = false;
             try { json = text ? JSON.parse(text) : {}; } catch (e) { parseError = true; }
             if (res.ok && !parseError) { return json; }
-            var unreachable = (res.status === 404) || (json && json.code === 'rest_no_route') || (parseError && !res.ok);
+            var unreachable = (res.status === 404) || (json && json.code === 'rest_no_route') ||
+              (parseError && (res.status === 404 || !res.ok));
             if (unreachable && (i + 1) < order.length) {
               return attempt(i + 1);
             }
             if (unreachable) {
-              var err = new Error('REST API Route Not Found — ' + method + ' ' + path);
+              var err = new Error('이미지 생성을 시작하지 못했습니다.');
               err.code = 'rest_no_route';
               err.restNoRoute = true;
               err.details = {
