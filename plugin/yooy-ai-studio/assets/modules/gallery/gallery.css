@@ -8,6 +8,7 @@
 .ygl-sync:hover{background:#1a1508}
 .ygl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:22px}
 .ygl-card{background:#111;border:1px solid rgba(220,170,45,.15);border-radius:18px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s;position:relative}
+.ygl-card.is-menu-open{overflow:visible;z-index:5}
 .ygl-card:hover,.ygl-card:focus-visible{border-color:rgba(220,170,45,.45);transform:translateY(-2px);outline:none}
 .ygl-card.is-fav{border-color:rgba(255,215,106,.5)}
 .ygl-thumb{aspect-ratio:3/4;background:#0a0a0a;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
@@ -74,14 +75,16 @@
 .ygl-prompt-block small{color:#888;display:block;font-size:11px;margin-bottom:6px}
 .ygl-ref-list{color:#ccc;font-size:12px;margin:0;padding-left:18px}
 .ygl-muted{color:#777;font-size:12px}
-.ygl-card-hover{position:absolute;inset:0;background:rgba(0,0,0,.62);display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:6px;opacity:0;transition:opacity .18s;padding:8px;pointer-events:none}
-.ygl-card:hover .ygl-card-hover,.ygl-card:focus-within .ygl-card-hover,.ygl-card.is-menu-open .ygl-card-hover{opacity:1;pointer-events:auto}
+.ygl-card-hover{position:absolute;inset:0;background:rgba(0,0,0,.62);display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:6px;opacity:0;transition:opacity .18s;padding:8px;pointer-events:none;z-index:1}
+.ygl-card:hover .ygl-card-hover,.ygl-card:focus-within .ygl-card-hover{opacity:1;pointer-events:auto}
+.ygl-card.is-menu-open .ygl-card-hover{opacity:0;pointer-events:none}
 .ygl-card-hover button{background:#f2c14e;border:1px solid #f2c14e;border-radius:999px;color:#111;cursor:pointer;font-size:13px;font-weight:700;padding:10px 16px;pointer-events:auto;min-height:44px}
-.ygl-card-menu{position:absolute;right:8px;bottom:8px;z-index:2}
-.ygl-card-menu-btn{background:rgba(0,0,0,.7);border:1px solid rgba(220,170,45,.3);border-radius:8px;color:#ffd76a;cursor:pointer;font-size:16px;line-height:1;padding:2px 8px}
-.ygl-card-menu-pop{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:10px;bottom:100%;display:flex;flex-direction:column;gap:2px;margin-bottom:4px;min-width:140px;padding:6px;position:absolute;right:0}
-.ygl-card-menu-pop button{background:transparent;border:0;color:#ddd;cursor:pointer;font-size:12px;padding:6px 8px;text-align:left}
-.ygl-card-menu-pop button:hover{color:#ffd76a}
+.ygl-card-menu{position:absolute;right:8px;bottom:8px;z-index:20;pointer-events:auto}
+.ygl-card-menu-btn{background:rgba(0,0,0,.7);border:1px solid rgba(220,170,45,.3);border-radius:8px;color:#ffd76a;cursor:pointer;font-size:16px;line-height:1;padding:2px 8px;pointer-events:auto;position:relative;z-index:21}
+.ygl-card-menu-pop{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:10px;bottom:100%;display:flex;flex-direction:column;gap:2px;margin-bottom:4px;min-width:148px;padding:6px;position:absolute;right:0;z-index:22;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.ygl-card-menu-pop[hidden]{display:none!important}
+.ygl-card-menu-pop button{background:transparent;border:0;color:#ddd;cursor:pointer;font-size:12px;padding:8px 10px;text-align:left;width:100%;pointer-events:auto}
+.ygl-card-menu-pop button:hover,.ygl-card-menu-pop button:focus-visible{color:#ffd76a;background:rgba(242,193,78,.08)}
 .ygl-market-modal{position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:3}
 .ygl-market-panel{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:16px;display:grid;gap:12px;max-height:90vh;overflow:auto;padding:20px;width:min(520px,96vw)}
 .ygl-market-panel h3{color:#ffd76a;font-size:18px;font-weight:700;margin:0}
@@ -317,6 +320,7 @@
 @media(max-width:560px){
   .ygl-grid{grid-template-columns:1fr}
   .ygl-card-hover{opacity:1;pointer-events:auto;background:linear-gradient(transparent 45%,rgba(0,0,0,.72))}
+  .ygl-card.is-menu-open .ygl-card-hover{opacity:0;pointer-events:none}
   .ygl-card-hover button{align-self:flex-end}
   .ygl-drawer--detail{width:100%;max-width:100%;max-height:100vh;border-radius:0;box-sizing:border-box}
 }

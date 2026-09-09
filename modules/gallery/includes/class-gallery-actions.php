@@ -487,7 +487,28 @@ final class YooY_Gallery_Actions {
     public function download_info(int $user_id, string $id): array {
         $item = $this->store->get($user_id, $id);
         if (!$item) throw new Exception('Item not found.');
-        $url = $item['output_url'] ?? '';
+        $url = '';
+        if (!empty($item['full_url'])) {
+            $url = (string) $item['full_url'];
+        } elseif (!empty($item['original_url'])) {
+            $url = (string) $item['original_url'];
+        } elseif (!empty($item['output_url'])) {
+            $url = (string) $item['output_url'];
+        } elseif (!empty($item['image_url'])) {
+            $url = (string) $item['image_url'];
+        } elseif (!empty($item['asset_url'])) {
+            $url = (string) $item['asset_url'];
+        } elseif (!empty($item['url'])) {
+            $url = (string) $item['url'];
+        }
+        // Prefer canonical attachment original over medium/thumbnail derivatives.
+        if (!empty($item['attachment_id']) && function_exists('wp_get_attachment_url')) {
+            $attach = wp_get_attachment_url((int) $item['attachment_id']);
+            if (is_string($attach) && $attach !== '') {
+                $url = $attach;
+            }
+        }
+        $url = esc_url_raw($url);
         if ($url === '') throw new Exception('No downloadable file.');
         return [
             'url'      => $url,

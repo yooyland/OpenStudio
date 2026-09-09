@@ -19,6 +19,77 @@
   };
 
   var state = { items: [], filter: 'all', selected: null, editing: false, query: '', sort: 'newest', historyMode: false };
+  var menuDocBound = false;
+
+  function findItem(id) {
+    var sid = String(id == null ? '' : id);
+    if (!sid) return null;
+    for (var i = 0; i < state.items.length; i++) {
+      if (String(state.items[i].id) === sid) return state.items[i];
+    }
+    return null;
+  }
+
+  function closeAllCardMenus(exceptPop) {
+    document.querySelectorAll('.ygl-card-menu-pop').forEach(function (pop) {
+      if (exceptPop && pop === exceptPop) return;
+      pop.hidden = true;
+    });
+    document.querySelectorAll('.ygl-card.is-menu-open').forEach(function (card) {
+      if (exceptPop && card.contains(exceptPop)) return;
+      card.classList.remove('is-menu-open');
+      var toggle = card.querySelector('[data-ygl-menu-toggle]');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function ensureMenuDocBindings() {
+    if (menuDocBound) return;
+    menuDocBound = true;
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.ygl-card-menu')) return;
+      closeAllCardMenus();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAllCardMenus();
+    });
+  }
+
+  function actionFailToast(action) {
+    switch (action) {
+      case 'open':
+        toast('작품을 열지 못했습니다.');
+        break;
+      case 'project':
+      case 'project-move':
+        toast('프로젝트에 추가하지 못했습니다.');
+        break;
+      case 'download':
+        toast('다운로드를 시작하지 못했습니다.');
+        break;
+      case 'duplicate':
+        toast('작품을 복제하지 못했습니다.');
+        break;
+      case 'delete':
+        toast('작품을 삭제하지 못했습니다.');
+        break;
+      default:
+        toast('작업을 완료하지 못했습니다.');
+        break;
+    }
+  }
+
+  function runQuickAction(action, item) {
+    if (!action || !item) {
+      actionFailToast(action || 'open');
+      return;
+    }
+    if (action === 'open') {
+      openDetail(item.id);
+      return;
+    }
+    handleAction(action, item, document.body);
+  }
 
   function esc(str) {
     var d = document.createElement('div');
@@ -364,10 +435,16 @@
   }
 
   function openDetail(id) {
-    if (!id) return;
+    if (!id) {
+      toast('작품을 열지 못했습니다.');
+      return;
+    }
     Core.gallery.item(id).then(function (res) {
       var item = (res.data && res.data.item) || null;
-      if (!item) return;
+      if (!item) {
+        toast('작품을 열지 못했습니다.');
+        return;
+      }
       state.selected = item;
       closeDetail();
 
@@ -396,7 +473,7 @@
       document.body.classList.add('ygl-drawer-open');
       bindDrawer(overlay, item);
     }).catch(function (err) {
-      toast(err.message || '상세 정보를 불러올 수 없습니다.');
+      toast((err && err.message) || '작품을 열지 못했습니다.');
     });
   }
 
@@ -673,15 +750,31 @@
       case 'download':
         Core.gallery.download(item.id).then(function (res) {
           var info = res.data || {};
-          if (info.url) {
-            var a = document.createElement('a');
-            a.href = info.url;
-            a.download = info.filename || 'download';
-            a.target = '_blank';
-            a.click();
-            toast('다운로드를 시작합니다.');
+          var url = info.url || '';
+          if (!url && global.YooYGalleryImage && typeof global.YooYGalleryImage.pickUrl === 'function') {
+            url = global.YooYGalleryImage.pickUrl(item, 'full')
+              || global.YooYGalleryImage.pickUrl(item, 'large')
+              || '';
           }
-        }).catch(function (err) { toast(err.message); });
+          if (!url) {
+            url = item.full_url || item.output_url || item.url || '';
+          }
+          if (!url) {
+            toast('다운로드를 시작하지 못했습니다.');
+            return;
+          }
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = info.filename || 'yoy-download';
+          a.target = '_blank';
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          toast('다운로드를 시작합니다.');
+        }).catch(function (err) {
+          toast((err && err.message) || '다운로드를 시작하지 못했습니다.');
+        });
         break;
 
       case 'edit-meta':
@@ -792,21 +885,31 @@
       case 'project':
       case 'project-move':
         if (global.YooYStudioPickProject) {
-          global.YooYStudioPickProject(item.id);
+          try {
+            global.YooYStudioPickProject(String(item.id));
+          } catch (ePick) {
+            toast('프로젝트에 추가하지 못했습니다.');
+          }
           return;
         }
         Core.gallery.project(item.id).then(function () {
-          toast('Project에 추가했습니다.');
+          toast('프로젝트에 추가했습니다.');
           notifyUpdated();
-        }).catch(function (err) { toast(err.message); });
+        }).catch(function (err) {
+          toast((err && err.message) || '프로젝트에 추가하지 못했습니다.');
+        });
         break;
 
       case 'duplicate':
+        // Gallery entry clone (same media URLs) — not a second binary copy system.
         Core.gallery.duplicate(item.id).then(function () {
           toast('작품을 복제했습니다.');
           notifyUpdated();
-          load(document.querySelector('.ygl-root') && document.querySelector('.ygl-root').parentElement);
-        }).catch(function (err) { toast(err.message); });
+          var root = document.querySelector('.ygl-root');
+          if (root) load(root.parentElement || root);
+        }).catch(function (err) {
+          toast((err && err.message) || '작품을 복제하지 못했습니다.');
+        });
         break;
 
       case 'delete':
@@ -817,13 +920,15 @@
         }
         if (!confirm(warn)) return;
         Core.gallery.remove(item.id).then(function () {
-          state.items = state.items.filter(function (i) { return i.id !== item.id; });
+          state.items = state.items.filter(function (i) { return String(i.id) !== String(item.id); });
           closeDetail();
-          var root = document.querySelector('.ygl-root');
-          if (root) renderGrid(root.parentElement || root);
+          var rootDel = document.querySelector('.ygl-root');
+          if (rootDel) renderGrid(rootDel.parentElement || rootDel);
           toast('삭제되었습니다.');
           notifyUpdated();
-        }).catch(function (err) { toast(err.message); });
+        }).catch(function (err) {
+          toast((err && err.message) || '작품을 삭제하지 못했습니다.');
+        });
         break;
     }
   }
@@ -841,9 +946,99 @@
       '</div></div>';
   }
 
+  function onGridClick(e) {
+    var gridEl = e.currentTarget;
+    var emptyCreate = e.target.closest('[data-ygl-empty-create]');
+    if (emptyCreate && gridEl.contains(emptyCreate)) {
+      e.preventDefault();
+      if (global.YooYStudioRoute) global.YooYStudioRoute('home');
+      return;
+    }
+    var toggle = e.target.closest('[data-ygl-menu-toggle]');
+    if (toggle && gridEl.contains(toggle)) {
+      e.preventDefault();
+      e.stopPropagation();
+      var cardT = toggle.closest('.ygl-card');
+      var popT = cardT && cardT.querySelector('.ygl-card-menu-pop');
+      var willOpen = !!(popT && popT.hidden);
+      closeAllCardMenus(willOpen ? popT : null);
+      if (!popT) return;
+      popT.hidden = !willOpen;
+      toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (cardT) {
+        if (willOpen) cardT.classList.add('is-menu-open');
+        else cardT.classList.remove('is-menu-open');
+      }
+      return;
+    }
+
+    var quick = e.target.closest('[data-ygl-quick]');
+    if (quick && gridEl.contains(quick)) {
+      e.preventDefault();
+      e.stopPropagation();
+      var cardQ = quick.closest('.ygl-card');
+      var idQ = cardQ && cardQ.getAttribute('data-ygl-id');
+      var actionQ = quick.getAttribute('data-ygl-quick') || '';
+      closeAllCardMenus();
+      var itQ = findItem(idQ);
+      if (!itQ) {
+        actionFailToast(actionQ || 'open');
+        return;
+      }
+      runQuickAction(actionQ, itQ);
+      return;
+    }
+
+    var hoverBtn = e.target.closest('[data-ygl-hover]');
+    if (hoverBtn && gridEl.contains(hoverBtn)) {
+      e.preventDefault();
+      e.stopPropagation();
+      var cardH = hoverBtn.closest('.ygl-card');
+      var idH = cardH && cardH.getAttribute('data-ygl-id');
+      var hoverAction = hoverBtn.getAttribute('data-ygl-hover') || '';
+      var itH = findItem(idH);
+      if (!itH) {
+        actionFailToast(hoverAction === 'open' ? 'open' : 'duplicate');
+        return;
+      }
+      if (hoverAction === 'open') {
+        openDetail(itH.id);
+        return;
+      }
+      if (hoverAction === 'regenerate') {
+        handleAction('regenerate', itH, document.body);
+      }
+      return;
+    }
+
+    if (e.target.closest('.ygl-card-menu') || e.target.closest('.ygl-card-hover')) return;
+    var card = e.target.closest('.ygl-card');
+    if (card && gridEl.contains(card)) {
+      openDetail(card.getAttribute('data-ygl-id'));
+    }
+  }
+
+  function onGridKeydown(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.target.closest('button') || e.target.closest('.ygl-card-menu-pop')) return;
+    var card = e.target.closest('.ygl-card');
+    if (!card || !e.currentTarget.contains(card)) return;
+    e.preventDefault();
+    openDetail(card.getAttribute('data-ygl-id'));
+  }
+
+  function ensureGridDelegation(gridEl) {
+    if (!gridEl || gridEl.dataset.yglDelegated === '1') return;
+    gridEl.dataset.yglDelegated = '1';
+    gridEl.addEventListener('click', onGridClick);
+    gridEl.addEventListener('keydown', onGridKeydown);
+    ensureMenuDocBindings();
+  }
+
   function renderGrid(root) {
     var gridEl = root.querySelector ? root.querySelector('.ygl-grid') : null;
     if (!gridEl) return;
+    ensureGridDelegation(gridEl);
 
     var filtered = state.filter === 'all'
       ? state.items
@@ -855,12 +1050,6 @@
       gridEl.innerHTML = '<div class="ygl-empty"><h3>아직 만든 작품이 없습니다.</h3>' +
         '<p>Composer나 템플릿으로 첫 작품을 만들어 보세요.</p>' +
         '<button type="button" class="ygl-btn ygl-btn-primary" data-ygl-empty-create>첫 작품 만들기</button></div>';
-      var emptyBtn = gridEl.querySelector('[data-ygl-empty-create]');
-      if (emptyBtn) {
-        emptyBtn.addEventListener('click', function () {
-          if (global.YooYStudioRoute) global.YooYStudioRoute('home');
-        });
-      }
       return;
     }
 
@@ -883,59 +1072,6 @@
         global.YooYOnboarding.maybeShowGalleryIntro(root);
       }
     } catch (obG) { /* ignore */ }
-
-    gridEl.querySelectorAll('.ygl-card').forEach(function (card) {
-      card.addEventListener('click', function (e) {
-        if (e.target.closest('[data-ygl-menu-toggle]') || e.target.closest('.ygl-card-menu-pop') || e.target.closest('.ygl-card-hover')) return;
-        openDetail(card.dataset.yglId);
-      });
-      card.addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        if (e.target.closest('[data-ygl-menu-toggle]') || e.target.closest('.ygl-card-menu-pop') || e.target.closest('button')) return;
-        e.preventDefault();
-        openDetail(card.dataset.yglId);
-      });
-      card.querySelectorAll('[data-ygl-hover]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var action = btn.dataset.yglHover;
-          if (action === 'open') {
-            openDetail(card.dataset.yglId);
-            return;
-          }
-          var it = state.items.find(function (x) { return x.id === card.dataset.yglId; });
-          if (!it) return;
-          if (action === 'regenerate') {
-            handleAction('regenerate', it, document.body);
-            return;
-          }
-        });
-      });
-      var toggle = card.querySelector('[data-ygl-menu-toggle]');
-      if (toggle) {
-        toggle.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var pop = card.querySelector('.ygl-card-menu-pop');
-          var open = pop && pop.hidden;
-          document.querySelectorAll('.ygl-card-menu-pop').forEach(function (other) {
-            if (other !== pop) other.hidden = true;
-          });
-          if (pop) pop.hidden = !open;
-          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        });
-      }
-      card.querySelectorAll('[data-ygl-quick]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var it = state.items.find(function (x) { return x.id === card.dataset.yglId; });
-          if (!it) return;
-          if (btn.dataset.yglQuick === 'open') openDetail(it.id);
-          else handleAction(btn.dataset.yglQuick, it, document.body);
-          var pop = card.querySelector('.ygl-card-menu-pop');
-          if (pop) pop.hidden = true;
-        });
-      });
-    });
   }
 
   function renderFilters(root) {
