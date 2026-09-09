@@ -118,7 +118,7 @@
 .yai-btn--gold,
 .yai-composer .yai-btn--gold {
   background: var(--accent-gold, #f2c94c);
-  color: var(--accent-gold-text, #111111);
+  color: var(--accent-gold-text, #080808);
   font-size: 16px;
   font-weight: 700;
   min-height: var(--yai-btn-height, 52px);

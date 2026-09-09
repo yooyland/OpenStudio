@@ -563,7 +563,7 @@
   border: 0;
   border-radius: 999px;
   background: linear-gradient(180deg, #d4af37, #b8922a);
-  color: #111;
+  color: var(--accent-gold-text, #080808);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -1012,7 +1012,7 @@
   border-radius: 9px;
   font-size: 12px;
   font-weight: 700;
-  color: #111111;
+  color: var(--accent-gold-text, #080808);
   background: var(--accent-gold, #f2c94c);
   border: 1px solid var(--accent-gold, #f2c94c);
 }

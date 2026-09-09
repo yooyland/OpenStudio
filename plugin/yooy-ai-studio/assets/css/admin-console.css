@@ -359,7 +359,7 @@
 .yai-btn--primary {
   background: linear-gradient(135deg, #f2c14e, #ffd76a);
   border: 1px solid transparent;
-  color: #0a0a0a;
+  color: #080808;
 }
 
 .yai-btn--primary:hover { filter: brightness(1.05); }
@@ -395,7 +395,7 @@
 .yai-ops-action--primary {
   background: linear-gradient(135deg, #f2c14e, #ffd76a);
   border-color: transparent;
-  color: #0a0a0a;
+  color: #080808;
 }
 
 /* Provider cards */
@@ -1361,7 +1361,7 @@
   background: linear-gradient(135deg, #f2c14e, #ffd76a);
   border: 1px solid transparent;
   border-radius: 8px;
-  color: #0a0a0a;
+  color: #080808;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
