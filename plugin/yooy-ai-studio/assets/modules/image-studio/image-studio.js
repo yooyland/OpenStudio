@@ -237,6 +237,22 @@
     return '예상 ' + est + ' 크레딧';
   }
 
+  function showStudioToast(message, isError) {
+    if (!message) return;
+    var existing = document.getElementById('yai-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'yai-toast';
+    toast.className = 'yai-toast' + (isError ? ' yai-toast--error' : '');
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    requestAnimationFrame(function () { toast.classList.add('is-visible'); });
+    setTimeout(function () {
+      toast.classList.remove('is-visible');
+      setTimeout(function () { if (toast.parentNode) toast.remove(); }, 300);
+    }, 3200);
+  }
+
   function generateButtonLabel() {
     if (state.generating) return '생성 중...';
     return '생성하기 →';
@@ -2367,10 +2383,11 @@
     if (!state.lastResult || !state.lastResult.job_id) return '';
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
-        resultToolbarBtn('reuse', '비슷하게 만들기') +
-        resultToolbarBtn('gallery', 'Gallery에서 보기') +
+        resultToolbarBtn('reuse', '이어서 만들기') +
+        resultToolbarBtn('publish', '공개하기') +
         resultToolbarBtn('project', '프로젝트에 추가') +
         resultToolbarBtn('download', '다운로드') +
+        resultToolbarBtn('gallery', 'Gallery에서 보기') +
       '</div></div>';
   }
 
@@ -2462,7 +2479,10 @@
 
   function handleResultAction(action, root) {
     var galleryId = state.activeGalleryId || (state.lastResult && (state.lastResult.job_id + '_0'));
-    if (!galleryId) return;
+    if (!galleryId) {
+      if (action === 'publish') showStudioToast('작품 정보를 찾지 못했습니다.', true);
+      return;
+    }
 
     if (action === 'edit') {
       state.tab = 'edit';
@@ -2540,10 +2560,18 @@
     }
 
     if (action === 'publish') {
+      if (!galleryId) {
+        showStudioToast('작품 정보를 찾지 못했습니다.', true);
+        return;
+      }
       if (global.YooYGallery && typeof global.YooYGallery.openPublish === 'function') {
-        global.YooYGallery.openPublish(galleryId);
+        try {
+          global.YooYGallery.openPublish(galleryId);
+        } catch (err) {
+          showStudioToast('공개 설정을 열지 못했습니다.', true);
+        }
       } else {
-        alert('공개 기능을 불러오지 못했습니다.');
+        showStudioToast('공개 설정을 열지 못했습니다.', true);
       }
       return;
     }

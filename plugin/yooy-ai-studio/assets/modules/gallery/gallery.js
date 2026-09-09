@@ -27,11 +27,28 @@
   }
 
   function toast(msg) {
+    var text = msg == null ? '' : String(msg);
+    if (!text) return;
+    try {
+      var existing = document.getElementById('yai-toast');
+      if (existing) existing.remove();
+      var t = document.createElement('div');
+      t.id = 'yai-toast';
+      t.className = 'yai-toast' + (/찾지|실패|못|오류|error/i.test(text) ? ' yai-toast--error' : '');
+      t.textContent = text;
+      document.body.appendChild(t);
+      requestAnimationFrame(function () { t.classList.add('is-visible'); });
+      setTimeout(function () {
+        t.classList.remove('is-visible');
+        setTimeout(function () { if (t.parentNode) t.remove(); }, 300);
+      }, 3200);
+      return;
+    } catch (e) { /* fall through */ }
     var el = document.createElement('div');
     el.className = 'ygl-toast';
-    el.textContent = msg;
+    el.textContent = text;
     document.body.appendChild(el);
-    setTimeout(function () { el.remove(); }, 2600);
+    setTimeout(function () { if (el.parentNode) el.remove(); }, 2600);
   }
 
   function notifyUpdated() {
@@ -584,16 +601,20 @@
   }
 
   function openPublish(id) {
-    if (!id) return;
+    if (!id) {
+      toast('작품 정보를 찾지 못했습니다.');
+      return;
+    }
     Core.gallery.item(id).then(function (res) {
       var item = (res.data && res.data.item) || null;
       if (!item) {
-        toast('작품을 찾을 수 없습니다.');
+        toast('작품 정보를 찾지 못했습니다.');
         return;
       }
       openPublishSheet(item);
     }).catch(function (err) {
-      toast(err.message || '작품을 불러올 수 없습니다.');
+      toast('공개 설정을 열지 못했습니다.');
+      if (global.console && console.error) console.error('[YooYGallery] openPublish', err);
     });
   }
 

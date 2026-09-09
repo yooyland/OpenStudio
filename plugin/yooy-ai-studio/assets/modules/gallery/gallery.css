@@ -42,8 +42,8 @@
 .ygl-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ygl-btn{border-radius:10px;padding:10px 12px;font-size:12px;cursor:pointer;border:1px solid rgba(220,170,45,.3);background:#151515;color:#ffd76a}
 .ygl-btn:hover{background:#1f1a0a}
-.ygl-btn-primary{background:#f2c14e;color:#111;border-color:#f2c14e;font-weight:700}
-.ygl-btn-primary:hover{background:#ffd76a}
+.ygl-btn-primary{background:#f2c14e;color:#080808!important;-webkit-text-fill-color:#080808;border-color:#f2c14e;font-weight:700}
+.ygl-btn-primary:hover,.ygl-btn-primary:focus,.ygl-btn-primary:active{background:#ffd76a;color:#080808!important;-webkit-text-fill-color:#080808}
 .ygl-btn-danger{color:#f88;border-color:rgba(255,100,100,.3)}
 .ygl-btn.is-active{background:#1a1508;border-color:#d8a63a}
 .ygl-close{position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);border:0;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;z-index:1}

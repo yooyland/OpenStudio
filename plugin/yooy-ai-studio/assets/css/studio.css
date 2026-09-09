@@ -3984,14 +3984,25 @@ body:not(.yai-is-admin) .yoy-sys-widget { display: none !important; }
   padding-right: 14px;
 }
 .yai-project-detail-cover--large {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: auto;
+  background: #050505;
+  border: 1px solid rgba(220, 170, 45, 0.18);
   border-radius: 16px;
+  max-height: min(70vh, 760px);
+  min-height: 240px;
   overflow: hidden;
 }
-.yai-project-detail-cover--large img {
+.yai-project-detail-cover--large img,
+.yai-project-detail-cover--hq img,
+.yai-workspace-hero-image {
   display: block;
-  height: 100%;
-  object-fit: cover;
+  filter: none !important;
+  height: auto;
+  image-rendering: auto;
+  margin: 0 auto;
+  max-height: min(70vh, 760px);
+  max-width: 100%;
+  object-fit: contain;
   width: 100%;
 }
 .yai-workspace-hero-actions {
@@ -4417,3 +4428,106 @@ body:not(.yai-is-admin) .yoy-sys-widget { display: none !important; }
 @media (max-width: 700px) {
   .yai-pub-grid { grid-template-columns: 1fr; }
 }
+
+/*
+ * Canonical filled-gold contrast (design system).
+ * Any filled gold/yellow control must keep dark text in all states.
+ * Outlined / dark / destructive controls are excluded.
+ */
+.yai-app .yai-btn--gold,
+.yai-app .yai-btn.yai-btn--gold,
+.yai-app a.yai-btn--gold,
+.yai-app button.yai-btn--gold,
+.yai-app .yai-btn-gold-primary,
+.yai-app .yai-generate-btn,
+.yai-app .yai-home-composer__submit,
+.yai-app .yai-hd-card__cta,
+.yai-app .yai-hd-studio-card__cta,
+.yai-app .yai-ct-card__cta,
+.yai-app .yai-ct-sheet__go,
+.yai-app .yoy-project-dialog__btn--gold,
+.yai-app .yai-nav-dialog__btn--gold,
+.yai-app .yis-btn-primary,
+.yai-app .yvs-btn-primary,
+.yai-app .yms-btn-primary,
+.yai-app .yas-btn-primary,
+.yai-app .ygl-btn-primary,
+.yai-app .yie-btn--gold,
+.yai-app .yts-btn--primary,
+.yai-app .yai-assistant-action-btn--primary,
+.yai-app .yai-tier-badge,
+body.yoy-creator-os-active .yai-btn--gold,
+body.yoy-creator-os-active .yai-btn-gold-primary,
+body.yoy-creator-os-active .ygl-btn-primary {
+  color: #080808 !important;
+  -webkit-text-fill-color: #080808 !important;
+}
+
+.yai-app .yai-btn--gold:hover,
+.yai-app .yai-btn--gold:focus,
+.yai-app .yai-btn--gold:focus-visible,
+.yai-app .yai-btn--gold:active,
+.yai-app .yai-btn--gold:visited,
+.yai-app a.yai-btn--gold:hover,
+.yai-app a.yai-btn--gold:focus,
+.yai-app a.yai-btn--gold:focus-visible,
+.yai-app a.yai-btn--gold:active,
+.yai-app a.yai-btn--gold:visited,
+.yai-app button.yai-btn--gold:hover,
+.yai-app button.yai-btn--gold:focus,
+.yai-app button.yai-btn--gold:focus-visible,
+.yai-app button.yai-btn--gold:active,
+.yai-app .yai-btn-gold-primary:hover,
+.yai-app .yai-btn-gold-primary:focus,
+.yai-app .yai-btn-gold-primary:focus-visible,
+.yai-app .yai-btn-gold-primary:active,
+.yai-app .yai-generate-btn:hover,
+.yai-app .yai-generate-btn:focus,
+.yai-app .yai-generate-btn:focus-visible,
+.yai-app .yai-generate-btn:active,
+.yai-app .yai-home-composer__submit:hover,
+.yai-app .yai-home-composer__submit:focus,
+.yai-app .yai-home-composer__submit:focus-visible,
+.yai-app .yai-home-composer__submit:active,
+.yai-app .yai-hd-card__cta:hover,
+.yai-app .yai-hd-card__cta:focus,
+.yai-app .yai-hd-card__cta:focus-visible,
+.yai-app .yai-hd-card__cta:active,
+.yai-app .yai-hd-studio-card:hover .yai-hd-studio-card__cta,
+.yai-app .yai-hd-studio-card__cta:hover,
+.yai-app .yai-hd-studio-card__cta:focus,
+.yai-app .yai-ct-card__cta:hover,
+.yai-app .yai-ct-sheet__go:hover,
+.yai-app .yis-btn-primary:hover,
+.yai-app .yvs-btn-primary:hover,
+.yai-app .yms-btn-primary:hover,
+.yai-app .yas-btn-primary:hover,
+.yai-app .ygl-btn-primary:hover,
+.yai-app .yie-btn--gold:hover,
+.yai-app .yts-btn--primary:hover,
+.yai-app .yai-assistant-action-btn--primary:hover,
+body.yoy-creator-os-active .yai-btn--gold:hover,
+body.yoy-creator-os-active .yai-btn-gold-primary:hover,
+body.yoy-creator-os-active .ygl-btn-primary:hover {
+  color: #080808 !important;
+  -webkit-text-fill-color: #080808 !important;
+}
+
+.yai-app .yai-btn--gold span,
+.yai-app .yai-btn--gold svg,
+.yai-app .yai-btn-gold-primary span,
+.yai-app .yai-btn-gold-primary svg,
+.yai-app .yai-home-composer__submit span,
+.yai-app .yai-hd-card__cta span,
+.yai-app .yai-hd-studio-card__cta span,
+.yai-app .yai-generate-btn span,
+.yai-app .yis-btn-primary span,
+.yai-app .yvs-btn-primary span,
+.yai-app .yms-btn-primary span,
+.yai-app .yas-btn-primary span,
+.yai-app .ygl-btn-primary span,
+.yai-app .yts-btn--primary span {
+  color: inherit !important;
+  fill: currentColor;
+}
+
