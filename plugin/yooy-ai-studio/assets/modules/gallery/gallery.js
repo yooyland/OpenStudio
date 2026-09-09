@@ -409,12 +409,17 @@
   function openPublishSheet(item, opts) {
     opts = opts || {};
     if (!item || !item.id) return;
+    // One sheet at a time; always mount on body above .yai-app (z-index 999990).
+    document.querySelectorAll('.ygl-publish-host').forEach(function (el) {
+      closePublishHost(el);
+    });
     var pub = publicationOf(item);
     var host = document.createElement('div');
     host.className = 'ygl-drawer-overlay ygl-publish-host';
     host.setAttribute('role', 'dialog');
     host.setAttribute('aria-modal', 'true');
     host.setAttribute('aria-label', '작품 공개');
+    host.style.zIndex = '1000010';
     host.innerHTML =
       '<div class="ygl-publish-sheet" tabindex="-1">' +
         '<button type="button" class="ygl-close" data-ygl-pub-close aria-label="닫기">×</button>' +
@@ -601,20 +606,28 @@
   }
 
   function openPublish(id) {
-    if (!id) {
+    var galleryId = '';
+    if (typeof id === 'string' || typeof id === 'number') {
+      galleryId = String(id);
+    } else if (id && typeof id === 'object') {
+      galleryId = String(id.gallery_id || id.id || '');
+    }
+    if (!galleryId) {
       toast('작품 정보를 찾지 못했습니다.');
       return;
     }
-    Core.gallery.item(id).then(function (res) {
+    return Core.gallery.item(galleryId).then(function (res) {
       var item = (res.data && res.data.item) || null;
       if (!item) {
         toast('작품 정보를 찾지 못했습니다.');
-        return;
+        return null;
       }
       openPublishSheet(item);
+      return item;
     }).catch(function (err) {
       toast('공개 설정을 열지 못했습니다.');
       if (global.console && console.error) console.error('[YooYGallery] openPublish', err);
+      return null;
     });
   }
 

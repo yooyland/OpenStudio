@@ -31,7 +31,7 @@
       }
       return Core.get('gallery', '/items' + q);
     },
-    item: function (id) { return Core.get('gallery', '/items/' + id); },
+    item: function (id) { return Core.get('gallery', '/items/' + encodeURIComponent(id)); },
     save: function (data) { return Core.post('gallery', '/items', data); },
     update: function (id, data) { return Core.put('gallery', '/items/' + id, data); },
     remove: function (id) { return Core.apiDelete('gallery', '/items/' + id); },

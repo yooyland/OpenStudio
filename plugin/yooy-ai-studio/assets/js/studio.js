@@ -1675,6 +1675,25 @@
     return w.thumbnail_url || w.thumbnail || w.medium_url || w.image_url || w.url || '';
   }
 
+  function resolveWorkspaceGalleryId(workId) {
+    var fromBtn = workId ? String(workId) : '';
+    if (fromBtn) {
+      var works = (workspaceCache && workspaceCache.works) || [];
+      var match = works.find(function (w) {
+        return w && (String(w.id) === fromBtn || String(w.gallery_id || '') === fromBtn);
+      });
+      if (match) {
+        return String(match.gallery_id || match.id || fromBtn);
+      }
+      return fromBtn;
+    }
+    var list = (workspaceCache && workspaceCache.works) || [];
+    if (list.length === 1 && !list[0].asset_missing) {
+      return String(list[0].gallery_id || list[0].id || '');
+    }
+    return '';
+  }
+
   function workspaceHeroImgHtml(w, className) {
     var src = workspaceHeroUrl(w);
     if (!src) return '';
@@ -2620,7 +2639,7 @@
         : (esc(typeBadgeLabel(w.type || 'image')) + ' · ' + relTime(w.created_at || w.updated_at))) + '</span>' +
       '<div class="yai-project-actions">' +
         (w.asset_missing ? '' :
-        '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ws-asset-action="publish" data-work-id="' + esc(id) + '">공개하기</button>' +
+        '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ws-asset-action="publish" data-work-id="' + esc(id) + '" data-gallery-id="' + esc(id) + '">공개하기</button>' +
         '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="open" data-work-id="' + esc(id) + '">Gallery에서 보기</button>') +
         '<button type="button" class="yai-btn--outline yai-btn--sm" data-ws-asset-action="remove" data-work-id="' + esc(id) + '">프로젝트에서 제거</button>' +
       '</div></article>';
@@ -2647,7 +2666,7 @@
         '<button type="button" class="yai-btn yai-btn--outline" data-workspace-studio="image">새 작품 만들기</button>' +
         '<button type="button" class="yai-btn yai-btn--outline" id="yai-project-add-works">Gallery에서 추가</button>' +
         (mainId && !main.asset_missing
-          ? '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ws-asset-action="publish" data-work-id="' + esc(mainId) + '">공개하기</button>' +
+          ? '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ws-asset-action="publish" data-work-id="' + esc(mainId) + '" data-gallery-id="' + esc(mainId) + '">공개하기</button>' +
             '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ws-asset-action="open" data-work-id="' + esc(mainId) + '">Gallery에서 보기</button>'
           : '') +
       '</div>' +
@@ -4222,21 +4241,20 @@
       var wact = wsAsset.getAttribute('data-ws-asset-action');
       if (wact === 'open' || wact === 'preview') openWorkDetail(wid);
       else if (wact === 'publish') {
-        if (!wid) {
+        var galleryId = resolveWorkspaceGalleryId(wid);
+        if (!galleryId) {
           showToast('작품 정보를 찾지 못했습니다.', true);
           return;
         }
         var openPub = (window.YooYGallery && window.YooYGallery.openPublish)
           || (Y.YooYGallery && Y.YooYGallery.openPublish);
-        if (typeof openPub === 'function') {
-          try {
-            openPub(wid);
-          } catch (pubErr) {
-            showToast('공개 설정을 열지 못했습니다.', true);
-          }
-        } else {
+        if (typeof openPub !== 'function') {
           showToast('공개 설정을 열지 못했습니다.', true);
+          return;
         }
+        Promise.resolve(openPub(galleryId)).catch(function () {
+          showToast('공개 설정을 열지 못했습니다.', true);
+        });
       } else if (wact === 'remove') {
         if (!window.confirm('프로젝트에서만 연결을 해제합니다. Gallery 원본은 삭제되지 않습니다.')) return;
         var removePid = currentProjectId ||

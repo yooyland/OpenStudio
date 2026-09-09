@@ -26,7 +26,7 @@
 .ygl-empty{text-align:center;padding:48px 20px;color:#666}
 .ygl-loading{text-align:center;padding:40px;color:#888}
 
-.ygl-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.ygl-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000010;display:flex;align-items:center;justify-content:center;padding:20px}
 .ygl-modal{background:#0d0d0d;border:1px solid rgba(220,170,45,.3);border-radius:20px;max-width:900px;width:100%;max-height:90vh;overflow:hidden;display:grid;grid-template-columns:1fr 340px}
 .ygl-modal-preview{background:#080808;display:flex;align-items:center;justify-content:center;min-height:320px;padding:20px;overflow:hidden}
 .ygl-modal-preview img,.ygl-modal-preview video{max-width:100%;max-height:60vh;object-fit:contain;border-radius:12px}
@@ -47,7 +47,7 @@
 .ygl-btn-danger{color:#f88;border-color:rgba(255,100,100,.3)}
 .ygl-btn.is-active{background:#1a1508;border-color:#d8a63a}
 .ygl-close{position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);border:0;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;z-index:1}
-.ygl-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1508;border:1px solid rgba(220,170,45,.4);color:#ffd76a;padding:10px 20px;border-radius:999px;font-size:13px;z-index:10000;animation:ygl-fade 2.5s forwards}
+.ygl-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1508;border:1px solid rgba(220,170,45,.4);color:#ffd76a;padding:10px 20px;border-radius:999px;font-size:13px;z-index:1000020;animation:ygl-fade 2.5s forwards}
 .ygl-thumb-missing{align-items:center;color:#ff8a8a;display:flex;font-size:11px;font-weight:700;height:100%;justify-content:center;padding:12px;text-align:center;width:100%}
 .ygl-thumb-missing--preview{min-height:200px}
 @keyframes ygl-fade{0%,70%{opacity:1}100%{opacity:0}}
@@ -58,7 +58,7 @@
   .ygl-drawer{width:100vw;max-width:100vw}
 }
 
-.ygl-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;justify-content:flex-end}
+.ygl-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000010;display:flex;justify-content:flex-end}
 .ygl-drawer-open{overflow:hidden}
 .ygl-drawer{width:min(480px,96vw);max-width:96vw;height:100vh;background:#0d0d0d;border-left:1px solid rgba(220,170,45,.25);overflow:auto;display:flex;flex-direction:column;animation:ygl-slide-in .24s ease}
 @keyframes ygl-slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
@@ -118,7 +118,8 @@
 .ygl-pub-state-row span{color:#999}
 .ygl-pub-state-row strong{color:#eee;font-weight:600}
 .ygl-actions--pub{display:flex;flex-wrap:wrap;gap:8px}
-.ygl-publish-host{align-items:flex-end}
+/* Gallery overlays must sit ABOVE .yai-app (z-index 999990). Same tier as project-create dialog. */
+.ygl-publish-host{align-items:flex-end;z-index:1000010}
 .ygl-publish-sheet,.ygl-publish-panel{background:#111;border:1px solid rgba(220,170,45,.28);border-radius:18px 18px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.45);color:#eee;max-height:92vh;overflow:auto;padding:20px 18px 24px;position:relative;width:min(560px,100%)}
 .ygl-publish-sheet h3,.ygl-publish-panel h3{color:#ffd76a;font-size:18px;margin:0 0 14px;padding-right:36px}
 .ygl-publish-preview{background:#0a0a0a;border-radius:14px;margin-bottom:12px;max-height:240px;overflow:hidden}

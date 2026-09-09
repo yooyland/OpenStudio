@@ -2913,7 +2913,7 @@ body.yoy-project-dialog-open {
   position: fixed;
   transform: translate(-50%, 12px);
   transition: opacity 0.25s ease, transform 0.25s ease;
-  z-index: 10060;
+  z-index: 1000020;
 }
 
 .yai-toast.is-visible {
