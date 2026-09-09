@@ -118,17 +118,18 @@ final class YooY_Image_Domain_Prompt_Composer {
 
         $parts = [
             'Commercial product advertising photograph of ' . $subject,
-            'Subject: ' . $subject . ' as unmistakable hero object',
-            'Purpose: premium brand / ecommerce advertising key visual',
-            'Composition: ' . ((string) ($brief['composition'] ?: 'centered hero shot with balanced negative space for branding')),
-            'Camera: 85–100mm product lens feel, slight three-quarter angle to show form',
+            'Subject: ' . $subject . ' as unmistakable hero object with readable silhouette',
+            'Purpose: premium brand / ecommerce advertising key visual for a beauty campaign',
+            'Composition: ' . ((string) ($brief['composition'] ?: 'rule-of-thirds hero placement, asymmetric negative space, not dead-center stock framing')),
+            'Camera: 85–100mm product lens feel, slight three-quarter angle to show form and depth',
             'Lighting: ' . ((string) ($brief['lighting'] ?: $light)),
-            'Materials: accurate package geometry, realistic glass/metal/plastic reflections, true label curvature without fake logos',
+            'Materials: accurate package geometry, premium glass/metal/plastic micro-reflections, soft contact shadow, no melted edges',
             'Environment: ' . $env,
-            'Color: ' . ((string) ($brief['color_palette'] ?: 'refined brand-appropriate palette, clean whites and soft neutrals')),
-            'Mood: ' . ((string) ($brief['tone'] ?: 'premium, clean, desirable')),
-            'Art direction: advertising-grade commercial retouching, magazine print ready',
-            'Constraints: no random Hangul/English logos unless requested; no glitter particle clichés; no plastic skin on hands if any',
+            'Color: ' . ((string) ($brief['color_palette'] ?: 'refined brand palette, controlled accents, clean highlights')),
+            'Mood: ' . ((string) ($brief['tone'] ?: 'desirable, elevated, quiet luxury')),
+            'Art direction: Korean beauty brand campaign still — art director approved, magazine double-page quality',
+            'Avoid: plain unlabeled pharmacy bottle look, dead-center phone snapshot framing, harsh noon shadow only, glitter dust clichés, fake logos',
+            'Constraints: no random Hangul/English logos unless requested; keep packaging elegant and campaign-ready',
         ];
 
         return [
@@ -155,17 +156,18 @@ final class YooY_Image_Domain_Prompt_Composer {
 
         $parts = [
             'Photorealistic architectural visualization of ' . $subject,
-            'Subject: ' . $subject,
-            'Purpose: ' . ($is_ad ? 'premium Korean real-estate sales / brochure campaign visual' : 'architectural visualization'),
-            'Composition: ' . ((string) ($brief['composition'] ?: 'clear site layout, readable building hierarchy, professional brochure framing')),
-            'Camera: ' . $viewpoint . ', straight verticals, accurate perspective',
-            'Lighting: ' . ((string) ($brief['lighting'] ?: 'believable natural daylight, soft realistic shadows, golden hour only if context fits')),
-            'Materials: detailed façade cladding, aligned windows and balconies, coherent floor rhythm',
-            'Environment: realistic landscaping, roads, ground plane, contextual urban surroundings',
-            'Color: ' . ((string) ($brief['color_palette'] ?: 'authentic façade and landscape colors')),
-            'Mood: ' . ((string) ($brief['tone'] ?: 'aspirational, trustworthy, high-end residential')),
-            'Art direction: developer sales-gallery CGI/photography hybrid quality',
-            'Constraints: no warped towers, no bent windows, no impossible perspective, no random people close-ups unless requested',
+            'Subject: premium Korean residential apartment complex as sales-gallery hero',
+            'Purpose: ' . ($is_ad ? 'high-end Korean real-estate brochure / digital sales campaign key visual' : 'architectural visualization'),
+            'Composition: ' . ((string) ($brief['composition'] ?: 'strong massing hierarchy, leading road/landscape lines, brochure-ready framing — not a flat orthographic plate')),
+            'Camera: ' . $viewpoint . ', corrected verticals, believable human scale cues',
+            'Lighting: ' . ((string) ($brief['lighting'] ?: 'believable late-afternoon daylight with soft long shadows; crisp glass speculars')),
+            'Materials: detailed façade cladding variation, balcony railings, window mullions, glass reflections, coherent floor rhythm',
+            'Environment: layered landscaping, realistic pavement, cars for scale, contextual Seoul-like urban surroundings',
+            'Color: ' . ((string) ($brief['color_palette'] ?: 'authentic façade materials with natural greens')),
+            'Mood: ' . ((string) ($brief['tone'] ?: 'aspirational, trustworthy, premium residential')),
+            'Art direction: top Korean developer CGI/photography hybrid used in sales galleries',
+            'Avoid: identical clone towers with plastic smooth façades, toy-like round trees only, empty lifeless plaza, warped perspective',
+            'Constraints: no bent windows, no floating slabs, no melted edges',
         ];
         if (!empty($brief['core_message'])) {
             $parts[] = 'Narrative focus: ' . mb_substr((string) $brief['core_message'], 0, 180);
@@ -198,19 +200,21 @@ final class YooY_Image_Domain_Prompt_Composer {
 
         $parts = [
             'Editorial lifestyle advertising photograph of ' . $subject,
-            'Subject: ' . $subject . ' with natural anatomy, realistic hands, natural gaze',
-            'Purpose: commercial lifestyle / brand campaign key visual',
-            'Composition: ' . ((string) ($brief['composition'] ?: 'strong focal couple/group, mobile-safe hierarchy, intentional negative space')),
-            'Camera: 50–85mm editorial lens feel, eye-level or slight low angle, cinematic depth',
-            'Lighting: ' . ((string) ($brief['lighting'] ?: 'soft natural or golden-hour fill, editorial beauty lighting without plastic skin')),
-            'Materials: realistic skin texture, coherent wardrobe fabrics, believable props',
+            'Subject: authentic Korean couple/people in their 30s with natural anatomy, realistic hands, natural micro-expressions',
+            'Purpose: premium residential / lifestyle brand campaign key visual',
+            'Composition: ' . ((string) ($brief['composition'] ?: 'off-center editorial framing, environmental storytelling, mobile-safe hierarchy — not centered stock stare')),
+            'Camera: 50–85mm editorial lens, slight environmental context, cinematic depth',
+            'Lighting: ' . ((string) ($brief['lighting'] ?: 'directional golden-hour key with soft fill; editorial beauty light without plastic skin')),
+            'Materials: visible natural skin texture, fabric weave, hair detail, believable props',
             'Environment: ' . ($with_apt
-                ? 'Seoul residential apartment complex context with believable architecture and landscaping'
+                ? 'Seoul premium apartment complex with readable architecture and landscaping behind subjects'
                 : ((string) ($brief['visual_style'] ?: 'contextual lived-in environment matching the request'))),
-            'Color: ' . ((string) ($brief['color_palette'] ?: 'warm natural lifestyle grading')),
-            'Mood: ' . ((string) ($brief['tone'] ?: 'warm, aspirational, authentic happiness — not fake stock smile')),
-            'Art direction: Korean premium lifestyle campaign look, avoid cliché stock-photo poses',
-            'Constraints: no uncanny faces, no extra fingers, no over-smoothed skin, no random text overlays',
+            'Color: ' . ((string) ($brief['color_palette'] ?: 'warm refined lifestyle grading')),
+            'Mood: ' . ((string) ($brief['tone'] ?: 'quiet genuine warmth — candid, not forced')),
+            'Art direction: Korean premium lifestyle campaign like high-end residential brochure photography',
+            'Pose direction: candid interaction (shared glance / walking / soft conversation) — forbid generic arms-around-waist stock smile at camera',
+            'Avoid: plastic skin, over-smoothed faces, identical beige outfit cliché, stiff catalog pose, uncanny symmetry',
+            'Constraints: no extra fingers, no arbitrary text overlays',
         ];
 
         return [
