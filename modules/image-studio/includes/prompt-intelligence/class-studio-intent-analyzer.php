@@ -76,6 +76,7 @@ final class YooY_Studio_Intent_Analyzer {
 
         $rules = [
             'politics'      => ['정치', '이재명', '대통령', '선거', '정책', '국회', '정당', '대선', '여야', 'political', 'president', 'election', 'policy'],
+            'architecture'  => ['조감도', '아파트', '건축', '단지', '외관', '건물', '빌딩', '타워', '주거단지', '분양', 'architectural', 'architecture', 'aerial view', "bird's eye", 'facade', 'residential complex', 'real estate visualization'],
             'product'       => ['제품', '상품', '향수', '화장품', '스킨케어', '병', '패키지', 'perfume', 'cosmetic', 'skincare', 'bottle', 'product'],
             'ecommerce'     => ['스마트스토어', '쿠팡', '이커머스', '상세페이지', 'ecommerce', 'coupang'],
             'travel'        => ['여행', '관광', '제주', '휴가', 'tour', 'travel'],
@@ -172,6 +173,12 @@ final class YooY_Studio_Intent_Analyzer {
         if ($ad_subtype === 'product_advertisement' || $domain === 'product' || $domain === 'ecommerce') {
             return 'premium product advertising photograph';
         }
+        if ($domain === 'architecture') {
+            if (preg_match('/조감|aerial|bird.?s.?eye|birdseye/u', $lower)) {
+                return 'photorealistic architectural aerial visualization';
+            }
+            return 'photorealistic architectural visualization';
+        }
         if (preg_match('/포스터|poster|썸네일|thumbnail/u', $lower)) {
             return 'editorial poster composition';
         }
@@ -232,6 +239,9 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'product' || $domain === 'ecommerce') {
             return 'premium product photography';
         }
+        if ($domain === 'architecture') {
+            return 'photorealistic architectural visualization, real-estate marketing grade';
+        }
         return 'photorealistic commercial visual';
     }
 
@@ -242,6 +252,9 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'product') {
             return 'hero product centered composition';
         }
+        if ($domain === 'architecture') {
+            return 'wide establishing aerial or elevated viewpoint with accurate building proportions';
+        }
         return 'clear focal hierarchy';
     }
 
@@ -251,6 +264,9 @@ final class YooY_Studio_Intent_Analyzer {
         }
         if ($domain === 'travel') {
             return 'bright natural travel colors';
+        }
+        if ($domain === 'architecture') {
+            return 'natural daylight materials, realistic façade colors';
         }
         return 'refined professional color grading';
     }
@@ -269,6 +285,11 @@ final class YooY_Studio_Intent_Analyzer {
             $req[] = 'civic campaign atmosphere';
             $req[] = 'space for Korean headline';
         }
+        if ($domain === 'architecture') {
+            $req[] = 'accurate building scale and proportions';
+            $req[] = 'detailed façade materials';
+            $req[] = 'realistic landscaping and site context';
+        }
         return array_values(array_unique($req));
     }
 
@@ -276,6 +297,19 @@ final class YooY_Studio_Intent_Analyzer {
     private function forbidden_for_domain(string $domain): array {
         if (in_array($domain, ['product', 'ecommerce', 'fashion', 'food'], true)) {
             return ['political poster unrelated to product', 'random celebrity unless requested'];
+        }
+        if ($domain === 'architecture') {
+            return [
+                'warped geometry',
+                'distorted windows',
+                'bent buildings',
+                'floating structures',
+                'melted façade',
+                'unrelated people close-up unless requested',
+                'cosmetic bottle',
+                'perfume bottle',
+                'cartoon architecture',
+            ];
         }
         return [
             'cosmetic bottle',

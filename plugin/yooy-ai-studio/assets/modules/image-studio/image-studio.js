@@ -60,7 +60,7 @@
     refAnalysisLabels: [],
     gallerySelectedId: null,
     galleryItems: [],
-    generationMode: 'fast',
+    generationMode: 'premium',
     generateStep: '',
     stageError: null,
     lastProviderHealth: null,
@@ -107,7 +107,7 @@
       state.schema = (res[0].data && res[0].data.schema) || {};
       state.providers = (res[0].data && res[0].data.providers) || [];
       state.settings = (res[1].data && res[1].data.settings) || {};
-      state.generationMode = state.settings.generation_mode || 'fast';
+      state.generationMode = state.settings.generation_mode || 'premium';
       syncModelForProvider(state.settings.default_provider || 'auto', true);
       syncSizeForProvider(true);
       state.credits = Object.assign(state.credits, res[2].data || {});
@@ -673,7 +673,7 @@
       user_prompt: prompt,
       prompt: prompt,
       smart_auto: state.smartAuto !== false,
-      generation_mode: state.generationMode || 'fast',
+      generation_mode: state.generationMode || 'premium',
       provider: state.settings.default_provider || 'auto',
       quality: state.generationMode === 'premium' ? 'hd' : (state.settings.quality || 'standard'),
       creative_brief: state.creativeBrief || undefined,
@@ -1716,7 +1716,9 @@
     return '<div class="yis-speed-toggle" role="radiogroup" aria-label="품질">' +
       '<button type="button" class="yis-speed-opt' + (fast ? ' is-active' : '') + '" data-yis-speed="fast">빠르게</button>' +
       '<button type="button" class="yis-speed-opt' + (!fast ? ' is-active' : '') + '" data-yis-speed="premium">고품질</button>' +
-      '<p class="yis-speed-hint">' + (fast ? '빠르게 결과를 확인합니다.' : '더 정교한 결과로 생성합니다.') + '</p></div>';
+      '<p class="yis-speed-hint">' + (fast
+        ? '빠르게 · 표준 품질 (medium) · 크레딧 절약'
+        : '고품질 · provider high quality · 최대 해상도 · 정교한 프롬프트') + '</p></div>';
   }
 
   function generationStepLabel(step) {
@@ -2670,6 +2672,45 @@
     if (global.YooYActiveProject && typeof global.YooYActiveProject.applyToPayload === 'function') {
       payload = global.YooYActiveProject.applyToPayload(payload);
     }
+    // Prefer full/large canonical URL for provider input — never 150px thumbs.
+    var refs = payload.reference_assets || [];
+    if (refs.length && global.YooYGalleryImage && typeof global.YooYGalleryImage.pickUrl === 'function') {
+      refs = refs.map(function (asset) {
+        var next = Object.assign({}, asset);
+        var best = global.YooYGalleryImage.pickUrl(asset, 'full')
+          || global.YooYGalleryImage.pickUrl(asset, 'large')
+          || asset.url || '';
+        if (best) next.url = best;
+        return next;
+      });
+      payload.reference_assets = refs;
+      if (refs[0] && refs[0].url) {
+        payload.reference_url = refs[0].url;
+        state.referenceUrl = refs[0].url;
+      }
+    } else if (payload.reference_url && global.YooYGalleryImage) {
+      // keep as-is
+    }
+    try {
+      var handoffRef = sessionStorage.getItem('yoy_reference_asset');
+      if ((!payload.reference_url || !refs.length) && handoffRef) {
+        var parsed = JSON.parse(handoffRef);
+        var href = (global.YooYGalleryImage && global.YooYGalleryImage.pickUrl)
+          ? (global.YooYGalleryImage.pickUrl(parsed, 'full') || global.YooYGalleryImage.pickUrl(parsed, 'large') || '')
+          : (parsed.full_url || parsed.url || '');
+        if (href) {
+          payload.reference_url = href;
+          payload.reference_assets = [{
+            url: href,
+            gallery_id: parsed.gallery_id || '',
+            title: parsed.title || '',
+            asset_type: 'image',
+            role: 'image',
+            source: 'assistant'
+          }];
+        }
+      }
+    } catch (eRef) { /* ignore */ }
     return payload;
   }
 
@@ -2892,7 +2933,7 @@
     state.settings.last_prompt = prompt;
     state.settings.prompt = sendPrompt;
     state.settings.smart_auto = state.smartAuto !== false;
-    state.settings.generation_mode = state.generationMode || 'fast';
+    state.settings.generation_mode = state.generationMode || 'premium';
     if (state.referenceUrl) state.settings.reference_url = state.referenceUrl;
     applyGeneratingUi(root);
     updateGenerateProgress(root);
@@ -2909,7 +2950,7 @@
       size: state.settings.size || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || '',
       auto_save: true,
       smart_auto: state.smartAuto !== false,
-      generation_mode: state.generationMode || 'fast',
+      generation_mode: state.generationMode || 'premium',
       output_format: state.settings.output_format || 'png',
       mood: state.settings.mood,
       camera: state.settings.camera,
@@ -2929,8 +2970,19 @@
       if (!payload.size && state.settings.aspect_ratio === '1:1') {
         payload.resolution = '1024';
       }
-    } else if (state.smartAuto) {
-      payload.quality = state.settings.quality || 'hd';
+    } else {
+      // 고품질: real provider quality + largest supported size for ratio
+      payload.quality = 'hd';
+      payload.generation_mode = 'premium';
+      payload.image_count = Math.min(4, Math.max(1, parseInt(payload.image_count, 10) || 1));
+      var premiumSize = mappedSizeForAspect(state.settings.aspect_ratio || '1:1');
+      if (premiumSize) {
+        payload.size = premiumSize;
+        state.settings.size = premiumSize;
+      }
+      if (!payload.resolution || payload.resolution === '512') {
+        payload.resolution = '1024';
+      }
     }
 
     if (isAutoProvider) {

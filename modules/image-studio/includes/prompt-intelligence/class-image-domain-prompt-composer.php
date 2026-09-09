@@ -20,6 +20,9 @@ final class YooY_Image_Domain_Prompt_Composer {
         if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'fashion', 'food'], true)) {
             return $this->compose_product($brief, $settings);
         }
+        if ($domain === 'architecture') {
+            return $this->compose_architecture($brief, $settings);
+        }
         if ($domain === 'travel') {
             return $this->compose_travel($brief, $settings);
         }
@@ -87,6 +90,45 @@ final class YooY_Image_Domain_Prompt_Composer {
      * @param array<string, mixed> $settings
      * @return array{prompt:string,negative_prompt:string,domain:string}
      */
+    private function compose_architecture(array $brief, array $settings): array {
+        $subject = (string) ($brief['primary_subject'] ?? 'residential apartment complex');
+        $raw = mb_strtolower((string) ($brief['raw_user_request'] ?? $subject));
+        $is_aerial = (bool) preg_match('/조감|aerial|bird.?s.?eye|birdseye|위에서|공중/u', $raw);
+        $viewpoint = $is_aerial
+            ? 'wide-angle elevated aerial / bird\'s-eye architectural viewpoint'
+            : 'elevated eye-level architectural establishing viewpoint';
+        $parts = [
+            'Photorealistic architectural visualization of ' . $subject,
+            $viewpoint,
+            'professional real-estate marketing rendering, realistic scale and proportions',
+            (string) ($brief['composition'] ?: 'clear site layout with readable building massing'),
+            (string) ($brief['lighting'] ?: 'natural daylight with soft realistic shadows'),
+            (string) ($brief['color_palette'] ?: 'authentic façade materials and landscaping colors'),
+            'detailed façade materials, windows aligned, realistic landscaping and ground plane',
+            'high-detail photorealism suitable for Korean residential sales marketing',
+        ];
+        if (!empty($brief['core_message'])) {
+            $parts[] = 'Narrative focus: ' . mb_substr((string) $brief['core_message'], 0, 180);
+        }
+        $neg = implode(', ', array_merge(
+            (array) ($brief['forbidden_elements'] ?? []),
+            [
+                'warped geometry', 'distorted windows', 'bent buildings', 'floating structures',
+                'melted façade', 'low detail mushy surfaces', 'cartoon', 'unrelated cosmetics',
+            ]
+        ));
+        return [
+            'prompt'          => implode('. ', $parts),
+            'negative_prompt' => $neg,
+            'domain'          => 'architecture',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $brief
+     * @param array<string, mixed> $settings
+     * @return array{prompt:string,negative_prompt:string,domain:string}
+     */
     private function compose_travel(array $brief, array $settings): array {
         $subject = (string) ($brief['primary_subject'] ?? 'travel destination');
         $parts = [
@@ -112,13 +154,19 @@ final class YooY_Image_Domain_Prompt_Composer {
         $format = (string) ($brief['medium'] ?? 'photorealistic image');
         $parts = [
             'A ' . $format . ' of ' . $subject,
+            (string) ($brief['composition'] ?: 'clear focal hierarchy and deliberate camera viewpoint'),
+            (string) ($brief['lighting'] ?: 'natural, scene-appropriate lighting'),
+            (string) ($brief['visual_style'] ?: 'photorealistic materials and environment detail'),
             (string) ($brief['tone'] ?: 'professional'),
-            (string) ($brief['composition'] ?: 'clear focal hierarchy'),
             'faithful to the user request with clear subject priority',
+            'specific materials, environment context, and mood derived from the request — avoid generic filler',
         ];
+        if (!empty($brief['core_message'])) {
+            $parts[] = 'Narrative focus: ' . mb_substr((string) $brief['core_message'], 0, 180);
+        }
         $neg = implode(', ', array_merge(
             (array) ($brief['forbidden_elements'] ?? []),
-            ['unrelated merchandise', 'wrong subject']
+            ['unrelated merchandise', 'wrong subject', 'blurry', 'low detail', 'generic stock look']
         ));
         return [
             'prompt'          => implode('. ', $parts),

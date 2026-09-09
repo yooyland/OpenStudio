@@ -364,9 +364,21 @@
 
   function applyToSettings(settings, assets) {
     settings = settings || {};
-    settings.reference_assets = assets || [];
-    if (assets && assets[0]) {
-      settings.reference_url = assets[0].url || '';
+    settings.reference_assets = (assets || []).map(function (asset) {
+      var next = Object.assign({}, asset);
+      var best = next.url || '';
+      if (window.YooYGalleryImage && typeof window.YooYGalleryImage.pickUrl === 'function') {
+        best = window.YooYGalleryImage.pickUrl(next, 'full')
+          || window.YooYGalleryImage.pickUrl(next, 'large')
+          || best;
+      } else {
+        best = next.full_url || next.large_url || next.url || next.thumbnail_url || '';
+      }
+      if (best) next.url = best;
+      return next;
+    });
+    if (settings.reference_assets[0]) {
+      settings.reference_url = settings.reference_assets[0].url || '';
     }
     return settings;
   }

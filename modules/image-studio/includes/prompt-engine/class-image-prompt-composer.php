@@ -38,7 +38,7 @@ final class YooY_Image_Prompt_Composer {
      */
     public function compose(array $params): array {
         $user_prompt = trim(sanitize_textarea_field((string) ($params['user_prompt'] ?? $params['prompt'] ?? '')));
-        $premium     = sanitize_text_field((string) ($params['generation_mode'] ?? 'fast')) === 'premium'
+        $premium     = sanitize_text_field((string) ($params['generation_mode'] ?? 'premium')) === 'premium'
             || sanitize_text_field((string) ($params['quality'] ?? '')) === 'hd';
 
         // Map UI commercial_mode → commercial
@@ -138,7 +138,7 @@ final class YooY_Image_Prompt_Composer {
         if (!empty($brief['wants_political']) || $domain === 'politics') {
             return true;
         }
-        if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'travel', 'corporate', 'social'], true)) {
+        if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'travel', 'corporate', 'social', 'architecture'], true)) {
             return true;
         }
         if (!empty($brief['ad_subtype'])) {
@@ -167,6 +167,11 @@ final class YooY_Image_Prompt_Composer {
             $intent['politics'] = false;
         }
         if ($domain === 'travel') {
+            $intent['landscape'] = true;
+            $intent['product'] = false;
+        }
+        if ($domain === 'architecture') {
+            $intent['architecture'] = true;
             $intent['landscape'] = true;
             $intent['product'] = false;
         }
@@ -217,14 +222,27 @@ final class YooY_Image_Prompt_Composer {
             $segments[] = 'Premium advertising photograph of ' . $scene['subject'];
             $segments[] = $scene['environment'] . ', ' . $scene['framing'];
             $segments[] = $this->lighting_phrase($settings['lighting']);
+        } elseif (!empty($intent['architecture']) || ($brief['content_domain'] ?? '') === 'architecture') {
+            $subject = (string) ($brief['primary_subject'] ?? $scene['subject'] ?? $user_prompt);
+            $raw = mb_strtolower($user_prompt . ' ' . $subject);
+            $aerial = (bool) preg_match('/조감|aerial|bird.?s.?eye|birdseye|위에서|공중/u', $raw);
+            $segments[] = 'Photorealistic architectural visualization of ' . $subject;
+            $segments[] = $aerial
+                ? 'wide-angle elevated aerial bird\'s-eye viewpoint with accurate site layout'
+                : 'elevated architectural establishing viewpoint with accurate scale';
+            $segments[] = $scene['environment'] ?? 'residential urban context with landscaping';
+            $segments[] = 'professional real-estate visualization, detailed façade materials, realistic proportions';
+            $segments[] = 'no warped geometry, no distorted windows, clean building lines';
         } elseif (!empty($intent['landscape'])) {
             $segments[] = 'Breathtaking ' . $scene['narrative'];
             $segments[] = $scene['environment'] . ', ' . $scene['framing'];
         } else {
             $hint = $this->translate_concept($user_prompt, $intent, $brief);
-            $segments[] = 'A premium photorealistic image of ' . $hint;
+            $segments[] = 'A detailed photorealistic image of ' . $hint;
             $segments[] = $scene['environment'];
             $segments[] = $scene['action'];
+            $segments[] = $scene['framing'] ?? 'intentional camera viewpoint and composition';
+            $segments[] = 'specific materials, lighting, and environment detail matching the request';
         }
 
         if ($korean['active'] && !empty($korean['visuals'])) {
@@ -305,6 +323,15 @@ final class YooY_Image_Prompt_Composer {
             $out['composition'] = $this->is_auto($params, 'composition') ? 'wide' : $out['composition'];
             $out['camera'] = $this->is_auto($params, 'camera') ? 'wide_24mm' : $out['camera'];
             $out['depth_of_field'] = $this->is_auto($params, 'depth_of_field') ? 'deep' : $out['depth_of_field'];
+        }
+        if (!empty($intent['architecture']) || ($brief['content_domain'] ?? '') === 'architecture') {
+            $out['style'] = $this->is_auto($params, 'style') ? 'photorealistic' : $out['style'];
+            $out['composition'] = $this->is_auto($params, 'composition') ? 'wide' : $out['composition'];
+            $out['camera'] = $this->is_auto($params, 'camera') ? 'wide_24mm' : $out['camera'];
+            $out['camera_angle'] = $this->is_auto($params, 'camera_angle') ? 'high_angle' : $out['camera_angle'];
+            $out['depth_of_field'] = $this->is_auto($params, 'depth_of_field') ? 'deep' : $out['depth_of_field'];
+            $out['lighting'] = $this->is_auto($params, 'lighting') ? 'natural' : $out['lighting'];
+            $out['background'] = $this->is_auto($params, 'background') ? 'contextual' : $out['background'];
         }
 
         return $out;

@@ -121,13 +121,58 @@
     return p && (p.name || p.title) ? (p.name || p.title) : '';
   }
 
-  function routeTo(name) {
-    if (typeof global.YooYStudioRoute === 'function') {
-      global.YooYStudioRoute(name);
-      return;
+  function routeTo(name, opts) {
+    opts = opts || {};
+    var target = normalizeStudioRoute(name);
+    try {
+      if (typeof global.YooYStudioRoute === 'function') {
+        global.YooYStudioRoute(target, Object.assign({
+          skipDirtyCheck: true,
+          source_context: 'assistant'
+        }, opts));
+        return true;
+      }
+      var btn = document.querySelector('.yai-nav-item[data-route="' + target + '"]');
+      if (btn) {
+        btn.click();
+        return true;
+      }
+    } catch (e) {
+      return false;
     }
-    var btn = document.querySelector('.yai-nav-item[data-route="' + name + '"]');
-    if (btn) btn.click();
+    return false;
+  }
+
+  function normalizeStudioRoute(name) {
+    var raw = String(name || 'image').toLowerCase().replace(/-studio$/, '');
+    var map = {
+      image: 'image',
+      video: 'video',
+      music: 'music',
+      voice: 'voice',
+      avatar: 'avatar',
+      writing: 'writing',
+      translator: 'translator',
+      'image-studio': 'image',
+      'video-studio': 'video',
+      'music-studio': 'music',
+      'voice-studio': 'voice',
+      'avatar-studio': 'avatar',
+      'writing-studio': 'writing',
+      'translator-studio': 'translator'
+    };
+    return map[raw] || map[String(name || '').toLowerCase()] || 'image';
+  }
+
+  function resolveRefUrl(ref) {
+    if (!ref) return '';
+    if (global.YooYGalleryImage && typeof global.YooYGalleryImage.pickUrl === 'function') {
+      return global.YooYGalleryImage.pickUrl(ref, 'full')
+        || global.YooYGalleryImage.pickUrl(ref, 'large')
+        || global.YooYGalleryImage.pickUrl(ref, 'card')
+        || '';
+    }
+    return ref.full_url || ref.large_url || ref.url || ref.image_url || ref.thumbnail || ref.thumbnail_url || '';
   }
 
   function track(eventName, payload) {
@@ -170,8 +215,10 @@
         gallery_id: String(asset.gallery_id || asset.id || ''),
         type: String(asset.type || 'image'),
         title: String(asset.title || ''),
-        thumbnail: asset.thumbnail || asset.url || asset.preview || '',
-        url: asset.url || asset.thumbnail || asset.preview || '',
+        thumbnail: asset.thumbnail || asset.thumbnail_url || '',
+        url: resolveRefUrl(asset) || asset.url || asset.thumbnail || asset.preview || '',
+        full_url: asset.full_url || asset.original_url || resolveRefUrl(asset) || '',
+        large_url: asset.large_url || '',
         studio: String(asset.studio || ''),
         public_safe: !!asset.public_safe
       };
@@ -211,8 +258,14 @@
   }
 
   function handoffToStudio(studio, action) {
-    var route = studio || (action && action.studio) || (state.brief && state.brief.primary_studio) || 'image';
+    var route = normalizeStudioRoute(
+      studio || (action && action.studio) || (state.draft && state.draft.studio)
+        || (state.brief && state.brief.primary_studio) || 'image'
+    );
     var prompt = buildHandoffPrompt(action);
+    if (!prompt && state.draft && state.draft.draft) {
+      prompt = String(state.draft.draft);
+    }
     var draft = state.draft || {};
     var creativeBrief = draft.creative_brief || null;
     var intentDomain = draft.intent_domain || (creativeBrief && creativeBrief.content_domain) || '';
@@ -230,9 +283,11 @@
       };
     }
     var ref = (action && action.reference_asset) || state.selectedAsset || state.lastAsset;
+    var refUrl = resolveRefUrl(ref);
     try {
       if (prompt) {
         global.sessionStorage.setItem('yoy_home_prompt', prompt);
+        global.sessionStorage.setItem('yoy_home_original_prompt', rawRequest || prompt);
         global.sessionStorage.setItem('yoy_home_studio', route);
       }
       if (rawRequest) {
@@ -250,18 +305,22 @@
       if (pid) {
         global.sessionStorage.setItem('yoy_assistant_project_id', pid);
       }
-      if (ref && (ref.url || ref.thumbnail || ref.gallery_id)) {
-        global.sessionStorage.setItem('yoy_reference_asset', JSON.stringify({
-          url: ref.url || ref.thumbnail || '',
+      if (ref && (refUrl || ref.gallery_id)) {
+        var refPayload = {
+          url: refUrl || ref.url || '',
+          full_url: ref.full_url || refUrl || '',
+          large_url: ref.large_url || '',
+          thumbnail_url: ref.thumbnail || ref.thumbnail_url || '',
           title: ref.title || '',
           gallery_id: ref.gallery_id || '',
-          type: ref.type || '',
+          type: ref.type || 'image',
           source: 'assistant',
           public_safe: !!ref.public_safe
-        }));
+        };
+        global.sessionStorage.setItem('yoy_reference_asset', JSON.stringify(refPayload));
         global.sessionStorage.setItem('yoy_home_attachment', JSON.stringify({
-          url: ref.url || ref.thumbnail || '',
-          preview: ref.thumbnail || ref.url || '',
+          url: refUrl || ref.url || '',
+          preview: ref.thumbnail || ref.thumbnail_url || refUrl || '',
           name: ref.title || '참고 작품',
           title: ref.title || '',
           gallery_id: ref.gallery_id || '',
@@ -278,15 +337,15 @@
           source_context: 'assistant',
           active_project_id: pid || ''
         });
-        global.YooYNavigation.push({
-          route: 'assistant',
-          source_context: 'assistant',
-          active_project_id: pid || ''
-        });
       }
     } catch (e) { /* ignore */ }
+
     track('assistant_route', { studio: route, auto_generate: false });
-    routeTo(route);
+    var ok = routeTo(route, { source_context: 'assistant', skipDirtyCheck: true });
+    if (!ok) {
+      toast('Studio를 열지 못했습니다.');
+    }
+    return ok;
   }
 
   function toast(msg) {
@@ -580,7 +639,7 @@
       '<strong>Prompt Composer · 보조</strong>' +
       '<p class="yai-assistant-draft__text">' + esc(state.draft.draft) + '</p>' +
       '<div class="yai-assistant-message__actions">' +
-        '<button type="button" class="yai-assistant-action-btn" data-approve-prompt>승인하고 Studio로</button>' +
+        '<button type="button" class="yai-assistant-action-btn yai-assistant-action-btn--primary" data-approve-prompt>승인하고 Studio로</button>' +
         '<button type="button" class="yai-assistant-action-btn" data-dismiss-draft>닫기</button>' +
       '</div>';
   }
@@ -1185,9 +1244,13 @@
       }
 
       if (e.target.closest('[data-approve-prompt]')) {
-        if (!state.draft || !state.draft.draft) return;
+        e.preventDefault();
+        if (!state.draft || !state.draft.draft) {
+          toast('Studio를 열지 못했습니다.');
+          return;
+        }
         state.draft.requires_approval = false;
-        handoffToStudio(state.draft.studio || 'image');
+        handoffToStudio(state.draft.studio || (state.brief && state.brief.primary_studio) || 'image');
         return;
       }
 

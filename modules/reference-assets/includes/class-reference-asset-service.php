@@ -54,7 +54,14 @@ final class YooY_Reference_Asset_Service {
             throw new Exception('Gallery item not found.');
         }
 
-        $url = esc_url_raw($item['output_url'] ?? $item['image_url'] ?? '');
+        $url = esc_url_raw(
+            $item['full_url']
+            ?? $item['original_url']
+            ?? $item['output_url']
+            ?? $item['image_url']
+            ?? $item['large_url']
+            ?? ''
+        );
         if ($url === '' && !empty($item['output']['primary'])) {
             $url = esc_url_raw($item['output']['primary']);
         }
@@ -195,13 +202,21 @@ final class YooY_Reference_Asset_Service {
             if (!is_array($item)) {
                 continue;
             }
-            $url = esc_url_raw($item['url'] ?? '');
+            $url = esc_url_raw(
+                $item['full_url']
+                ?? $item['original_url']
+                ?? $item['large_url']
+                ?? $item['url']
+                ?? ''
+            );
             if ($url === '') {
                 continue;
             }
             $out[] = [
                 'id'            => sanitize_text_field($item['id'] ?? ''),
                 'url'           => $url,
+                'full_url'      => esc_url_raw($item['full_url'] ?? $url),
+                'large_url'     => esc_url_raw($item['large_url'] ?? ''),
                 'asset_type'    => sanitize_text_field($item['asset_type'] ?? $item['type'] ?? 'image'),
                 'role'          => YooY_Reference_Asset_Store::sanitize_role((string) ($item['role'] ?? '')),
                 'title'         => sanitize_text_field($item['title'] ?? ''),

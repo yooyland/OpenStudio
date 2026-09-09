@@ -34,6 +34,13 @@ final class YooY_OpenAI_Image_Provider implements YooY_Image_Provider_Interface 
             ]));
         }
 
+        $ref = $this->resolve_reference_url($params);
+        if ($ref !== '') {
+            return $this->generate_with_reference(array_merge($params, [
+                'source_url' => $ref,
+            ]));
+        }
+
         $job_id = $params['job_id'] ?? ('img_' . wp_generate_uuid4());
         $model  = $params['model'] ?? 'gpt-image-1';
         $size   = $this->resolve_size($params, $model);
@@ -48,6 +55,170 @@ final class YooY_OpenAI_Image_Provider implements YooY_Image_Provider_Interface 
             'body' => wp_json_encode($body),
         ]);
 
+        return $this->finalize_openai_response($response, $params, $job_id, $model, $size, $body, 'generate');
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    private function resolve_reference_url(array $params): string {
+        $candidates = [
+            $params['source_url'] ?? '',
+            $params['reference_url'] ?? '',
+        ];
+        if (!empty($params['reference_assets']) && is_array($params['reference_assets'])) {
+            foreach ($params['reference_assets'] as $asset) {
+                if (!is_array($asset)) {
+                    continue;
+                }
+                $candidates[] = $asset['full_url'] ?? '';
+                $candidates[] = $asset['large_url'] ?? '';
+                $candidates[] = $asset['url'] ?? '';
+            }
+        }
+        foreach ($candidates as $url) {
+            $url = esc_url_raw((string) $url);
+            if ($url !== '' && strpos($url, 'http') === 0) {
+                return $url;
+            }
+        }
+        return '';
+    }
+
+    /**
+     * gpt-image-1 reference path — Images Edits with real image bytes (not URL string).
+     *
+     * @param array<string, mixed> $params
+     */
+    private function generate_with_reference(array $params): array {
+        $job_id = $params['job_id'] ?? ('imgref_' . wp_generate_uuid4());
+        $model  = $params['model'] ?? 'gpt-image-1';
+        $size   = $this->resolve_size($params, $model);
+        $source = esc_url_raw((string) ($params['source_url'] ?? ''));
+        if ($source === '') {
+            throw new Exception('Reference image URL is empty.');
+        }
+
+        $tmp = $this->download_reference_file($source);
+        if ($tmp === null) {
+            // Fallback: text-only generation with explicit reference guidance (never silent ignore).
+            $prompt = (string) ($params['prompt'] ?? '');
+            $params['prompt'] = $prompt . '. Use the user-provided reference image intent: match composition, subject, materials, and style faithfully.';
+            $params['source_url'] = '';
+            $params['reference_url'] = '';
+            $params['reference_assets'] = [];
+            return $this->generate($params);
+        }
+
+        $quality = $this->map_openai_quality((string) ($params['quality'] ?? 'standard'), $model);
+        $format  = sanitize_text_field($params['output_format'] ?? 'png');
+        $boundary = '----YooYOpenAI' . wp_generate_password(16, false);
+        $fields = [
+            'model'  => $model,
+            'prompt' => (string) ($params['prompt'] ?? ''),
+            'n'      => (string) min(4, max(1, (int) ($params['image_count'] ?? 1))),
+            'size'   => $size,
+        ];
+        if ($model === 'gpt-image-1') {
+            $fields['quality'] = $quality;
+            $fields['output_format'] = $format;
+        }
+        if (!empty($params['negative_prompt'])) {
+            $fields['prompt'] .= '. Avoid: ' . $params['negative_prompt'];
+        }
+
+        $body = $this->build_multipart_body($boundary, $fields, 'image', $tmp['path'], $tmp['filename'], $tmp['mime']);
+        $response = wp_remote_post('https://api.openai.com/v1/images/edits', [
+            'timeout' => 120,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->api_key,
+                'Content-Type'  => 'multipart/form-data; boundary=' . $boundary,
+            ],
+            'body' => $body,
+        ]);
+
+        if (!empty($tmp['path']) && file_exists($tmp['path'])) {
+            @unlink($tmp['path']);
+        }
+
+        $debug_body = $fields;
+        $debug_body['image'] = '[multipart file: ' . $tmp['filename'] . ']';
+        return $this->finalize_openai_response($response, $params, $job_id, $model, $size, $debug_body, 'edit');
+    }
+
+    /**
+     * @return array{path:string,filename:string,mime:string}|null
+     */
+    private function download_reference_file(string $url) {
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        $tmp_name = wp_tempnam('yoy-ref-');
+        if (!$tmp_name) {
+            return null;
+        }
+
+        $response = wp_remote_get($url, [
+            'timeout' => 60,
+            'redirection' => 3,
+        ]);
+        if (is_wp_error($response)) {
+            @unlink($tmp_name);
+            return null;
+        }
+        $code = (int) wp_remote_retrieve_response_code($response);
+        $bin  = wp_remote_retrieve_body($response);
+        if ($code < 200 || $code >= 300 || $bin === '') {
+            @unlink($tmp_name);
+            return null;
+        }
+
+        // Prefer full/large sources; reject tiny blobs that are almost certainly thumbs.
+        if (strlen($bin) < 8000) {
+            @unlink($tmp_name);
+            return null;
+        }
+
+        file_put_contents($tmp_name, $bin);
+        $mime = wp_remote_retrieve_header($response, 'content-type');
+        $mime = is_string($mime) ? strtok($mime, ';') : 'image/png';
+        $mime = $mime !== '' ? $mime : 'image/png';
+        $ext = 'png';
+        if (strpos($mime, 'jpeg') !== false || strpos($mime, 'jpg') !== false) {
+            $ext = 'jpg';
+        } elseif (strpos($mime, 'webp') !== false) {
+            $ext = 'webp';
+        }
+        $filename = 'reference.' . $ext;
+        return [
+            'path'     => $tmp_name,
+            'filename' => $filename,
+            'mime'     => $mime,
+        ];
+    }
+
+    /**
+     * @param array<string, string> $fields
+     */
+    private function build_multipart_body(string $boundary, array $fields, string $file_field, string $file_path, string $filename, string $mime): string {
+        $out = '';
+        foreach ($fields as $name => $value) {
+            $out .= '--' . $boundary . "\r\n";
+            $out .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n";
+            $out .= $value . "\r\n";
+        }
+        $out .= '--' . $boundary . "\r\n";
+        $out .= 'Content-Disposition: form-data; name="' . $file_field . '"; filename="' . $filename . "\"\r\n";
+        $out .= 'Content-Type: ' . $mime . "\r\n\r\n";
+        $out .= (string) file_get_contents($file_path) . "\r\n";
+        $out .= '--' . $boundary . "--\r\n";
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed>|WP_Error $response
+     * @param array<string, mixed>          $params
+     * @param array<string, mixed>          $request_debug
+     */
+    private function finalize_openai_response($response, array $params, string $job_id, string $model, string $size, array $request_debug, string $mode): array {
         if (is_wp_error($response)) {
             throw new Exception($response->get_error_message());
         }
@@ -61,26 +232,31 @@ final class YooY_OpenAI_Image_Provider implements YooY_Image_Provider_Interface 
         $format  = sanitize_text_field($params['output_format'] ?? 'png');
         $images  = $this->parse_response_images($data, $user_id, $job_id, $format);
         $output  = $this->build_output_from_images($images, $format);
+        $per     = $this->credits_per_image($params);
 
         $job = [
             'job_id'       => $job_id,
             'status'       => !empty($images) ? YooY_Job_Status::COMPLETED : YooY_Job_Status::FAILED,
             'provider'     => $this->id(),
             'model'        => $model,
+            'mode'         => $mode,
             'prompt'       => $params['prompt'] ?? '',
             'images'       => $images,
             'output'       => $output,
             'image_count'  => count($images),
             'size'         => $size,
             'error'        => null,
-            'credits_used' => empty($images) ? 0 : (10 * count($images)),
+            'credits_used' => empty($images) ? 0 : ($per * count($images)),
             'raw'          => $data,
-            'meta'         => [],
+            'meta'         => [
+                'quality' => $this->map_openai_quality((string) ($params['quality'] ?? 'standard'), $model),
+                'reference_used' => $mode === 'edit',
+            ],
         ];
 
         if (current_user_can('manage_options')) {
             $job['meta']['openai_debug'] = [
-                'request'  => $body,
+                'request'  => $request_debug,
                 'response' => $this->sanitize_debug_response($data),
             ];
         }
@@ -91,10 +267,29 @@ final class YooY_OpenAI_Image_Provider implements YooY_Image_Provider_Interface 
             $job['error'] = 'OpenAI returned no displayable image asset.';
         }
         if (($job['status'] ?? '') === YooY_Job_Status::COMPLETED) {
-            $job['credits_used'] = 10 * max(1, count($job['images'] ?? []));
+            $job['credits_used'] = $per * max(1, count($job['images'] ?? []));
         }
 
         return YooY_Job_Normalizer::normalize($job, 'image');
+    }
+
+    /** @param array<string, mixed> $params */
+    private function credits_per_image(array $params): int {
+        $q = sanitize_text_field((string) ($params['quality'] ?? 'standard'));
+        if ($q === 'hd' || $q === 'high') {
+            return 20;
+        }
+        if ($q === 'draft' || $q === 'low') {
+            return 5;
+        }
+        return 10;
+    }
+
+    public function edit(array $params): array {
+        if ($this->api_key === '') {
+            return (new YooY_Mock_Image_Provider())->edit(array_merge($params, ['provider' => $this->id()]));
+        }
+        return $this->generate_with_reference($params);
     }
 
     private function build_generation_body(array $params, string $model, string $size): array {
@@ -126,9 +321,12 @@ final class YooY_OpenAI_Image_Provider implements YooY_Image_Provider_Interface 
         }
         switch ($quality) {
             case 'hd':
+            case 'high':
                 return 'high';
             case 'draft':
+            case 'low':
                 return 'low';
+            case 'medium':
             case 'standard':
             default:
                 return 'medium';
@@ -153,61 +351,6 @@ final class YooY_OpenAI_Image_Provider implements YooY_Image_Provider_Interface 
             }
         }
         return $data;
-    }
-
-    public function edit(array $params): array {
-        if ($this->api_key === '') {
-            return (new YooY_Mock_Image_Provider())->edit(array_merge($params, ['provider' => $this->id()]));
-        }
-
-        $job_id = $params['job_id'] ?? ('imgedit_' . wp_generate_uuid4());
-        $mode = $params['mode'] ?? 'edit';
-        if (in_array($mode, ['inpaint', 'outpaint', 'edit'], true)) {
-            $endpoint = 'edits';
-        } else {
-            $endpoint = 'edits';
-        }
-
-        $response = wp_remote_post('https://api.openai.com/v1/images/' . $endpoint, [
-            'timeout' => 120,
-            'headers' => ['Authorization' => 'Bearer ' . $this->api_key],
-            'body'    => [
-                'image'  => $params['source_url'] ?? '',
-                'prompt' => $params['prompt'] ?? '',
-                'n'      => 1,
-                'size'   => $this->resolve_size($params, $params['model'] ?? 'gpt-image-1'),
-            ],
-        ]);
-
-        if (is_wp_error($response)) {
-            throw new Exception($response->get_error_message());
-        }
-
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-        if (!is_array($data)) {
-            $data = [];
-        }
-
-        $user_id = (int) ($params['user_id'] ?? get_current_user_id());
-        $format  = sanitize_text_field($params['output_format'] ?? 'png');
-        $images  = $this->parse_response_images($data, $user_id, $job_id, $format);
-        $output  = $this->build_output_from_images($images, $format);
-
-        $job = [
-            'job_id'   => $job_id,
-            'status'   => !empty($images) ? YooY_Job_Status::COMPLETED : YooY_Job_Status::FAILED,
-            'provider' => $this->id(),
-            'mode'     => $params['mode'] ?? 'edit',
-            'prompt'   => $params['prompt'] ?? '',
-            'output'   => $output,
-            'images'   => $images,
-            'error'    => null,
-            'credits_used' => empty($images) ? 0 : 12,
-            'raw'      => $data,
-        ];
-        $job = YooY_OpenAI_B64_Asset::finalize_job($job, $user_id, $job_id, $format);
-
-        return YooY_Job_Normalizer::normalize($job, 'image');
     }
 
     public function status(string $job_id): array {

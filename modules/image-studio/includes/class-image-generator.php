@@ -446,12 +446,14 @@ final class YooY_Image_Generator {
     }
 
     private function normalize(array $params): array {
-        $generation_mode = sanitize_text_field($params['generation_mode'] ?? 'fast');
+        $generation_mode = sanitize_text_field($params['generation_mode'] ?? 'premium');
         $quality = sanitize_text_field($params['quality'] ?? 'standard');
         $image_count = min(4, max(1, (int) ($params['image_count'] ?? 1)));
         if ($generation_mode === 'fast') {
             $quality = 'standard';
             $image_count = 1;
+        } elseif ($generation_mode === 'premium') {
+            $quality = 'hd';
         }
 
         return [
@@ -567,7 +569,7 @@ final class YooY_Image_Generator {
         $parts[] = 'Product type: ' . $params['product_type'];
         $parts[] = 'Brand tone: ' . $params['brand_tone'];
         if ($params['reference_url']) {
-            $parts[] = 'Reference image style applied';
+            $parts[] = 'Match the attached reference image for composition, subject identity, materials, and style; treat it as primary visual guidance, not a vague mood board';
         }
         return implode('. ', $parts);
     }
