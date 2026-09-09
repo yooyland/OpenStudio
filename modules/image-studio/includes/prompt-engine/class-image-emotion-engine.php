@@ -145,13 +145,19 @@ final class YooY_Image_Emotion_Engine {
             return false;
         }
 
-        $analysis = $this->analyze($prompt);
-        if ($analysis['primary'] !== 'neutral') {
-            return true;
+        // Match lexicon inline — never call analyze() here.
+        // analyze() → is_abstract_emotional() → analyze() caused infinite
+        // recursion and PHP-FPM segfault (signal 11 / FastCGI header failure).
+        $hay = mb_strtolower($trim);
+        foreach (self::$lexicon as $entry) {
+            foreach ($entry['keywords'] as $kw) {
+                if (mb_strpos($hay, mb_strtolower((string) $kw)) !== false) {
+                    return true;
+                }
+            }
         }
 
         $concrete = ['제품', 'product', 'logo', '썸네일', 'thumbnail', 'banner', '배너', '광고', 'advert', '스마트스토어', 'ecommerce'];
-        $hay = mb_strtolower($trim);
         foreach ($concrete as $word) {
             if (mb_strpos($hay, mb_strtolower($word)) !== false) {
                 return false;
