@@ -241,11 +241,11 @@
             setRestMode(mode);
             return r.json;
           }
-          // HTML 404 / rest_no_route / non-JSON error pages = transport failure.
-          // Auth (401/403) and validation (400) must NOT be remapped to rest_no_route.
+          // Transport failure = true missing route / Apache HTML 404 for /wp-json/.
+          // Do NOT remap 5xx (FPM crash), 401/403, or 400 into rest_no_route.
           var unreachable = isNoRoute(r.res, r.json) ||
-            r.res.status === 404 ||
-            (r.parseError && (r.res.status === 404 || r.res.status === 0 || !r.res.ok));
+            (r.res.status === 404) ||
+            (r.parseError && r.res.status === 404);
           // Exactly one automatic fallback to the alternate permalink form.
           if (unreachable && (i + 1) < order.length) {
             debugLog('unreachable on', url, '(status ' + r.res.status + ') -> single fallback');
@@ -259,6 +259,16 @@
             throw routeErr;
           }
           if (r.parseError) {
+            var status = r.res && r.res.status ? r.res.status : 0;
+            if (status >= 500) {
+              var serverErr = new Error('이미지 생성을 시작하지 못했습니다.');
+              serverErr.code = 'server_unavailable';
+              serverErr.details = { code: 'server_unavailable', http_status: status, endpoint: path };
+              if (global.console && global.console.error) {
+                global.console.error('[YooY REST] non-JSON server error', status, path);
+              }
+              throw serverErr;
+            }
             throw new Error('Invalid API response');
           }
           throw parseApiError(r.json, r.res);

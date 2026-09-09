@@ -1411,7 +1411,8 @@
 
     // A REST route / transport error is NOT a provider / OpenAI / billing failure.
     // Creators see a friendly Korean message; admins/dev still get console + meta.
-    if (code === 'rest_no_route' || (errOrMessage && errOrMessage.restNoRoute)) {
+    if (code === 'rest_no_route' || (errOrMessage && errOrMessage.restNoRoute) ||
+        code === 'server_unavailable') {
       var rd = (d && d.endpoint) ? d : ((errOrMessage && errOrMessage.details) || {});
       var routeMeta = '';
       var addRow = function (label, val) {
@@ -1420,6 +1421,7 @@
       };
       addRow('method', rd.method);
       addRow('endpoint', rd.endpoint);
+      addRow('http', rd.http_status);
       addRow('tried wp-json', rd.tried_wp_json);
       addRow('tried rest_route', rd.tried_route || rd.tried_rest_route);
       if (rd.missing && rd.missing.length) addRow('missing', rd.missing.join(', '));
@@ -1427,7 +1429,7 @@
         addRow('registered', rd.registered_similar.slice(0, 6).join(', '));
       }
       if (global.console && global.console.error) {
-        global.console.error('[ImageStudio] rest_no_route surfaced to UI', rd);
+        global.console.error('[ImageStudio] generate start failed', code || 'route', rd);
       }
       var isAdmin = !!(global.YooYCore && global.YooYCore.config && global.YooYCore.config.isAdmin);
       area.insertAdjacentHTML('beforeend',

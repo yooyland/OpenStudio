@@ -125,7 +125,7 @@
             try { json = text ? JSON.parse(text) : {}; } catch (e) { parseError = true; }
             if (res.ok && !parseError) { return json; }
             var unreachable = (res.status === 404) || (json && json.code === 'rest_no_route') ||
-              (parseError && (res.status === 404 || !res.ok));
+              (parseError && res.status === 404);
             if (unreachable && (i + 1) < order.length) {
               return attempt(i + 1);
             }
@@ -142,7 +142,15 @@
               if (global.console && global.console.error) global.console.error('[YooY REST] rest_no_route', err.details);
               throw err;
             }
-            if (parseError) { throw new Error('Invalid API response'); }
+            if (parseError) {
+              if (res.status >= 500) {
+                var serverErr = new Error('이미지 생성을 시작하지 못했습니다.');
+                serverErr.code = 'server_unavailable';
+                serverErr.details = { code: 'server_unavailable', http_status: res.status, endpoint: path };
+                throw serverErr;
+              }
+              throw new Error('Invalid API response');
+            }
             throw parseApiError(json, res);
           });
         });
