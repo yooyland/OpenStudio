@@ -90,8 +90,9 @@
 .ygl-toolbar{align-items:center}
 .ygl-search input,.ygl-sort select{background:#111;border:1px solid rgba(220,170,45,.25);border-radius:999px;color:#ddd;font-size:13px;padding:8px 14px}
 .ygl-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
-.ygl-drawer-overlay{align-items:center;justify-content:center;padding:20px}
-.ygl-drawer--detail{width:min(980px,96vw);max-height:92vh;height:auto;border-radius:20px;border:1px solid rgba(220,170,45,.25);animation:none}
+.ygl-drawer-overlay{align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+.ygl-drawer-overlay.ygl-publish-host{padding:16px;max-width:100vw;width:100%}
+.ygl-drawer--detail{width:min(980px,calc(100vw - 32px));max-width:100%;max-height:92vh;height:auto;border-radius:20px;border:1px solid rgba(220,170,45,.25);animation:none;box-sizing:border-box}
 .ygl-detail-head{padding:20px 20px 0}
 .ygl-drawer-preview{min-height:280px;max-height:56vh}
 .ygl-drawer-preview img,.ygl-drawer-preview video{max-height:52vh}
@@ -119,21 +120,195 @@
 .ygl-pub-state-row strong{color:#eee;font-weight:600}
 .ygl-actions--pub{display:flex;flex-wrap:wrap;gap:8px}
 /* Gallery overlays must sit ABOVE .yai-app (z-index 999990). Same tier as project-create dialog. */
-.ygl-publish-host{align-items:flex-end;z-index:1000010}
-.ygl-publish-sheet,.ygl-publish-panel{background:#111;border:1px solid rgba(220,170,45,.28);border-radius:18px 18px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.45);color:#eee;max-height:92vh;overflow:auto;padding:20px 18px 24px;position:relative;width:min(560px,100%)}
-.ygl-publish-sheet h3,.ygl-publish-panel h3{color:#ffd76a;font-size:18px;margin:0 0 14px;padding-right:36px}
-.ygl-publish-preview{background:#0a0a0a;border-radius:14px;margin-bottom:12px;max-height:240px;overflow:hidden}
-.ygl-publish-preview img,.ygl-publish-preview video{display:block;height:auto;max-height:240px;object-fit:contain;width:100%}
-.ygl-publish-targets,.ygl-publish-manage,.ygl-market-actions{display:grid;gap:10px;margin:14px 0}
-.ygl-publish-sheet .ygl-btn,.ygl-publish-panel .ygl-btn,.ygl-market-modal .ygl-btn{min-height:44px}
-.ygl-publish-sheet .ygl-btn:focus-visible,.ygl-publish-panel .ygl-btn:focus-visible,.ygl-btn:focus-visible{outline:2px solid #f2c14e;outline-offset:2px}
-.ygl-market-modal{inset:0;position:absolute;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45);padding:0}
-.ygl-market-panel{background:#111;border-radius:18px 18px 0 0;max-height:92vh;overflow:auto;padding:20px;width:min(560px,100%)}
+.ygl-publish-host{
+  align-items:flex-end;
+  box-sizing:border-box;
+  justify-content:center;
+  max-width:100vw;
+  padding:16px;
+  width:100%;
+  z-index:1000010;
+}
+.ygl-publish-sheet,
+.ygl-publish-panel,
+.ygl-market-panel{
+  background:#111;
+  border:1px solid rgba(220,170,45,.28);
+  border-radius:18px 18px 0 0;
+  box-shadow:0 -12px 40px rgba(0,0,0,.45);
+  box-sizing:border-box;
+  color:#eee;
+  max-height:min(92vh, calc(100dvh - 32px));
+  max-width:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding:20px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  position:relative;
+  width:min(520px, calc(100vw - 32px));
+}
+/* Nested Community panel lives inside the sheet — do not stack a second fixed width + padding. */
+.ygl-publish-sheet > .ygl-publish-panel{
+  background:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  max-height:none;
+  padding:0;
+  width:100%;
+}
+.ygl-publish-sheet h3,
+.ygl-publish-panel h3{color:#ffd76a;font-size:18px;margin:0 0 14px;padding-right:36px}
+.ygl-publish-preview{background:#0a0a0a;border-radius:14px;margin-bottom:12px;max-height:240px;max-width:100%;overflow:hidden}
+.ygl-publish-preview img,
+.ygl-publish-preview video{display:block;height:auto;max-height:240px;max-width:100%;object-fit:contain;width:100%}
+.ygl-publish-targets,
+.ygl-publish-manage,
+.ygl-market-actions{display:grid;gap:10px;margin:14px 0;max-width:100%}
+.ygl-publish-sheet .ygl-btn,
+.ygl-publish-panel .ygl-btn,
+.ygl-market-modal .ygl-btn{box-sizing:border-box;max-width:100%;min-height:44px;width:100%}
+.ygl-publish-sheet .ygl-btn:focus-visible,
+.ygl-publish-panel .ygl-btn:focus-visible,
+.ygl-btn:focus-visible{outline:2px solid #f2c14e;outline-offset:2px}
+.ygl-market-modal{align-items:flex-end;background:rgba(0,0,0,.45);box-sizing:border-box;display:flex;inset:0;justify-content:center;padding:16px;position:absolute;width:100%;max-width:100%}
+.ygl-market-panel{border-radius:18px 18px 0 0;max-height:min(92vh, calc(100dvh - 32px));overflow-x:hidden;overflow-y:auto;padding:20px;width:min(520px, calc(100vw - 32px))}
+.ygl-market-panel.yai-form-grid,
+.ygl-market-panel.yai-form-grid--2{
+  box-sizing:border-box;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  max-width:100%;
+  width:min(520px, calc(100vw - 32px));
+}
+
+/* Publish form fields: white/light surface must use dark text (not inherited #eee). */
+.ygl-publish-sheet .yai-field > span,
+.ygl-publish-panel .yai-field > span,
+.ygl-market-modal .yai-field > span{
+  color:rgba(255,255,255,.82);
+}
+.ygl-publish-sheet input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+.ygl-publish-sheet textarea,
+.ygl-publish-sheet select,
+.ygl-publish-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+.ygl-publish-panel textarea,
+.ygl-publish-panel select,
+.ygl-market-modal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+.ygl-market-modal textarea,
+.ygl-market-modal select{
+  -webkit-appearance:none;
+  appearance:none;
+  background:#ffffff !important;
+  background-color:#ffffff !important;
+  border:1px solid #d0d0d0 !important;
+  border-radius:12px;
+  box-sizing:border-box;
+  color:#111111 !important;
+  -webkit-text-fill-color:#111111;
+  caret-color:#111111;
+  font-family:inherit;
+  font-size:15px;
+  line-height:1.4;
+  max-width:100%;
+  min-width:0;
+  width:100%;
+}
+.ygl-publish-sheet input:not([type="checkbox"]):not([type="radio"]),
+.ygl-publish-panel input:not([type="checkbox"]):not([type="radio"]),
+.ygl-market-modal input:not([type="checkbox"]):not([type="radio"]),
+.ygl-publish-sheet select,
+.ygl-publish-panel select,
+.ygl-market-modal select{
+  height:48px;
+  padding:0 14px;
+}
+.ygl-publish-sheet textarea,
+.ygl-publish-panel textarea,
+.ygl-market-modal textarea{
+  min-height:88px;
+  padding:12px 14px;
+  resize:vertical;
+}
+.ygl-publish-sheet input::placeholder,
+.ygl-publish-sheet textarea::placeholder,
+.ygl-publish-panel input::placeholder,
+.ygl-publish-panel textarea::placeholder,
+.ygl-market-modal input::placeholder,
+.ygl-market-modal textarea::placeholder{
+  color:#777777 !important;
+  opacity:1;
+}
+.ygl-publish-sheet input:focus,
+.ygl-publish-sheet textarea:focus,
+.ygl-publish-sheet select:focus,
+.ygl-publish-panel input:focus,
+.ygl-publish-panel textarea:focus,
+.ygl-publish-panel select:focus,
+.ygl-market-modal input:focus,
+.ygl-market-modal textarea:focus,
+.ygl-market-modal select:focus{
+  border-color:#f2c14e !important;
+  box-shadow:0 0 0 3px rgba(242,193,78,.22);
+  outline:none;
+}
+.ygl-publish-sheet select option,
+.ygl-publish-panel select option,
+.ygl-market-modal select option{
+  background:#ffffff;
+  color:#111111;
+}
+.ygl-publish-sheet img,
+.ygl-publish-panel img,
+.ygl-market-modal img,
+.ygl-publish-sheet input,
+.ygl-publish-sheet textarea,
+.ygl-publish-sheet select,
+.ygl-publish-panel input,
+.ygl-publish-panel textarea,
+.ygl-publish-panel select,
+.ygl-market-modal input,
+.ygl-market-modal textarea,
+.ygl-market-modal select{
+  max-width:100%;
+}
 
 @media(min-width:721px){
-  .ygl-publish-host{align-items:center;justify-content:center}
-  .ygl-publish-sheet,.ygl-publish-panel,.ygl-market-panel{border-radius:18px;width:min(520px,92vw)}
+  .ygl-publish-host{align-items:center;justify-content:center;padding:16px}
+  .ygl-publish-sheet,
+  .ygl-publish-panel,
+  .ygl-market-panel,
+  .ygl-market-panel.yai-form-grid,
+  .ygl-market-panel.yai-form-grid--2{
+    border-radius:18px;
+    width:min(520px, calc(100vw - 32px));
+  }
   .ygl-market-modal{align-items:center}
+  .ygl-publish-sheet .ygl-btn,
+  .ygl-publish-panel .ygl-btn,
+  .ygl-market-modal .ygl-btn{width:auto;min-width:140px}
+  .ygl-market-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:flex-end;
+  }
+}
+
+@media(max-width:720px){
+  .ygl-publish-host{padding:0;align-items:flex-end}
+  .ygl-publish-sheet,
+  .ygl-publish-panel,
+  .ygl-market-panel,
+  .ygl-market-panel.yai-form-grid,
+  .ygl-market-panel.yai-form-grid--2{
+    border-radius:18px 18px 0 0;
+    max-height:min(94vh, calc(100dvh - 8px));
+    width:100%;
+  }
+  .ygl-market-panel.yai-form-grid,
+  .ygl-market-panel.yai-form-grid--2{
+    grid-template-columns:1fr;
+  }
+  .ygl-market-actions{display:grid}
 }
 
 @media(max-width:900px){
@@ -143,5 +318,5 @@
   .ygl-grid{grid-template-columns:1fr}
   .ygl-card-hover{opacity:1;pointer-events:auto;background:linear-gradient(transparent 45%,rgba(0,0,0,.72))}
   .ygl-card-hover button{align-self:flex-end}
-  .ygl-drawer--detail{width:100vw;max-width:100vw;max-height:100vh;border-radius:0}
+  .ygl-drawer--detail{width:100%;max-width:100%;max-height:100vh;border-radius:0;box-sizing:border-box}
 }
