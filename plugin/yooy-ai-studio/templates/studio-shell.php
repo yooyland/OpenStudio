@@ -381,7 +381,6 @@ $studio_quick = [
                             <div class="yai-home-composer__chip-row" id="yai-home-attach-chip" hidden></div>
                             <label class="yai-sr-only" for="yai-home-prompt">무엇을 만들고 싶으신가요?</label>
                             <textarea id="yai-home-prompt" rows="1" placeholder="무엇을 만들고 싶으신가요?"></textarea>
-                            <p class="yai-home-composer__example">예: 여름 바닷가 화장품 광고 이미지 만들어줘</p>
                             <div class="yai-home-url-row" id="yai-home-url-row" hidden>
                                 <input type="url" id="yai-home-url-input" placeholder="https://..." autocomplete="off">
                                 <button type="button" id="yai-home-url-go">가져오기</button>
@@ -391,10 +390,13 @@ $studio_quick = [
                         </div>
                         <button type="button" class="yai-home-composer__submit" id="yai-home-create">생성하기 →</button>
                     </div>
-                    <div class="yai-home-composer__pills" role="group" aria-label="생성 옵션">
-                        <button type="button" class="yai-home-composer__pill" id="yai-home-coach" aria-pressed="false">✨ 프롬프트 자동보완</button>
-                        <button type="button" class="yai-home-composer__pill is-on" id="yai-home-studio-auto" aria-pressed="true">◎ Studio 자동 선택</button>
-                        <button type="button" class="yai-home-composer__pill" id="yai-home-consult" data-route="assistant">AI와 상의하기</button>
+                    <div class="yai-home-composer__secondary">
+                        <p class="yai-home-composer__example" id="yai-home-composer-example">예: 여름 바닷가 화장품 광고 이미지 만들어줘</p>
+                        <div class="yai-home-composer__pills" role="group" aria-label="생성 옵션">
+                            <button type="button" class="yai-home-composer__pill" id="yai-home-coach" aria-pressed="false">✨ 프롬프트 자동보완</button>
+                            <button type="button" class="yai-home-composer__pill is-on" id="yai-home-studio-auto" aria-pressed="true">◎ Studio 자동 선택</button>
+                            <button type="button" class="yai-home-composer__pill" id="yai-home-consult" data-route="assistant">AI와 상의하기</button>
+                        </div>
                     </div>
                     <div class="yai-create-ux__coach" id="yai-home-coach-panel" hidden></div>
                 </div>

@@ -28,10 +28,10 @@ body.yai-sidebar-collapsed .yai-home-composer {
   pointer-events: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   max-width: 980px;
   margin: 0 auto;
-  padding: 8px 10px 8px;
+  padding: 7px 10px 6px;
   border-radius: 16px;
   border: 2px solid rgba(212, 175, 55, 0.72);
   background: rgba(10, 10, 10, 0.97);
@@ -128,16 +128,16 @@ body.yai-sidebar-collapsed .yai-home-composer {
 
 .yai-home-composer__field textarea {
   width: 100%;
-  min-height: 40px;
-  max-height: 88px;
+  min-height: 36px;
+  max-height: 80px;
   resize: none;
   border: 0;
   outline: none;
   background: transparent;
   color: #f5f5f5;
   font-size: 15px;
-  line-height: 1.4;
-  padding: 6px 0 2px;
+  line-height: 1.35;
+  padding: 6px 0 4px;
   font-family: inherit;
   overflow-y: auto;
 }
@@ -146,8 +146,19 @@ body.yai-sidebar-collapsed .yai-home-composer {
   color: rgba(255, 255, 255, 0.42);
 }
 
+.yai-home-composer__secondary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 0 2px 0 48px;
+}
+
 .yai-home-composer__example {
-  margin: 0 0 2px;
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
   font-size: 11px;
   line-height: 1.3;
   color: rgba(255, 255, 255, 0.38);
@@ -158,15 +169,16 @@ body.yai-sidebar-collapsed .yai-home-composer {
 
 .yai-home-composer__pills {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  padding: 0 2px 0 48px;
+  flex: 0 0 auto;
 }
 
 .yai-home-composer__pill {
-  height: 26px;
-  padding: 0 10px;
+  height: 24px;
+  padding: 0 9px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.06);
@@ -199,7 +211,7 @@ body.yai-sidebar-collapsed .yai-home-composer {
   border-radius: 11px;
   border: 1px solid rgba(255, 232, 163, 0.4);
   background: linear-gradient(180deg, #e0bc4a, #c9a227);
-  color: #0a0a0a;
+  color: #080808;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -210,12 +222,12 @@ body.yai-sidebar-collapsed .yai-home-composer {
 .yai-home-composer__submit:hover,
 .yai-home-composer__submit:focus-visible {
   filter: brightness(1.04);
-  color: #0a0a0a;
+  color: #080808;
   outline: none;
 }
 
 .yai-home-composer__submit:active {
-  color: #0a0a0a;
+  color: #080808;
 }
 
 /* Legacy external hint removed — keep inert if markup reappears */
@@ -225,7 +237,7 @@ body.yai-sidebar-collapsed .yai-home-composer {
 }
 
 .yai-view--home.yai-hd-page {
-  padding-bottom: 132px !important;
+  padding-bottom: 118px !important;
 }
 
 .yai-home-composer .yai-create-ux__coach {
@@ -384,7 +396,7 @@ body.yai-sidebar-collapsed .yai-home-composer {
   }
 
   .yai-view--home.yai-hd-page {
-    padding-bottom: 148px !important;
+    padding-bottom: 136px !important;
   }
 
   .yai-home-composer__main {
@@ -400,9 +412,18 @@ body.yai-sidebar-collapsed .yai-home-composer {
     height: 40px;
   }
 
-  .yai-home-composer__pills {
+  .yai-home-composer__secondary {
     padding-left: 0;
-    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .yai-home-composer__example {
+    display: none;
+  }
+
+  .yai-home-composer__pills {
+    flex: 1 1 auto;
+    justify-content: flex-start;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -412,19 +433,25 @@ body.yai-sidebar-collapsed .yai-home-composer {
     display: none;
   }
 
-  .yai-home-composer__example {
-    white-space: normal;
-  }
-
   .yai-home-composer__plus-menu {
     position: fixed;
     left: 12px;
     right: 12px;
-    bottom: calc(max(6px, env(safe-area-inset-bottom, 0px) + 4px) + 118px);
+    bottom: calc(max(6px, env(safe-area-inset-bottom, 0px) + 4px) + 108px);
     min-width: 0;
   }
 
   .yai-home-composer__chip em {
     max-width: 140px;
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 901px) {
+  .yai-home-composer__secondary {
+    padding-left: 0;
+  }
+
+  .yai-home-composer__example {
+    max-width: 42%;
   }
 }

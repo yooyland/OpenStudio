@@ -135,9 +135,9 @@
     var ta = document.getElementById('yai-home-prompt');
     if (!ta) return;
     ta.style.height = 'auto';
-    /* Compact default (~40–56px); grow only while typing up to ~88px. */
-    ta.style.height = Math.min(88, Math.max(40, ta.scrollHeight)) + 'px';
-    var example = ta.parentNode && ta.parentNode.querySelector('.yai-home-composer__example');
+    /* Compact default; grow only while typing. */
+    ta.style.height = Math.min(80, Math.max(36, ta.scrollHeight)) + 'px';
+    var example = document.getElementById('yai-home-composer-example');
     if (example) {
       example.hidden = !!(ta.value && String(ta.value).trim());
     }
