@@ -155,6 +155,11 @@
   font-weight: 700;
 }
 
+.yis-actions--primary .yis-btn-primary {
+  width: auto;
+  max-width: 100%;
+}
+
 @media (max-width: 800px) {
   .yai-writing-simple .yai-generate-btn {
     max-width: none;
@@ -164,8 +169,18 @@
   .yms-btn-primary.yai-btn-gold-primary,
   .yas-btn-primary.yai-btn-gold-primary,
   .yis-actions .yis-btn-primary,
+  .yis-actions--primary .yis-btn-primary,
   .yts-footer .yts-btn--primary {
     width: 100%;
+  }
+
+  .yis-actions--primary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .yis-credit-estimate {
+    text-align: center;
   }
 
   .yai-studio-simple-row {

@@ -223,10 +223,12 @@
   }
 
   function creditLabel() {
-    if (state.credits.unlimited) return '예상 — · 잔액 ∞';
-    var est = state.credits.estimate || 0;
-    var bal = state.credits.balance ?? 0;
-    return '예상 ' + est + ' 크레딧 · 잔액 ' + bal;
+    var est = Number(state.credits.estimate) || 0;
+    if (state.credits.unlimited) {
+      return est > 0 ? ('예상 ' + est + ' 크레딧') : '';
+    }
+    if (est > 0) return '예상 ' + est + ' 크레딧';
+    return '';
   }
 
   function resultActionsHtml() {

@@ -45,6 +45,7 @@
     smartAuto: true,
     studioMode: 'smart',
     advancedOpen: false,
+    spiOpen: false,
     fieldLocks: {},
     lastAutoProfile: null,
     lastOptimizedPrompt: '',
@@ -226,10 +227,42 @@
   function updateCreditsUI(root) {
     var bar = root && root.querySelector('.yis-credits-bar');
     if (bar) bar.textContent = creditLabel();
-    var btn = root && root.querySelector('#yis-generate');
+    syncGenerateCtaLabels(root);
+  }
+
+  function ctaEstimateText() {
+    var est = Number(state.credits.estimate);
+    if (!est || est <= 0) return '';
+    return '예상 ' + est + ' 크레딧';
+  }
+
+  function generateButtonLabel() {
+    if (state.generating) return '이미지 만드는 중…';
+    return '생성하기 →';
+  }
+
+  function syncGenerateCtaLabels(root) {
+    if (!root) return;
+    var btn = root.querySelector('#yis-generate');
+    var stickyBtn = root.querySelector('#yis-generate-sticky');
+    var est = ctaEstimateText();
     if (btn && !state.generating) {
-      btn.textContent = 'Generate · ' + creditLabel();
+      btn.textContent = generateButtonLabel();
+    } else if (btn && state.generating) {
+      btn.textContent = generateButtonLabel();
     }
+    if (stickyBtn && !state.generating) {
+      stickyBtn.textContent = generateButtonLabel();
+    }
+    root.querySelectorAll('.yis-credit-estimate').forEach(function (el) {
+      if (est) {
+        el.textContent = est;
+        el.hidden = false;
+      } else {
+        el.textContent = '';
+        el.hidden = true;
+      }
+    });
   }
 
   function selectedProviderId() {
@@ -736,18 +769,67 @@
     var finalPrompt = state.showFinalPrompt
       ? ('<div class="yis-spi__final"><span>C. 이미지 생성용 최종 Prompt</span><p>' + esc(state.lastOptimizedPrompt || 'Compose 후 표시됩니다.') + '</p></div>')
       : '';
-    return '<div class="yis-spi" id="yis-spi">' +
-      '<div class="yis-spi__block"><span class="yis-spi__label">A. 사용자 요청</span><p>' + esc(userReq || '프롬프트를 입력하세요') + '</p></div>' +
-      '<div class="yis-spi__block"><span class="yis-spi__label">B. AI가 이해한 내용</span>' +
-        '<dl class="yis-spi__grid">' + understood.map(function (row) {
-          return '<div><dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd></div>';
-        }).join('') + '</dl></div>' +
-      finalPrompt +
-      '<div class="yis-spi__actions">' +
-        '<button type="button" class="yis-btn-secondary" id="yis-spi-edit">AI 이해 내용 수정</button>' +
-        '<button type="button" class="yis-btn-secondary" id="yis-spi-recompose">Prompt 다시 구성</button>' +
-        '<button type="button" class="yis-btn-secondary" id="yis-spi-show-final">최종 Prompt 보기</button>' +
-      '</div></div>';
+    var open = !!state.spiOpen;
+    var summary = open ? 'AI가 이해한 내용 접기 ▴' : 'AI가 이해한 내용 보기 ▾';
+    return '<details class="yis-spi yis-spi--fold" id="yis-spi"' + (open ? ' open' : '') + '>' +
+      '<summary class="yis-spi__summary">' + summary + '</summary>' +
+      '<div class="yis-spi__body">' +
+        '<div class="yis-spi__block"><span class="yis-spi__label">A. 사용자 요청</span><p>' + esc(userReq || '프롬프트를 입력하세요') + '</p></div>' +
+        '<div class="yis-spi__block"><span class="yis-spi__label">B. AI가 이해한 내용</span>' +
+          '<dl class="yis-spi__grid">' + understood.map(function (row) {
+            return '<div><dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd></div>';
+          }).join('') + '</dl></div>' +
+        finalPrompt +
+        '<div class="yis-spi__actions">' +
+          '<button type="button" class="yis-btn-secondary" id="yis-spi-edit">AI 이해 내용 수정</button>' +
+          '<button type="button" class="yis-btn-secondary" id="yis-spi-recompose">Prompt 다시 구성</button>' +
+          '<button type="button" class="yis-btn-secondary" id="yis-spi-show-final">최종 Prompt 보기</button>' +
+        '</div>' +
+      '</div></details>';
+  }
+
+  function compactRefPreviewHtml() {
+    var assets = (state.settings.reference_assets || []).slice();
+    if (!assets.length && state.referenceUrl) {
+      assets = [{ id: 'url', url: state.referenceUrl, title: '참고 이미지' }];
+    }
+    if (!assets.length) return '';
+    return '<div class="yis-ref-compact" id="yis-ref-compact" aria-label="참고 이미지">' +
+      '<span class="yis-ref-compact__label">참고 이미지 · ' + assets.length + '</span>' +
+      '<ul class="yis-ref-compact__list">' + assets.slice(0, 4).map(function (a, i) {
+        var key = a.id || a.url || String(i);
+        var title = a.title || '참고 이미지';
+        var thumb = a.thumbnail || a.url || '';
+        return '<li class="yis-ref-compact__item">' +
+          (thumb ? '<img class="yis-ref-compact__thumb" src="' + esc(thumb) + '" alt="">' : '<span class="yis-ref-compact__thumb yis-ref-compact__thumb--empty" aria-hidden="true"></span>') +
+          '<span class="yis-ref-compact__title">' + esc(title) + '</span>' +
+          '<button type="button" class="yis-ref-compact__remove" data-yis-ref-remove="' + esc(String(key)) + '" aria-label="참고 이미지 제거">×</button>' +
+        '</li>';
+      }).join('') + '</ul>' +
+      (assets.length > 4 ? '<span class="yis-ref-compact__more">+' + (assets.length - 4) + '</span>' : '') +
+    '</div>';
+  }
+
+  function primaryGenerateActionsHtml() {
+    var est = ctaEstimateText();
+    return '<div class="yis-actions yis-actions--primary" id="yis-primary-cta">' +
+      '<button class="yis-btn-primary yai-btn-gold-primary" id="yis-generate" type="button"' +
+        (state.generating ? ' disabled' : '') + '>' + esc(generateButtonLabel()) + '</button>' +
+      '<span class="yis-credit-estimate"' + (est ? '' : ' hidden') + '>' + esc(est) + '</span>' +
+      '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' +
+        (state.generating ? generationProgressHtml() : '') +
+      '</div>' +
+      '<div class="yis-info" id="yis-generate-info" hidden></div>' +
+    '</div>';
+  }
+
+  function stickyGenerateHtml() {
+    var est = ctaEstimateText();
+    return '<div class="yis-sticky-cta" id="yis-sticky-cta" hidden>' +
+      '<button type="button" class="yis-btn-primary yai-btn-gold-primary" id="yis-generate-sticky"' +
+        (state.generating ? ' disabled' : '') + '>' + esc(generateButtonLabel()) + '</button>' +
+      '<span class="yis-credit-estimate"' + (est ? '' : ' hidden') + '>' + esc(est) + '</span>' +
+    '</div>';
   }
 
   function autoSelectedCardHtml() {
@@ -1195,7 +1277,7 @@
       var blocked = !pre.ok && (pre.code === 'provider_not_tested' || pre.code === 'provider_not_configured');
       btn.disabled = blocked;
       btn.title = blocked ? pre.message : '';
-      if (!blocked) btn.textContent = 'Generate · ' + creditLabel();
+      if (!blocked) syncGenerateCtaLabels(root);
     }
     var select = root && root.querySelector('[data-yis-setting="default_provider"]');
     if (select) {
@@ -1691,11 +1773,13 @@
 
   function renderGenerate(ws, ctrl, root) {
     var promptVal = state.settings.last_prompt || '';
+    var boardHtml = (state.generating || (state.lastResult && resultImages(state.lastResult).length))
+      ? resultBoardHtml()
+      : '';
     ws.innerHTML =
       '<div class="yis-header">' +
         (window.YooYStudioSimpleMode ? window.YooYStudioSimpleMode.headerHtml('Image Studio', '상상한 장면을 이미지로 만들어보세요.') : '<h2>Image Studio</h2><p class="yis-muted">상상한 장면을 이미지로 만들어보세요.</p>') +
       '</div>' +
-      resultBoardHtml() +
       '<div class="yis-prompt-area yis-generate-flow">' +
         '<div class="yai-create-ux__recs" id="yis-create-recs"></div>' +
         '<label class="yis-prompt-label" for="yis-prompt">무엇을 만들까요?</label>' +
@@ -1703,13 +1787,9 @@
         '<div class="yis-create-ux-actions" style="display:flex;gap:0.5rem;justify-content:flex-end;margin:0.4rem 0 0.6rem">' +
           '<button type="button" class="yis-btn-secondary" id="yis-prompt-coach">프롬프트 보완</button>' +
         '</div>' +
-        promptIntelligencePanelHtml() +
         '<div class="yai-create-ux__coach" id="yis-coach-panel" hidden></div>' +
-        '<div class="yis-ref-block">' +
-          '<label class="yis-prompt-label">참고 이미지</label>' +
-          '<div id="yis-ref-panel-host"></div>' +
-          refAnalysisCardHtml() +
-        '</div>' +
+        compactRefPreviewHtml() +
+        primaryGenerateActionsHtml() +
         generationModeHtml() +
         '<div class="yai-studio-simple-row yis-simple-opts">' +
           field('화면 비율', '<select class="yis-output-size" data-yis-setting="output_size" id="yis-output-size" aria-label="화면 비율">' +
@@ -1719,27 +1799,42 @@
               return '<option value="' + n + '"' + (String(state.settings.image_count || 1) === String(n) ? ' selected' : '') + '>' + n + '장</option>';
             }).join('') + '</select>') +
         '</div>' +
-        '<div class="yis-actions"><button class="yis-btn-primary yai-btn-gold-primary" id="yis-generate" type="button"' + (state.generating ? ' disabled' : '') + '>' +
-        (state.generating ? '이미지 만드는 중…' : '이미지 생성하기') +
-        (state.credits.estimate ? ' · 예상 ' + (state.credits.estimate) + ' 크레딧' : '') + '</button>' +
-        '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' + (state.generating ? generationProgressHtml() : '') + '</div>' +
-        '<div class="yis-info" id="yis-generate-info" hidden></div></div>' +
+        promptIntelligencePanelHtml() +
+        '<div class="yis-ref-block yis-ref-block--manage">' +
+          '<label class="yis-prompt-label">참고 이미지 관리</label>' +
+          '<div id="yis-ref-panel-host"></div>' +
+          refAnalysisCardHtml() +
+        '</div>' +
         advancedSectionHtml() +
-      '</div>';
+      '</div>' +
+      boardHtml +
+      stickyGenerateHtml();
     ctrl.innerHTML = sidePanelHtml();
     mountRefAssets($('#yis-ref-panel-host', ws), 'image-studio');
     updateResultBoardRatio(root);
     bindPromptFields(root);
     bindGenerateButton(root);
+    bindStickyGenerate(root);
+    bindCompactRef(root);
     bindAdvancedPanel(root);
     if (window.YooYStudioSimpleMode) window.YooYStudioSimpleMode.bind(ws);
     updateProviderUX(root);
     loadProviderHealth(root);
     bindCreateUx(root);
     bindPromptIntelligence(root);
+    syncGenerateCtaLabels(root);
   }
 
   function bindPromptIntelligence(root) {
+    var spi = root && root.querySelector('#yis-spi');
+    if (spi && spi.dataset.yisSpiBound !== '1') {
+      spi.dataset.yisSpiBound = '1';
+      spi.addEventListener('toggle', function () {
+        state.spiOpen = !!spi.open;
+        var sum = spi.querySelector('.yis-spi__summary');
+        if (sum) sum.textContent = spi.open ? 'AI가 이해한 내용 접기 ▴' : 'AI가 이해한 내용 보기 ▾';
+      });
+    }
     var editBtn = root && root.querySelector('#yis-spi-edit');
     var recomposeBtn = root && root.querySelector('#yis-spi-recompose');
     var showFinalBtn = root && root.querySelector('#yis-spi-show-final');
@@ -1752,6 +1847,7 @@
           primary_subject: subject,
           raw_user_request: state.rawUserRequest || (promptEl && promptEl.value) || ''
         });
+        state.spiOpen = true;
         renderTab(root);
         bindGenerateButton(root);
         bindPromptIntelligence(root);
@@ -1764,6 +1860,7 @@
         previewSmartAuto(root);
         fetchServerCompose(prompt, function (composed) {
           applyServerCompose(prompt, composed);
+          state.spiOpen = true;
           renderTab(root);
           bindGenerateButton(root);
           bindPromptIntelligence(root);
@@ -1773,6 +1870,7 @@
     if (showFinalBtn) {
       showFinalBtn.addEventListener('click', function () {
         state.showFinalPrompt = !state.showFinalPrompt;
+        state.spiOpen = true;
         if (!state.lastOptimizedPrompt && promptEl) {
           fetchServerCompose(promptEl.value, function (composed) {
             applyServerCompose(promptEl.value, composed);
@@ -1787,6 +1885,68 @@
         bindPromptIntelligence(root);
       });
     }
+  }
+
+  function bindCompactRef(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-yis-ref-remove]').forEach(function (btn) {
+      if (btn.dataset.bound === '1') return;
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-yis-ref-remove');
+        var assets = (state.settings.reference_assets || []).filter(function (a) {
+          return String(a.id || '') !== String(key) && String(a.url || '') !== String(key);
+        });
+        state.settings.reference_assets = assets;
+        state.referenceUrl = assets[0] ? assets[0].url : '';
+        state.settings.reference_url = state.referenceUrl;
+        if (state.refPanel && typeof state.refPanel.setAssets === 'function') {
+          state.refPanel.setAssets(assets);
+        }
+        refreshCompactRef(root);
+      });
+    });
+  }
+
+  function refreshCompactRef(root) {
+    if (!root) return;
+    var existing = root.querySelector('#yis-ref-compact');
+    var html = compactRefPreviewHtml();
+    if (!html) {
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      return;
+    }
+    if (existing) {
+      existing.outerHTML = html;
+    } else {
+      var cta = root.querySelector('#yis-primary-cta');
+      if (cta) cta.insertAdjacentHTML('beforebegin', html);
+    }
+    bindCompactRef(root);
+  }
+
+  function bindStickyGenerate(root) {
+    var primary = root && root.querySelector('#yis-primary-cta');
+    var sticky = root && root.querySelector('#yis-sticky-cta');
+    var stickyBtn = root && root.querySelector('#yis-generate-sticky');
+    if (!primary || !sticky || !stickyBtn) return;
+    if (stickyBtn.dataset.yisGenerateBound !== '1') {
+      stickyBtn.dataset.yisGenerateBound = '1';
+      stickyBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        global.YooYLastGenerateClick = Date.now();
+        doGenerate(root);
+      });
+    }
+    if (sticky.dataset.yisStickyBound === '1') return;
+    sticky.dataset.yisStickyBound = '1';
+    if (typeof IntersectionObserver === 'undefined') return;
+    var obs = new IntersectionObserver(function (entries) {
+      var entry = entries[0];
+      if (!entry) return;
+      sticky.hidden = entry.isIntersecting || state.generating;
+    }, { root: null, threshold: 0.15 });
+    obs.observe(primary);
   }
 
   function bindCreateUx(root) {
@@ -2117,7 +2277,7 @@
   function resultBoardHtml() {
     if (state.generating) return resultBoardGeneratingHtml();
     var images = resultImages(state.lastResult);
-    if (!images.length) return resultBoardEmptyHtml();
+    if (!images.length) return '';
 
     var idx = activeResultIndex();
     var img = images[idx];
@@ -2176,17 +2336,23 @@
   }
 
   function creditLabel() {
+    var est = Number(state.credits.estimate) || 0;
+    if (state.credits.unlimited) {
+      return est > 0 ? ('예상 ' + est + ' 크레딧') : '무제한';
+    }
     if (global.YooYCreditsUI && typeof global.YooYCreditsUI.estimateLabel === 'function') {
-      return global.YooYCreditsUI.estimateLabel(
+      var label = global.YooYCreditsUI.estimateLabel(
         state.credits.estimate,
         state.credits.balance,
-        state.credits.unlimited
+        false
       );
+      if (label && label.indexOf('—') === -1 && label.indexOf('∞') === -1) return label;
     }
-    if (state.credits.unlimited) return '예상 — · 잔액 ∞';
-    var est = state.credits.estimate || 0;
-    var bal = state.credits.balance != null ? state.credits.balance : 0;
-    return '예상 ' + est + ' 크레딧 · 잔액 ' + bal;
+    var bal = state.credits.balance != null ? state.credits.balance : null;
+    var parts = [];
+    if (est > 0) parts.push('예상 ' + est + ' 크레딧');
+    if (bal != null && isFinite(Number(bal))) parts.push('잔액 ' + bal);
+    return parts.join(' · ') || '';
   }
 
   function resultActionsHtml() {
@@ -2361,6 +2527,7 @@
         var root = document.getElementById('yai-image-studio');
         if (root) {
           refreshRefAnalysisPanel(root);
+          refreshCompactRef(root);
           if (state.advancedOpen && state.smartAuto) previewSmartAuto(root);
         }
       }
