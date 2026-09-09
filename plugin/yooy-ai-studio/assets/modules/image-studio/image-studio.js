@@ -62,6 +62,7 @@
     galleryItems: [],
     generationMode: 'fast',
     generateStep: '',
+    stageError: null,
     lastProviderHealth: null,
     providerHealthLoading: false
   };
@@ -237,7 +238,7 @@
   }
 
   function generateButtonLabel() {
-    if (state.generating) return '이미지 만드는 중…';
+    if (state.generating) return '생성 중...';
     return '생성하기 →';
   }
 
@@ -246,16 +247,28 @@
     var btn = root.querySelector('#yis-generate');
     var stickyBtn = root.querySelector('#yis-generate-sticky');
     var est = ctaEstimateText();
-    if (btn && !state.generating) {
-      btn.textContent = generateButtonLabel();
-    } else if (btn && state.generating) {
-      btn.textContent = generateButtonLabel();
+    if (btn) {
+      if (state.generating) {
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.classList.add('is-loading');
+        btn.innerHTML = '<span class="yis-btn-spinner" aria-hidden="true"></span>' + esc(generateButtonLabel());
+      } else {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.classList.remove('is-loading');
+        btn.textContent = generateButtonLabel();
+      }
     }
-    if (stickyBtn && !state.generating) {
+    if (stickyBtn) {
+      stickyBtn.disabled = !!state.generating;
       stickyBtn.textContent = generateButtonLabel();
     }
     root.querySelectorAll('.yis-credit-estimate').forEach(function (el) {
-      if (est) {
+      if (est && !state.generating) {
+        el.textContent = est;
+        el.hidden = false;
+      } else if (est && state.generating) {
         el.textContent = est;
         el.hidden = false;
       } else {
@@ -813,11 +826,13 @@
   function primaryGenerateActionsHtml() {
     var est = ctaEstimateText();
     return '<div class="yis-actions yis-actions--primary" id="yis-primary-cta">' +
-      '<button class="yis-btn-primary yai-btn-gold-primary" id="yis-generate" type="button"' +
-        (state.generating ? ' disabled' : '') + '>' + esc(generateButtonLabel()) + '</button>' +
+      '<button class="yis-btn-primary yai-btn-gold-primary' + (state.generating ? ' is-loading' : '') + '" id="yis-generate" type="button"' +
+        (state.generating ? ' disabled aria-busy="true"' : '') + '>' +
+        (state.generating ? '<span class="yis-btn-spinner" aria-hidden="true"></span>' : '') +
+        esc(generateButtonLabel()) + '</button>' +
       '<span class="yis-credit-estimate"' + (est ? '' : ' hidden') + '>' + esc(est) + '</span>' +
       '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' +
-        (state.generating ? generationProgressHtml() : '') +
+        (state.generating ? '' : '') +
       '</div>' +
       '<div class="yis-info" id="yis-generate-info" hidden></div>' +
     '</div>';
@@ -1713,18 +1728,28 @@
   function generationProgressHtml() {
     if (!state.generating) return '';
     var step = state.generateStep || 'preparing';
-    var steps = ['queued', 'preparing', 'generating', 'saving', 'completed'];
-    var curIdx = Math.max(0, steps.indexOf(step));
+    var steps = [
+      { id: 'queued', label: '요청 확인 중' },
+      { id: 'preparing', label: '생성 엔진 준비 중' },
+      { id: 'generating', label: '결과 생성 중' },
+      { id: 'saving', label: '저장 중' },
+      { id: 'completed', label: '완료' }
+    ];
+    var order = ['queued', 'preparing', 'generating', 'saving', 'completed'];
+    var curIdx = Math.max(0, order.indexOf(step));
+    if (curIdx < 0) curIdx = 1;
     var stepHtml = steps.map(function (s, i) {
       var cls = i < curIdx ? ' is-done' : (i === curIdx ? ' is-active' : '');
-      return '<span class="yis-gen-step' + cls + '">' + generationStepLabel(s) + '</span>';
+      return '<span class="yis-gen-step' + cls + '">' + s.label + '</span>';
     }).join('<span class="yis-gen-arrow">→</span>');
     var elapsed = state.generateStartedAt ? Math.round((Date.now() - state.generateStartedAt) / 1000) : 0;
     var bgMsg = elapsed >= 45
       ? '<p class="yis-gen-bg">작업은 백그라운드에서 계속 진행됩니다. 완료되면 Gallery에 저장됩니다.</p>'
       : '';
-    return '<div class="yis-generate-progress" role="status" aria-live="polite">' +
-      '<p class="yis-generate-progress__title">AI가 이미지를 생성 중입니다</p>' +
+    return '<div class="yis-generate-progress yis-generate-progress--stage" role="status" aria-live="polite">' +
+      '<div class="yis-stage-spinner" aria-hidden="true"></div>' +
+      '<p class="yis-generate-progress__title">작품을 생성하고 있습니다</p>' +
+      '<p class="yis-generate-progress__support">잠시만 기다려 주세요. 생성이 진행 중입니다.</p>' +
       '<div class="yis-generate-progress__steps">' + stepHtml + '</div>' +
       '<p class="yis-generate-progress__eta">예상 시간: ' + esc(estimateGenerationEta()) + '</p>' +
       bgMsg + '</div>';
@@ -1773,9 +1798,6 @@
 
   function renderGenerate(ws, ctrl, root) {
     var promptVal = state.settings.last_prompt || '';
-    var boardHtml = (state.generating || (state.lastResult && resultImages(state.lastResult).length))
-      ? resultBoardHtml()
-      : '';
     ws.innerHTML =
       '<div class="yis-header">' +
         (window.YooYStudioSimpleMode ? window.YooYStudioSimpleMode.headerHtml('Image Studio', '상상한 장면을 이미지로 만들어보세요.') : '<h2>Image Studio</h2><p class="yis-muted">상상한 장면을 이미지로 만들어보세요.</p>') +
@@ -1790,6 +1812,7 @@
         '<div class="yai-create-ux__coach" id="yis-coach-panel" hidden></div>' +
         compactRefPreviewHtml() +
         primaryGenerateActionsHtml() +
+        resultBoardHtml() +
         generationModeHtml() +
         '<div class="yai-studio-simple-row yis-simple-opts">' +
           field('화면 비율', '<select class="yis-output-size" data-yis-setting="output_size" id="yis-output-size" aria-label="화면 비율">' +
@@ -1807,7 +1830,6 @@
         '</div>' +
         advancedSectionHtml() +
       '</div>' +
-      boardHtml +
       stickyGenerateHtml();
     ctrl.innerHTML = sidePanelHtml();
     mountRefAssets($('#yis-ref-panel-host', ws), 'image-studio');
@@ -1816,6 +1838,7 @@
     bindGenerateButton(root);
     bindStickyGenerate(root);
     bindCompactRef(root);
+    bindStageActions(root);
     bindAdvancedPanel(root);
     if (window.YooYStudioSimpleMode) window.YooYStudioSimpleMode.bind(ws);
     updateProviderUX(root);
@@ -1947,6 +1970,79 @@
       sticky.hidden = entry.isIntersecting || state.generating;
     }, { root: null, threshold: 0.15 });
     obs.observe(primary);
+  }
+
+  function bindStageActions(root) {
+    if (!root) return;
+    var retry = root.querySelector('#yis-stage-retry');
+    var editPrompt = root.querySelector('#yis-stage-edit-prompt');
+    if (retry && retry.dataset.bound !== '1') {
+      retry.dataset.bound = '1';
+      retry.addEventListener('click', function (e) {
+        e.preventDefault();
+        state.stageError = null;
+        doGenerate(root);
+      });
+    }
+    if (editPrompt && editPrompt.dataset.bound !== '1') {
+      editPrompt.dataset.bound = '1';
+      editPrompt.addEventListener('click', function (e) {
+        e.preventDefault();
+        state.stageError = null;
+        renderTab(root);
+        var promptEl = root.querySelector('#yis-prompt');
+        if (promptEl) {
+          promptEl.focus();
+          try { promptEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (err) { /* ignore */ }
+        }
+      });
+    }
+  }
+
+  function scrollStageIntoView(root) {
+    var board = root && root.querySelector('#yis-result-board');
+    if (!board || !board.scrollIntoView) return;
+    try { board.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* ignore */ }
+  }
+
+  function applyGeneratingUi(root) {
+    if (!root) return;
+    var btn = root.querySelector('#yis-generate');
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('is-loading');
+      btn.innerHTML = '<span class="yis-btn-spinner" aria-hidden="true"></span>' + esc(generateButtonLabel());
+    }
+    var sticky = root.querySelector('#yis-sticky-cta');
+    var stickyBtn = root.querySelector('#yis-generate-sticky');
+    if (sticky) sticky.hidden = true;
+    if (stickyBtn) {
+      stickyBtn.disabled = true;
+      stickyBtn.textContent = generateButtonLabel();
+    }
+    var board = root.querySelector('#yis-result-board');
+    var html = resultBoardGeneratingHtml();
+    if (board) board.outerHTML = html;
+    else {
+      var cta = root.querySelector('#yis-primary-cta');
+      if (cta) cta.insertAdjacentHTML('afterend', html);
+    }
+    updateGenerateProgress(root);
+    scrollStageIntoView(root);
+  }
+
+  function abortGenerateUi(root, stageMessage) {
+    state.generating = false;
+    state.generateStep = '';
+    if (stageMessage) {
+      state.stageError = { message: stageMessage };
+    }
+    if (root) {
+      renderTab(root);
+      bindGenerateButton(root);
+      bindStageActions(root);
+    }
   }
 
   function bindCreateUx(root) {
@@ -2201,21 +2297,36 @@
   }
 
   function resultBoardEmptyHtml() {
-    return '<section class="yis-result-board yis-result-board--empty" id="yis-result-board" aria-label="Result Board">' +
-      '<div class="yis-result-board__stage">' +
+    return '<section class="yis-result-board yis-result-board--empty yis-result-board--stage" id="yis-result-board" aria-label="Result Board">' +
+      '<div class="yis-result-board__stage yis-result-board__stage--compact">' +
         '<div class="yis-result-board__empty">' +
           '<div class="yis-result-board__empty-icon" aria-hidden="true">◇</div>' +
           '<h3>작품을 생성하세요</h3>' +
-          '<p>프롬프트를 입력하고 이미지 생성하기를 누르면 이곳에 작품이 크게 표시됩니다.</p>' +
+          '<p>위에서 프롬프트를 확인하고 <strong>생성하기 →</strong>를 누르면 이 영역에 진행 상태가 표시됩니다.</p>' +
         '</div>' +
       '</div></section>';
   }
 
   function resultBoardGeneratingHtml() {
-    return '<section class="yis-result-board yis-result-board--generating" id="yis-result-board" aria-label="Result Board">' +
+    return '<section class="yis-result-board yis-result-board--generating yis-result-board--stage" id="yis-result-board" aria-label="Result Board" aria-busy="true">' +
       '<div class="yis-result-board__stage">' +
         '<div class="yis-result-board__canvas yis-result-board__canvas--square yis-result-board__canvas--generating">' +
           '<div class="yis-result-board__generating" id="yis-result-board-progress">' + generationProgressHtml() + '</div>' +
+        '</div>' +
+      '</div></section>';
+  }
+
+  function resultBoardErrorHtml(err) {
+    var message = (err && err.message) ? String(err.message) : '잠시 후 다시 시도해 주세요.';
+    return '<section class="yis-result-board yis-result-board--error yis-result-board--stage" id="yis-result-board" aria-label="Result Board">' +
+      '<div class="yis-result-board__stage yis-result-board__stage--compact">' +
+        '<div class="yis-result-board__error">' +
+          '<h3>생성에 실패했습니다</h3>' +
+          '<p>' + esc(message) + '</p>' +
+          '<div class="yis-result-board__error-actions">' +
+            '<button type="button" class="yis-btn-primary yai-btn-gold-primary" id="yis-stage-retry">다시 시도</button>' +
+            '<button type="button" class="yis-btn-secondary" id="yis-stage-edit-prompt">프롬프트 수정</button>' +
+          '</div>' +
         '</div>' +
       '</div></section>';
   }
@@ -2276,8 +2387,9 @@
 
   function resultBoardHtml() {
     if (state.generating) return resultBoardGeneratingHtml();
+    if (state.stageError) return resultBoardErrorHtml(state.stageError);
     var images = resultImages(state.lastResult);
-    if (!images.length) return '';
+    if (!images.length) return resultBoardEmptyHtml();
 
     var idx = activeResultIndex();
     var img = images[idx];
@@ -2285,7 +2397,7 @@
     var ratio = resultAspectRatio(data);
     var ratioCls = resultBoardRatioClass(ratio);
 
-    return '<section class="yis-result-board" id="yis-result-board" aria-label="Result Board">' +
+    return '<section class="yis-result-board yis-result-board--stage" id="yis-result-board" aria-label="Result Board">' +
       '<div class="yis-result-board__stage">' +
         '<div class="yis-result-board__canvas yis-result-board__canvas--' + ratioCls + '" data-ratio="' + esc(ratio) + '">' +
           '<img class="yis-result-board__image" src="' + esc(img.url) + '" alt="' + esc(resultTitle(data)) + '">' +
@@ -2567,6 +2679,7 @@
   function verifyRestHealthThen(root, next) {
     if (state.restHealth && state.restHealth.ok === true) { next(); return; }
     if (state.restHealth && state.restHealth.ok === false) {
+      abortGenerateUi(root, '서버 연결을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.');
       showRestRouteError(root, state.restHealth);
       return;
     }
@@ -2575,6 +2688,7 @@
       var data = (res && (res.data || res)) || {};
       state.restHealth = data;
       if (data.ok === false) {
+        abortGenerateUi(root, '서버 연결을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.');
         showRestRouteError(root, data);
       } else {
         next();
@@ -2603,6 +2717,9 @@
     var prompt = ($('#yis-prompt', root) || {}).value || state.settings.last_prompt || '';
     if (!prompt.trim()) {
       showGenerateError(root, '프롬프트를 입력해 주세요.');
+      var promptEl = root && root.querySelector('#yis-prompt');
+      if (promptEl) promptEl.focus();
+      debugLog('generate blocked: empty prompt');
       return;
     }
 
@@ -2619,16 +2736,29 @@
         provider_name: preflight.provider && preflight.provider.name
       });
       updateProviderUX(root);
+      debugLog('generate blocked: preflight', preflight.code);
       return;
     }
 
-    if (state.generating) return;
+    if (state.generating) {
+      debugLog('generate ignored: already generating');
+      return;
+    }
 
     var api = getImageApi();
     if (!api) {
       showGenerateError(root, 'Image API unavailable. Reload the page.');
       return;
     }
+
+    // Immediate user feedback — do not wait for health checks / API round-trip.
+    clearGenerateError(root);
+    state.stageError = null;
+    state.generating = true;
+    state.generateStartedAt = Date.now();
+    state.generateStep = 'queued';
+    applyGeneratingUi(root);
+    debugLog('generate ui entered');
 
     verifySystemThen(root, function () {
       startGenerate(root, prompt, sendPrompt, negative);
@@ -2652,6 +2782,7 @@
     if (!isAdmin || !D || !D.run) { verifyRestHealthThen(root, next); return; }
     D.run(true).then(function (report) {
       if (report && report.essential_ok === false) {
+        abortGenerateUi(root, '시스템 점검이 완료되지 않아 생성을 시작할 수 없습니다.');
         showSystemBlock(root, report);
       } else {
         next();
@@ -2713,21 +2844,20 @@
   function startGenerate(root, prompt, sendPrompt, negative) {
     var api = getImageApi();
     if (!api) {
-      showGenerateError(root, 'Image API unavailable. Reload the page.');
+      abortGenerateUi(root, 'Image API를 사용할 수 없습니다. 페이지를 새로고침해 주세요.');
       return;
     }
 
     clearGenerateError(root);
     state.generating = true;
-    state.generateStartedAt = Date.now();
+    state.generateStartedAt = state.generateStartedAt || Date.now();
     state.generateStep = 'preparing';
     state.settings.last_prompt = prompt;
     state.settings.prompt = sendPrompt;
     state.settings.smart_auto = state.smartAuto !== false;
     state.settings.generation_mode = state.generationMode || 'fast';
     if (state.referenceUrl) state.settings.reference_url = state.referenceUrl;
-    renderTab(root);
-    bindGenerateButton(root);
+    applyGeneratingUi(root);
     updateGenerateProgress(root);
 
     var providerId = state.settings.default_provider || 'auto';
@@ -2788,31 +2918,55 @@
         logOpenAiResponse(err.details.data || err.details);
       }
       state.lastGenerateError = err;
-      state.generating = false;
-      showGenerateError(root, err);
-      renderTab(root);
-      bindGenerateButton(root);
+      if (global.YooYCreditsUI && typeof global.YooYCreditsUI.handleGenerationError === 'function' &&
+          global.YooYCreditsUI.handleGenerationError(err, state.credits.balance, state.credits.estimate)) {
+        state.generating = false;
+        state.stageError = null;
+        renderTab(root);
+        bindGenerateButton(root);
+        loadProviderHealth(root);
+        return;
+      }
+      markGenerateFailed(root, err);
       loadProviderHealth(root);
     });
   }
 
+  function extractErrorMessage(errOrMessage) {
+    if (!errOrMessage) return '생성에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+    if (typeof errOrMessage === 'string') return errOrMessage;
+    if (errOrMessage.details && errOrMessage.details.message) return errOrMessage.details.message;
+    if (errOrMessage.message) return errOrMessage.message;
+    return '생성에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+  }
+
+  function markGenerateFailed(root, errOrMessage) {
+    state.generating = false;
+    state.generateStep = '';
+    state.stageError = { message: extractErrorMessage(errOrMessage) };
+    showGenerateError(root, errOrMessage);
+    renderTab(root);
+    bindGenerateButton(root);
+    bindStageActions(root);
+  }
+
   function finalizeJob(data, root) {
     if (!data) {
-      state.generating = false;
-      showGenerateError(root, 'Empty response from server.');
-      renderTab(root);
+      markGenerateFailed(root, '서버 응답이 비어 있습니다.');
       return;
     }
 
     if (jobMissingProviderReference(data) && ['queued', 'running', 'processing', 'pending'].indexOf(data.status || '') >= 0) {
-      state.generating = false;
       if (providerBillingFailureMessages(data)) {
+        state.generating = false;
+        state.stageError = { message: replicateBillingUserMessage(data) };
         showProviderBillingError(root, data);
+        renderTab(root);
+        bindGenerateButton(root);
+        bindStageActions(root);
       } else {
-        showGenerateError(root, data.error || 'Job has no provider reference and no output.');
+        markGenerateFailed(root, data.error || '작업 참조를 받지 못했습니다.');
       }
-      renderTab(root);
-      bindGenerateButton(root);
       return;
     }
 
@@ -2823,28 +2977,28 @@
     }
 
     if (data.status === 'failed' || data.status === 'error' || data.status === 'timeout') {
-      state.generating = false;
       if (providerBillingFailureMessages(data)) {
+        state.generating = false;
+        state.stageError = { message: replicateBillingUserMessage(data) };
         showProviderBillingError(root, data);
+        renderTab(root);
+        bindGenerateButton(root);
+        bindStageActions(root);
       } else {
-        showGenerateError(root, data.error || 'Generation failed.');
+        markGenerateFailed(root, data.error || 'Generation failed.');
       }
-      renderTab(root);
-      bindGenerateButton(root);
       loadProviderHealth(root);
       return;
     }
 
     if (data.status === 'completed' && !hasOutputAsset(data)) {
-      state.generating = false;
-      showGenerateError(root, data.error || 'Generation completed but no output asset was returned.');
-      renderTab(root);
-      bindGenerateButton(root);
+      markGenerateFailed(root, data.error || '생성은 완료됐지만 결과 이미지가 없습니다.');
       return;
     }
 
     state.lastResult = data;
     state.generating = false;
+    state.stageError = null;
     state.generateStep = 'completed';
     state.selectedResultIndex = 0;
     state.activeGalleryId = (data.job_id || '') + '_0';
@@ -2885,14 +3039,14 @@
           jobId: data.job_id || ''
         });
       }
-      var used = (data.credits && (data.credits.deducted || data.credits_used)) || data.credits_used || 0;
+      var usedCredits = (data.credits && (data.credits.deducted || data.credits_used)) || data.credits_used || 0;
       var bal = data.credits && data.credits.balance != null ? data.credits.balance : state.credits.balance;
       document.dispatchEvent(new CustomEvent('yoy:creation-success', {
         detail: {
           route: 'image',
           jobId: data.job_id || '',
           galleryId: state.activeGalleryId || '',
-          creditsUsed: used,
+          creditsUsed: usedCredits,
           balance: bal
         }
       }));
@@ -2900,6 +3054,8 @@
     refreshAutoResultPanel(root);
     renderTab(root);
     bindGenerateButton(root);
+    bindStageActions(root);
+    scrollStageIntoView(root);
     return data;
   }
 
@@ -2916,12 +3072,14 @@
       state.generating = false;
       state.generateStep = message.indexOf('timeout') >= 0 || message.indexOf('Timeout') >= 0 ? 'timeout' : 'failed';
       if (providerBillingFailureMessages(job)) {
+        state.stageError = { message: replicateBillingUserMessage(job) };
         showProviderBillingError(root, job);
+        renderTab(root);
+        bindGenerateButton(root);
+        bindStageActions(root);
       } else {
-        showGenerateError(root, (job && job.error) || message);
+        markGenerateFailed(root, (job && job.error) || message);
       }
-      renderTab(root);
-      bindGenerateButton(root);
     }
 
     function tick() {
