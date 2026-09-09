@@ -1,0 +1,331 @@
+/**
+ * YooY AI Studio — Canonical Contrast Design System
+ * Loaded last. Prevents light-on-light / white-on-gold / inherit conflicts.
+ *
+ * Rules:
+ *  A. Light surface  → dark text (#111)
+ *  B. Dark surface   → light text (#f5f5f5)
+ *  C. Filled gold    → dark text (#080808) in ALL states
+ *  D. Outlined gold on dark → light/gold text OK
+ */
+
+:root {
+  --yai-contrast-on-light: #111111;
+  --yai-contrast-on-dark: #f5f5f5;
+  --yai-contrast-on-gold: #080808;
+  --yai-contrast-placeholder-light: #777777;
+  --yai-contrast-placeholder-dark: #8b8b8b;
+  --yai-surface-light: #ffffff;
+  --yai-surface-dark: #111111;
+  --accent-gold-text: #080808;
+}
+
+/* ── Utility surfaces ── */
+.yai-surface--light,
+.yai-field--light {
+  background: var(--yai-surface-light);
+  color: var(--yai-contrast-on-light);
+}
+
+.yai-surface--dark,
+.yai-field--dark {
+  background: var(--yai-surface-dark);
+  color: var(--yai-contrast-on-dark);
+}
+
+.yai-surface--light a,
+.yai-field--light a {
+  color: inherit;
+}
+
+/* ── Light form fields (white/cream inputs) ── */
+.yai-field--light input,
+.yai-field--light textarea,
+.yai-field--light select,
+.yai-surface--light input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+.yai-surface--light textarea,
+.yai-surface--light select,
+body.yoy-creator-os-active .ygl-publish-host input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+body.yoy-creator-os-active .ygl-publish-host textarea,
+body.yoy-creator-os-active .ygl-publish-host select,
+body.yoy-creator-os-active .ygl-publish-sheet input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+body.yoy-creator-os-active .ygl-publish-sheet textarea,
+body.yoy-creator-os-active .ygl-publish-sheet select,
+body.yoy-creator-os-active .ygl-publish-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+body.yoy-creator-os-active .ygl-publish-panel textarea,
+body.yoy-creator-os-active .ygl-publish-panel select,
+body.yoy-creator-os-active .ygl-market-modal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+body.yoy-creator-os-active .ygl-market-modal textarea,
+body.yoy-creator-os-active .ygl-market-modal select,
+body.yoy-creator-os-active .yoy-project-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+body.yoy-creator-os-active .yoy-project-dialog textarea,
+body.yoy-creator-os-active .yoy-project-dialog select,
+body.yoy-creator-os-active .yai-modal-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+body.yoy-creator-os-active .yai-modal-shell textarea,
+body.yoy-creator-os-active .yai-modal-shell select {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+  caret-color: #111111;
+  border-color: #d0d0d0;
+}
+
+.yai-field--light input::placeholder,
+.yai-field--light textarea::placeholder,
+.yai-surface--light input::placeholder,
+.yai-surface--light textarea::placeholder,
+body.yoy-creator-os-active .ygl-publish-host input::placeholder,
+body.yoy-creator-os-active .ygl-publish-host textarea::placeholder,
+body.yoy-creator-os-active .ygl-publish-sheet input::placeholder,
+body.yoy-creator-os-active .ygl-publish-sheet textarea::placeholder,
+body.yoy-creator-os-active .ygl-publish-panel input::placeholder,
+body.yoy-creator-os-active .ygl-publish-panel textarea::placeholder,
+body.yoy-creator-os-active .ygl-market-modal input::placeholder,
+body.yoy-creator-os-active .ygl-market-modal textarea::placeholder,
+body.yoy-creator-os-active .yoy-project-dialog input::placeholder,
+body.yoy-creator-os-active .yoy-project-dialog textarea::placeholder,
+body.yoy-creator-os-active .yai-modal-shell input::placeholder,
+body.yoy-creator-os-active .yai-modal-shell textarea::placeholder {
+  color: #777777 !important;
+  opacity: 1;
+}
+
+.yai-field--light select option,
+.yai-surface--light select option,
+body.yoy-creator-os-active .ygl-publish-host select option,
+body.yoy-creator-os-active .ygl-publish-sheet select option,
+body.yoy-creator-os-active .ygl-publish-panel select option,
+body.yoy-creator-os-active .ygl-market-modal select option,
+body.yoy-creator-os-active .yoy-project-dialog select option,
+body.yoy-creator-os-active .yai-modal-shell select option {
+  background: #ffffff;
+  color: #111111;
+}
+
+/* ── Dark form fields (in-app surfaces) ── */
+.yai-field--dark input,
+.yai-field--dark textarea,
+.yai-field--dark select,
+.yai-surface--dark input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+.yai-surface--dark textarea,
+.yai-surface--dark select {
+  background: #111111 !important;
+  background-color: #111111 !important;
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  caret-color: #f5f5f5;
+  border-color: rgba(220, 170, 45, 0.25);
+}
+
+.yai-field--dark input::placeholder,
+.yai-field--dark textarea::placeholder,
+.yai-surface--dark input::placeholder,
+.yai-surface--dark textarea::placeholder {
+  color: #8b8b8b !important;
+  opacity: 1;
+}
+
+.yai-field--dark select option,
+.yai-surface--dark select option {
+  background: #111111;
+  color: #f5f5f5;
+}
+
+/*
+ * Filled gold / yellow CTAs — ALWAYS dark text.
+ * Covers Studio, Home, Gallery, Projects, Assistant, Admin console, nav dialogs.
+ */
+body.yoy-creator-os-active .yai-btn--gold,
+body.yoy-creator-os-active .yai-btn.yai-btn--gold,
+body.yoy-creator-os-active a.yai-btn--gold,
+body.yoy-creator-os-active button.yai-btn--gold,
+body.yoy-creator-os-active .yai-btn-gold-primary,
+body.yoy-creator-os-active .yai-generate-btn,
+body.yoy-creator-os-active .yai-home-composer__submit,
+body.yoy-creator-os-active .yai-hd-card__cta,
+body.yoy-creator-os-active .yai-hd-studio-card__cta,
+body.yoy-creator-os-active .yai-ct-card__cta,
+body.yoy-creator-os-active .yai-ct-sheet__go,
+body.yoy-creator-os-active .yoy-project-dialog__btn--gold,
+body.yoy-creator-os-active .yai-nav-dialog__btn--gold,
+body.yoy-creator-os-active .yis-btn-primary,
+body.yoy-creator-os-active .yvs-btn-primary,
+body.yoy-creator-os-active .yms-btn-primary,
+body.yoy-creator-os-active .yas-btn-primary,
+body.yoy-creator-os-active .ygl-btn-primary,
+body.yoy-creator-os-active .ygl-card-hover button,
+body.yoy-creator-os-active .yie-btn--gold,
+body.yoy-creator-os-active .yts-btn--primary,
+body.yoy-creator-os-active .yai-assistant-action-btn--primary,
+body.yoy-creator-os-active .yai-btn--primary,
+body.yoy-creator-os-active .yai-tier-badge,
+body.yoy-creator-os-active .yai-register-link,
+.yai-app .yai-btn--gold,
+.yai-app .yai-btn.yai-btn--gold,
+.yai-app a.yai-btn--gold,
+.yai-app button.yai-btn--gold,
+.yai-app .yai-btn-gold-primary,
+.yai-app .yai-generate-btn,
+.yai-app .yai-home-composer__submit,
+.yai-app .yai-hd-card__cta,
+.yai-app .yai-hd-studio-card__cta,
+.yai-app .yai-ct-card__cta,
+.yai-app .yai-ct-sheet__go,
+.yai-app .yoy-project-dialog__btn--gold,
+.yai-app .yai-nav-dialog__btn--gold,
+.yai-app .yis-btn-primary,
+.yai-app .yvs-btn-primary,
+.yai-app .yms-btn-primary,
+.yai-app .yas-btn-primary,
+.yai-app .ygl-btn-primary,
+.yai-app .yie-btn--gold,
+.yai-app .yts-btn--primary,
+.yai-app .yai-assistant-action-btn--primary,
+.yai-app .yai-btn--primary,
+.yai-app .yai-tier-badge,
+.yai-ops-console .yai-btn--primary,
+.ygl-publish-host .ygl-btn-primary,
+.ygl-publish-sheet .ygl-btn-primary,
+.ygl-publish-panel .ygl-btn-primary,
+.ygl-market-modal .ygl-btn-primary,
+.yoy-project-dialog .yoy-project-dialog__btn--gold,
+#yai-assistant .yai-assistant-action-btn--primary {
+  color: #080808 !important;
+  -webkit-text-fill-color: #080808 !important;
+}
+
+body.yoy-creator-os-active .yai-btn--gold:hover,
+body.yoy-creator-os-active .yai-btn--gold:focus,
+body.yoy-creator-os-active .yai-btn--gold:focus-visible,
+body.yoy-creator-os-active .yai-btn--gold:active,
+body.yoy-creator-os-active .yai-btn--gold:visited,
+body.yoy-creator-os-active a.yai-btn--gold:hover,
+body.yoy-creator-os-active a.yai-btn--gold:focus,
+body.yoy-creator-os-active a.yai-btn--gold:visited,
+body.yoy-creator-os-active button.yai-btn--gold:hover,
+body.yoy-creator-os-active button.yai-btn--gold:focus,
+body.yoy-creator-os-active button.yai-btn--gold:active,
+body.yoy-creator-os-active .yai-btn-gold-primary:hover,
+body.yoy-creator-os-active .yai-btn-gold-primary:focus,
+body.yoy-creator-os-active .yai-btn-gold-primary:active,
+body.yoy-creator-os-active .yai-generate-btn:hover,
+body.yoy-creator-os-active .yai-generate-btn:focus,
+body.yoy-creator-os-active .yai-generate-btn:active,
+body.yoy-creator-os-active .yai-home-composer__submit:hover,
+body.yoy-creator-os-active .yai-home-composer__submit:focus,
+body.yoy-creator-os-active .yai-home-composer__submit:active,
+body.yoy-creator-os-active .yai-hd-card__cta:hover,
+body.yoy-creator-os-active .yai-hd-card__cta:focus,
+body.yoy-creator-os-active .yai-hd-card__cta:active,
+body.yoy-creator-os-active .yai-hd-studio-card:hover .yai-hd-studio-card__cta,
+body.yoy-creator-os-active .yai-hd-studio-card__cta:hover,
+body.yoy-creator-os-active .yai-ct-card__cta:hover,
+body.yoy-creator-os-active .yai-ct-sheet__go:hover,
+body.yoy-creator-os-active .yis-btn-primary:hover,
+body.yoy-creator-os-active .yis-btn-primary:focus,
+body.yoy-creator-os-active .yis-btn-primary:active,
+body.yoy-creator-os-active .yvs-btn-primary:hover,
+body.yoy-creator-os-active .yms-btn-primary:hover,
+body.yoy-creator-os-active .yas-btn-primary:hover,
+body.yoy-creator-os-active .ygl-btn-primary:hover,
+body.yoy-creator-os-active .ygl-btn-primary:focus,
+body.yoy-creator-os-active .ygl-btn-primary:active,
+body.yoy-creator-os-active .yts-btn--primary:hover,
+body.yoy-creator-os-active .yai-assistant-action-btn--primary:hover,
+body.yoy-creator-os-active .yai-btn--primary:hover,
+.yai-app .yai-btn--gold:hover,
+.yai-app .yai-btn--gold:focus,
+.yai-app .yai-btn--gold:focus-visible,
+.yai-app .yai-btn--gold:active,
+.yai-app .yai-btn--gold:visited,
+.yai-app a.yai-btn--gold:hover,
+.yai-app a.yai-btn--gold:visited,
+.yai-app .yai-btn-gold-primary:hover,
+.yai-app .yai-btn-gold-primary:focus,
+.yai-app .yai-btn-gold-primary:active,
+.yai-app .yai-generate-btn:hover,
+.yai-app .yai-home-composer__submit:hover,
+.yai-app .yai-hd-card__cta:hover,
+.yai-app .yai-hd-studio-card__cta:hover,
+.yai-app .yai-ct-card__cta:hover,
+.yai-app .yai-ct-sheet__go:hover,
+.yai-app .yis-btn-primary:hover,
+.yai-app .yvs-btn-primary:hover,
+.yai-app .yms-btn-primary:hover,
+.yai-app .yas-btn-primary:hover,
+.yai-app .ygl-btn-primary:hover,
+.yai-app .yts-btn--primary:hover,
+.yai-app .yai-assistant-action-btn--primary:hover,
+.yai-app .yai-btn--primary:hover,
+.yai-ops-console .yai-btn--primary:hover,
+.ygl-publish-host .ygl-btn-primary:hover,
+.ygl-publish-sheet .ygl-btn-primary:hover,
+.ygl-publish-panel .ygl-btn-primary:hover,
+.ygl-market-modal .ygl-btn-primary:hover,
+#yai-assistant .yai-assistant-action-btn--primary:hover {
+  color: #080808 !important;
+  -webkit-text-fill-color: #080808 !important;
+}
+
+/* Nested spans/icons must inherit gold button contrast */
+body.yoy-creator-os-active .yai-btn--gold span,
+body.yoy-creator-os-active .yai-btn--gold svg,
+body.yoy-creator-os-active .yai-btn-gold-primary span,
+body.yoy-creator-os-active .yai-btn-gold-primary svg,
+body.yoy-creator-os-active .yai-home-composer__submit span,
+body.yoy-creator-os-active .yai-hd-card__cta span,
+body.yoy-creator-os-active .yai-hd-studio-card__cta span,
+body.yoy-creator-os-active .yai-generate-btn span,
+body.yoy-creator-os-active .yis-btn-primary span,
+body.yoy-creator-os-active .yvs-btn-primary span,
+body.yoy-creator-os-active .yms-btn-primary span,
+body.yoy-creator-os-active .yas-btn-primary span,
+body.yoy-creator-os-active .ygl-btn-primary span,
+body.yoy-creator-os-active .yts-btn--primary span,
+body.yoy-creator-os-active .yai-assistant-action-btn--primary span,
+.yai-app .yai-btn--gold span,
+.yai-app .yai-btn--gold svg,
+.yai-app .yai-btn-gold-primary span,
+.yai-app .yai-btn-gold-primary svg,
+.yai-app .yai-home-composer__submit span,
+.yai-app .yai-hd-card__cta span,
+.yai-app .yai-hd-studio-card__cta span,
+.yai-app .yai-generate-btn span,
+.yai-app .yis-btn-primary span,
+.yai-app .yvs-btn-primary span,
+.yai-app .yms-btn-primary span,
+.yai-app .yas-btn-primary span,
+.yai-app .ygl-btn-primary span,
+.yai-app .yts-btn--primary span,
+.yai-app .yai-assistant-action-btn--primary span {
+  color: inherit !important;
+  fill: currentColor;
+}
+
+/* Autofill must not paint white text into light fields */
+body.yoy-creator-os-active .ygl-publish-host input:-webkit-autofill,
+body.yoy-creator-os-active .ygl-publish-sheet input:-webkit-autofill,
+body.yoy-creator-os-active .ygl-publish-panel input:-webkit-autofill,
+body.yoy-creator-os-active .ygl-market-modal input:-webkit-autofill,
+body.yoy-creator-os-active .yoy-project-dialog input:-webkit-autofill,
+body.yoy-creator-os-active .yai-modal-shell input:-webkit-autofill {
+  -webkit-text-fill-color: #111111 !important;
+  caret-color: #111111;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+}
+
+/* Labels on dark sheets stay light */
+body.yoy-creator-os-active .ygl-publish-host .yai-field > span,
+body.yoy-creator-os-active .ygl-publish-sheet .yai-field > span,
+body.yoy-creator-os-active .ygl-publish-panel .yai-field > span,
+body.yoy-creator-os-active .ygl-market-modal .yai-field > span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* WP/theme button defaults must not force white text onto YooY gold CTAs */
+body.yoy-creator-os-active button.yai-btn--gold,
+body.yoy-creator-os-active a.yai-btn--gold,
+body.yoy-creator-os-active .yai-app .button.yai-btn--gold {
+  color: #080808 !important;
+}

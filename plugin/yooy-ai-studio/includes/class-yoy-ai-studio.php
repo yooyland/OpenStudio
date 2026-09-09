@@ -20,6 +20,8 @@ final class YooY_AI_Studio {
         add_shortcode('yoy_ai_studio', [$this, 'render_studio']);
         add_filter('body_class', [$this, 'body_class']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
+        /* Contrast layer after module CSS (video/music/assistant/translator). */
+        add_action('wp_enqueue_scripts', [$this, 'enqueue_contrast_layer'], 100);
         add_action('admin_menu', [$this, 'register_admin_menu']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
 
@@ -455,6 +457,47 @@ final class YooY_AI_Studio {
             'modules'   => $this->core->registry()->ids(),
             'routes'    => $this->nav_routes(),
         ]);
+    }
+
+    /**
+     * Canonical contrast CSS — priority 100 so it wins over module screen CSS.
+     */
+    public function enqueue_contrast_layer(): void {
+        if (!$this->should_load_assets()) {
+            return;
+        }
+        if (!wp_style_is('yoy-ai-studio', 'enqueued') && !wp_style_is('yoy-ai-studio', 'registered')) {
+            return;
+        }
+
+        $deps = ['yoy-ai-studio', 'yoy-form', 'yoy-gallery'];
+        $optional = [
+            'yoy-home-dashboard',
+            'yoy-home-bottom-composer',
+            'yoy-creation-templates',
+            'yoy-credits-ui',
+            'yoy-my-account',
+            'yoy-image-studio',
+            'yoy-admin-console',
+            'yoy-ai-assistant',
+            'yoy-video-studio',
+            'yoy-music-studio',
+            'yoy-voice-studio',
+            'yoy-avatar-studio',
+            'yoy-translator-studio',
+        ];
+        foreach ($optional as $handle) {
+            if (wp_style_is($handle, 'enqueued') || wp_style_is($handle, 'registered')) {
+                $deps[] = $handle;
+            }
+        }
+
+        wp_enqueue_style(
+            'yoy-contrast',
+            YOY_AI_STUDIO_URL . 'assets/css/contrast.css',
+            $deps,
+            YOY_AI_STUDIO_VERSION
+        );
     }
 
     public function enqueue_admin_assets(string $hook): void {

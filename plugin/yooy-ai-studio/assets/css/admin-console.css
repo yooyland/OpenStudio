@@ -362,7 +362,10 @@
   color: #080808;
 }
 
-.yai-btn--primary:hover { filter: brightness(1.05); }
+.yai-btn--primary:hover {
+  filter: brightness(1.05);
+  color: #080808;
+}
 
 .yai-btn--secondary {
   background: var(--ops-surface);

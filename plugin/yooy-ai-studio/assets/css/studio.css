@@ -113,7 +113,8 @@ body.yoy-creator-os-active #content {
 }
 
 .yai-app, .yai-app *, .yai-app *::before, .yai-app *::after { box-sizing: border-box; }
-.yai-app button, .yai-app input, .yai-app textarea, .yai-app select { font-family: inherit; color: inherit; }
+/* Font only — do NOT inherit color onto controls (breaks light fields / gold CTAs). */
+.yai-app button, .yai-app input, .yai-app textarea, .yai-app select { font-family: inherit; }
 .yai-icon { display: block; flex-shrink: 0; }
 
 /* ── Sidebar — pure black, merges with app (no gray panel) ── */

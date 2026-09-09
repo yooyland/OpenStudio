@@ -118,6 +118,18 @@
 .ygl-market-panel textarea::placeholder,
 #yai-admin-console textarea::placeholder {
   color: var(--text-muted, #777777);
+  opacity: 1;
+}
+
+/* Native <option> must stay readable (dark field → light text). */
+.yai-app select option,
+.yai-ops-console select option,
+.yis-studio select option,
+.yvs-studio select option,
+.ygl-market-panel select option,
+#yai-admin-console select option {
+  background-color: var(--yoy-form-bg, #151515);
+  color: var(--yoy-form-color, #f5f5f5);
 }
 
 .yai-app input:focus,
