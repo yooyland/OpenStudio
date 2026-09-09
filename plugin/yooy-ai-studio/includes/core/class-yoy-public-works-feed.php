@@ -174,12 +174,12 @@ final class YooY_Public_Works_Feed {
             if ($this->is_placeholder_or_demo($item)) {
                 continue;
             }
-            $out[] = array_merge($item, [
+            $out[] = $this->hydrate_gallery_urls(array_merge($item, [
                 'id'          => (string) ($item['gallery_id'] ?? $item['id'] ?? ''),
                 'gallery_id'  => (string) ($item['gallery_id'] ?? ''),
                 'feed_source' => 'community',
                 'is_platform' => true,
-            ]);
+            ]));
             if (count($out) >= $limit) {
                 break;
             }
@@ -212,13 +212,13 @@ final class YooY_Public_Works_Feed {
                 continue;
             }
             $seen[$gid] = true;
-            $out[] = array_merge($item, [
+            $out[] = $this->hydrate_gallery_urls(array_merge($item, [
                 'id'                 => $gid,
                 'gallery_id'         => $gid,
                 'feed_source'        => 'marketplace',
                 'is_platform'        => true,
                 'marketplace_status' => (string) (($item['status'] ?? '') === '' ? 'listed' : $item['status']),
-            ]);
+            ]));
             if (count($out) >= $limit) {
                 break;
             }
@@ -300,12 +300,63 @@ final class YooY_Public_Works_Feed {
     }
 
     /**
+     * Resolve card URLs from Gallery SoT when owner_id + gallery_id exist.
+     * Fixes legacy community/marketplace rows that only stored thumbnail_url.
+     *
+     * @param array<string, mixed> $item
+     * @return array<string, mixed>
+     */
+    public function hydrate_gallery_urls(array $item): array {
+        $gid = (string) ($item['gallery_id'] ?? '');
+        $owner = (int) ($item['owner_id'] ?? 0);
+        if ($gid !== '' && $owner > 0 && class_exists('YooY_Gallery_Store')) {
+            $gallery = (new YooY_Gallery_Store())->get($owner, $gid);
+            if (is_array($gallery)) {
+                $keys = [
+                    'full_url', 'original_url', 'large_url', 'medium_large_url', 'medium_url',
+                    'display_url', 'image_url', 'output_url', 'asset_url', 'srcset', 'sizes',
+                    'thumbnail_url', 'thumbnail', 'images', 'image_width', 'image_height',
+                ];
+                foreach ($keys as $key) {
+                    if (!empty($gallery[$key])) {
+                        $item[$key] = $gallery[$key];
+                    }
+                }
+            }
+        }
+
+        $full = (string) ($item['full_url'] ?? $item['original_url'] ?? $item['image_url'] ?? $item['output_url'] ?? $item['asset_url'] ?? '');
+        $large = (string) ($item['large_url'] ?? $item['display_url'] ?? $item['medium_large_url'] ?? $full);
+        $thumb = (string) ($item['thumbnail_url'] ?? $item['thumbnail'] ?? '');
+        if ($large === '') {
+            $large = $thumb;
+        }
+        if ($full === '') {
+            $full = $large;
+        }
+        if ($thumb === '') {
+            $thumb = $large;
+        }
+        $item['full_url'] = $full;
+        $item['large_url'] = $large;
+        $item['display_url'] = $large;
+        $item['image_url'] = $full !== '' ? $full : $large;
+        $item['thumbnail_url'] = $thumb;
+        if (!isset($item['thumbnail']) || $item['thumbnail'] === '') {
+            $item['thumbnail'] = $thumb;
+        }
+        return $item;
+    }
+
+    /**
      * @param array<string, mixed> $item
      */
     public function normalize_feed_item(array $item, string $source): array {
+        $item = $this->hydrate_gallery_urls($item);
         $thumb = (string) ($item['thumbnail_url'] ?? $item['thumbnail'] ?? '');
         $display = (string) ($item['display_url'] ?? $item['large_url'] ?? $item['image_url'] ?? $thumb);
         $full = (string) ($item['full_url'] ?? $item['original_url'] ?? $item['image_url'] ?? $display);
+        $large = (string) ($item['large_url'] ?? $display);
         $creator = (string) ($item['creator_name'] ?? $item['creator'] ?? 'Creator');
 
         $gallery_id = (string) ($item['gallery_id'] ?? '');
@@ -317,6 +368,7 @@ final class YooY_Public_Works_Feed {
         return [
             'id'                 => $card_id,
             'gallery_id'         => $gallery_id,
+            'owner_id'           => (int) ($item['owner_id'] ?? 0),
             'title'              => (string) ($item['caption'] ?? $item['title'] ?? 'Work'),
             'description'        => (string) ($item['description'] ?? $item['caption'] ?? $item['title'] ?? ''),
             'type'               => (string) ($item['type'] ?? 'image'),
@@ -324,7 +376,9 @@ final class YooY_Public_Works_Feed {
             'thumbnail_url'      => esc_url_raw($thumb),
             'display_url'        => esc_url_raw($display),
             'full_url'           => esc_url_raw($full),
-            'large_url'          => esc_url_raw($display),
+            'large_url'          => esc_url_raw($large),
+            'srcset'             => (string) ($item['srcset'] ?? ''),
+            'sizes'              => (string) ($item['sizes'] ?? ''),
             'provider'           => '',
             'model'              => '',
             'creator_name'       => $creator,

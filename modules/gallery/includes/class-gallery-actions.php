@@ -112,7 +112,7 @@ final class YooY_Gallery_Actions {
         $prompt_public = !empty($options['prompt_public']);
         $reference_public = !empty($options['reference_public']);
         $allow_download = !empty($options['allow_download']);
-        $thumb = $this->public_preview_url($item);
+        $urls = $this->public_media_urls($item);
         $user = wp_get_current_user();
 
         $listing = [
@@ -123,10 +123,13 @@ final class YooY_Gallery_Actions {
             'description'      => $description,
             'prompt'           => $prompt_public ? (string) ($item['user_prompt'] ?? $item['prompt'] ?? '') : '',
             'type'             => $item['type'] ?? 'image',
-            'thumbnail'        => $thumb,
-            'thumbnail_url'    => $thumb,
-            'display_url'      => $thumb,
-            'image_url'        => $thumb,
+            'thumbnail'        => $urls['thumbnail_url'],
+            'thumbnail_url'    => $urls['thumbnail_url'],
+            'display_url'      => $urls['display_url'],
+            'large_url'        => $urls['large_url'],
+            'full_url'         => $urls['full_url'],
+            'image_url'        => $urls['image_url'],
+            'srcset'           => (string) ($item['srcset'] ?? ''),
             'creator'          => $user->display_name,
             'creator_name'     => $user->display_name,
             'price'            => $price,
@@ -233,7 +236,7 @@ final class YooY_Gallery_Actions {
         if ($caption === '') {
             $caption = (string) ($item['title'] ?? 'Work');
         }
-        $thumb = $this->public_preview_url($item);
+        $urls = $this->public_media_urls($item);
         $user = wp_get_current_user();
 
         $post = [
@@ -245,10 +248,13 @@ final class YooY_Gallery_Actions {
             'caption'         => $caption,
             'visibility'      => 'public',
             'status'          => 'active',
-            'thumbnail'       => $thumb,
-            'thumbnail_url'   => $thumb,
-            'display_url'     => $thumb,
-            'image_url'       => $thumb,
+            'thumbnail'       => $urls['thumbnail_url'],
+            'thumbnail_url'   => $urls['thumbnail_url'],
+            'display_url'     => $urls['display_url'],
+            'large_url'       => $urls['large_url'],
+            'full_url'        => $urls['full_url'],
+            'image_url'       => $urls['image_url'],
+            'srcset'          => (string) ($item['srcset'] ?? ''),
             'creator'         => $user->display_name,
             'creator_name'    => $user->display_name,
             'likes'           => 0,
@@ -427,20 +433,55 @@ final class YooY_Gallery_Actions {
     }
 
     /**
+     * Card-quality URL for public discovery (never prefer 150px thumb first).
+     *
      * @param array<string, mixed> $item
      */
     private function public_preview_url(array $item): string {
-        $url = (string) (
-            $item['thumbnail_url']
-            ?? $item['display_url']
-            ?? $item['large_url']
+        $urls = $this->public_media_urls($item);
+        return (string) ($urls['display_url'] ?? '');
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @return array<string, string>
+     */
+    private function public_media_urls(array $item): array {
+        $full = (string) (
+            $item['full_url']
+            ?? $item['original_url']
             ?? $item['image_url']
             ?? $item['output_url']
             ?? $item['asset_url']
+            ?? ''
+        );
+        $large = (string) (
+            $item['large_url']
+            ?? $item['display_url']
+            ?? $item['medium_large_url']
+            ?? $full
+        );
+        $thumb = (string) (
+            $item['thumbnail_url']
             ?? $item['thumbnail']
             ?? ''
         );
-        return esc_url_raw($url);
+        if ($large === '') {
+            $large = $thumb;
+        }
+        if ($full === '') {
+            $full = $large !== '' ? $large : $thumb;
+        }
+        if ($thumb === '') {
+            $thumb = $large !== '' ? $large : $full;
+        }
+        return [
+            'thumbnail_url' => esc_url_raw($thumb),
+            'display_url'   => esc_url_raw($large),
+            'large_url'     => esc_url_raw($large),
+            'full_url'      => esc_url_raw($full),
+            'image_url'     => esc_url_raw($full !== '' ? $full : $large),
+        ];
     }
 
     public function download_info(int $user_id, string $id): array {

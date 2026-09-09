@@ -80,7 +80,7 @@
   function isRealPublicWork(w) {
     if (!w) return false;
     if (w.is_demo || w.feed_source === 'demo' || w.source === 'demo') return false;
-    var url = w.thumbnail_url || w.display_url || w.large_url || w.cover || w.url || w.image_url || '';
+    var url = cardUrl(w) || w.cover || w.url || '';
     if (!url) return false;
     if (url.indexOf('placeholder.svg') !== -1 || url.indexOf('placehold.co') !== -1) return false;
     if (url.indexOf('official-showcase/thumbs') !== -1) return false;
@@ -195,8 +195,21 @@
     }
   }
 
+  /** Discovery / Home cards → card/large (never stretch 150px thumb). */
+  function cardUrl(item) {
+    if (!item) return '';
+    if (global.YooYGalleryImage && typeof global.YooYGalleryImage.pickUrl === 'function') {
+      return global.YooYGalleryImage.pickUrl(item, 'card')
+        || global.YooYGalleryImage.pickUrl(item, 'large')
+        || global.YooYGalleryImage.pickUrl(item, 'full')
+        || '';
+    }
+    return item.large_url || item.display_url || item.full_url || item.image_url
+      || item.cover || item.preview_url || item.url || item.thumbnail_url || '';
+  }
+
   function thumbUrl(item) {
-    return item.thumbnail_url || item.display_url || item.large_url || item.cover || item.preview_url || item.url || '';
+    return cardUrl(item);
   }
 
   function rememberWork(item) {
@@ -278,8 +291,15 @@
       wave = '<span class="yai-hd-thumb__wave" aria-hidden="true"></span>';
     }
     if (url) {
+      var img = (global.YooYGalleryImage && typeof global.YooYGalleryImage.imgTag === 'function')
+        ? global.YooYGalleryImage.imgTag(item, {
+            size: 'card',
+            className: 'yai-hd-thumb__img',
+            sizes: '(max-width: 640px) 90vw, (max-width: 1100px) 42vw, 320px'
+          })
+        : '<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async">';
       return '<div class="yai-hd-thumb yai-hd-thumb--' + type + ratioCls + '">' +
-        '<img src="' + esc(url) + '" alt="" loading="lazy">' + play + wave + badge + '</div>';
+        img + play + wave + badge + '</div>';
     }
     return '<div class="yai-hd-thumb yai-hd-thumb--skeleton yai-hd-thumb--' + type + ratioCls + '" aria-hidden="true">' +
       '<span class="yai-hd-thumb__skeleton-icon">' + skeletonIcon(type) + '</span>' +
@@ -591,13 +611,25 @@
       var accent = s.accent || s.id || 'gold';
       var jpg = studioRecoAssetUrl(s.image || '');
       var webp = studioRecoAssetUrl(s.imageWebp || '');
+      // Full PNG (~1086w) for DPR2 / wide layouts; web 560w for dense grids.
+      var fullRel = s.imageFull || '';
+      if (!fullRel && s.image) {
+        fullRel = String(s.image).replace('/web/', '/').replace(/\.(jpe?g|webp)$/i, '.png');
+      }
+      var fullPng = studioRecoAssetUrl(fullRel);
       var examples = Array.isArray(s.examples) ? s.examples.slice(0, 3) : [];
       var lazy = idx < 2 ? 'eager' : 'lazy';
       var fetchPri = idx < 2 ? ' high' : '';
+      var sizes = '(max-width: 640px) 46vw, (max-width: 1100px) 30vw, 14vw';
+      var jpgSrcset = jpg
+        ? (esc(jpg) + ' 560w' + (fullPng && fullPng !== jpg ? (', ' + esc(fullPng) + ' 1086w') : ''))
+        : '';
       var picture = jpg
         ? ('<picture class="yai-hd-studio-card__picture">' +
-            (webp ? '<source type="image/webp" srcset="' + esc(webp) + '">' : '') +
-            '<img class="yai-hd-studio-card__img" src="' + esc(jpg) + '" alt="' + esc(s.title || 'Studio') + '" loading="' + lazy + '" decoding="async"' +
+            (webp ? '<source type="image/webp" srcset="' + esc(webp) + ' 560w" sizes="' + sizes + '">' : '') +
+            '<img class="yai-hd-studio-card__img" src="' + esc(jpg) + '"' +
+            (jpgSrcset ? ' srcset="' + jpgSrcset + '" sizes="' + sizes + '"' : '') +
+            ' alt="' + esc(s.title || 'Studio') + '" loading="' + lazy + '" decoding="async"' +
             (fetchPri ? ' fetchpriority="high"' : '') + '>' +
           '</picture>')
         : '<span class="yai-hd-studio-card__art" aria-hidden="true"></span>';
@@ -899,6 +931,11 @@
     }
     renderSectionManager();
     renderSections();
+    if (global.YooYGalleryImage && typeof global.YooYGalleryImage.watchUpscale === 'function') {
+      setTimeout(function () {
+        global.YooYGalleryImage.watchUpscale(document.getElementById('yai-home') || document);
+      }, 800);
+    }
   }
 
   function init() {

@@ -121,20 +121,20 @@
     if (item.asset_missing) return '<span class="ygl-thumb-missing">Asset missing</span>';
     var type = item.type || 'image';
     if (type === 'video' || type === 'avatar') {
-      var poster = galleryImg(item, { size: 'thumb', className: 'yai-gallery-img' });
+      var poster = galleryImg(item, { size: 'card', className: 'yai-gallery-img' });
       if (!poster) {
         var videoUrl = global.YooYGalleryImage
-          ? global.YooYGalleryImage.pickUrl(item, 'thumb')
-          : (item.thumbnail_url || item.large_url || '');
+          ? (global.YooYGalleryImage.pickUrl(item, 'card') || global.YooYGalleryImage.pickUrl(item, 'large') || '')
+          : (item.large_url || item.display_url || item.thumbnail_url || '');
         poster = videoUrl ? '<img src="' + esc(videoUrl) + '" alt="" class="yai-gallery-img" loading="lazy">' : '';
       }
       return poster + '<span class="ygl-thumb-play" aria-hidden="true">▶</span>';
     }
     if (type === 'image') {
-      return galleryImg(item, { size: 'thumb', className: 'yai-gallery-img' });
+      return galleryImg(item, { size: 'card', className: 'yai-gallery-img', sizes: '(max-width: 640px) 90vw, 280px' });
     }
     if (type === 'music' || type === 'voice') {
-      return galleryImg(item, { size: 'thumb', className: 'yai-gallery-img' }) +
+      return galleryImg(item, { size: 'card', className: 'yai-gallery-img' }) +
         '<span class="ygl-thumb-wave" aria-hidden="true"></span>' +
         '<span class="ygl-thumb-icon">' + (TYPE_ICONS[type] || '📁') + '</span>';
     }

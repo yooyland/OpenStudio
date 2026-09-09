@@ -1219,7 +1219,10 @@
   }
 
   function workThumbSizeForMode(mode) {
-    if (mode === 'carousel' || mode === 'dense') return 'thumb';
+    // Dense/carousel/showcase cards render ~160–320 CSS px (often × DPR) — use card, not 150 thumb.
+    if (mode === 'carousel' || mode === 'dense' || mode === 'showcase' || mode === 'default') {
+      return 'card';
+    }
     return 'large';
   }
 
@@ -1237,9 +1240,12 @@
 
   function workMediaUrl(w) {
     if (window.YooYGalleryImage && typeof window.YooYGalleryImage.pickUrl === 'function') {
-      return window.YooYGalleryImage.pickUrl(w, 'thumb') || window.YooYGalleryImage.pickUrl(w, 'large') || '';
+      return window.YooYGalleryImage.pickUrl(w, 'card')
+        || window.YooYGalleryImage.pickUrl(w, 'large')
+        || window.YooYGalleryImage.pickUrl(w, 'full')
+        || '';
     }
-    return w.thumbnail_url || w.display_url || w.image_url || w.output_url || w.asset_url || '';
+    return w.large_url || w.display_url || w.full_url || w.image_url || w.output_url || w.asset_url || w.thumbnail_url || '';
   }
 
   function workThumbHtml(w, showHover, sizeArg, priority) {
@@ -3360,9 +3366,20 @@
   }
 
   function publicDiscoverThumb(item) {
-    var url = item.thumbnail_url || item.display_url || item.image_url || item.thumbnail || '';
+    var url = (window.YooYGalleryImage && typeof window.YooYGalleryImage.pickUrl === 'function')
+      ? (window.YooYGalleryImage.pickUrl(item, 'card') || window.YooYGalleryImage.pickUrl(item, 'large') || '')
+      : (item.large_url || item.display_url || item.full_url || item.image_url || item.thumbnail_url || item.thumbnail || '');
     if (!url) {
       return '<div class="yai-pub-card__thumb yai-pub-card__thumb--empty" aria-hidden="true"></div>';
+    }
+    if (window.YooYGalleryImage && typeof window.YooYGalleryImage.imgTag === 'function') {
+      return '<div class="yai-pub-card__thumb">' +
+        window.YooYGalleryImage.imgTag(item, {
+          size: 'card',
+          className: 'yai-pub-card__img',
+          sizes: '(max-width: 700px) 100vw, 50vw'
+        }) +
+        '</div>';
     }
     return '<div class="yai-pub-card__thumb"><img src="' + esc(url) + '" alt="" loading="lazy" decoding="async"></div>';
   }

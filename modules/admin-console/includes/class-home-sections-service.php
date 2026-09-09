@@ -748,37 +748,61 @@ final class YooY_Home_Sections_Service {
         $catalog = get_option('yoy_marketplace_catalog', []);
         $catalog = is_array($catalog) ? $catalog : [];
         $works = [];
+        $feed = class_exists('YooY_Public_Works_Feed') ? new YooY_Public_Works_Feed() : null;
         foreach (array_slice($catalog, 0, $limit) as $item) {
-            $works[] = [
-                'id'            => (string) ($item['id'] ?? $item['gallery_id'] ?? ''),
+            if (!is_array($item)) {
+                continue;
+            }
+            $row = [
+                'id'            => (string) ($item['gallery_id'] ?? $item['id'] ?? ''),
+                'gallery_id'    => (string) ($item['gallery_id'] ?? $item['id'] ?? ''),
+                'owner_id'      => (int) ($item['owner_id'] ?? 0),
                 'title'         => (string) ($item['title'] ?? 'Work'),
                 'type'          => (string) ($item['type'] ?? 'image'),
                 'type_label'    => $this->type_label((string) ($item['type'] ?? 'image')),
                 'thumbnail_url' => (string) ($item['thumbnail_url'] ?? $item['thumbnail'] ?? ''),
+                'display_url'   => (string) ($item['display_url'] ?? $item['large_url'] ?? ''),
+                'large_url'     => (string) ($item['large_url'] ?? $item['display_url'] ?? ''),
+                'full_url'      => (string) ($item['full_url'] ?? $item['image_url'] ?? ''),
+                'srcset'        => (string) ($item['srcset'] ?? ''),
                 'provider'      => (string) ($item['provider'] ?? 'marketplace'),
                 'creator'       => (string) ($item['creator'] ?? ''),
                 'created_at'    => (string) ($item['created_at'] ?? ''),
                 'feed_source'   => 'marketplace',
                 'is_platform'   => true,
             ];
+            if ($feed) {
+                $row = $feed->hydrate_gallery_urls($row);
+            }
+            $works[] = $row;
         }
         return $works;
     }
 
     private function resolve_community(int $limit): array {
-        $feed = get_option('yoy_community_feed', []);
-        $feed = is_array($feed) ? $feed : [];
-        usort($feed, function ($a, $b) {
+        $feed_opt = get_option('yoy_community_feed', []);
+        $feed_opt = is_array($feed_opt) ? $feed_opt : [];
+        usort($feed_opt, function ($a, $b) {
             return (int) ($b['likes'] ?? 0) <=> (int) ($a['likes'] ?? 0);
         });
         $works = [];
-        foreach (array_slice($feed, 0, $limit) as $item) {
-            $works[] = [
-                'id'            => (string) ($item['id'] ?? $item['gallery_id'] ?? ''),
+        $feed = class_exists('YooY_Public_Works_Feed') ? new YooY_Public_Works_Feed() : null;
+        foreach (array_slice($feed_opt, 0, $limit) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $row = [
+                'id'            => (string) ($item['gallery_id'] ?? $item['id'] ?? ''),
+                'gallery_id'    => (string) ($item['gallery_id'] ?? $item['id'] ?? ''),
+                'owner_id'      => (int) ($item['owner_id'] ?? 0),
                 'title'         => (string) ($item['title'] ?? 'Work'),
                 'type'          => (string) ($item['type'] ?? 'image'),
                 'type_label'    => $this->type_label((string) ($item['type'] ?? 'image')),
                 'thumbnail_url' => (string) ($item['thumbnail_url'] ?? $item['thumbnail'] ?? ''),
+                'display_url'   => (string) ($item['display_url'] ?? $item['large_url'] ?? ''),
+                'large_url'     => (string) ($item['large_url'] ?? $item['display_url'] ?? ''),
+                'full_url'      => (string) ($item['full_url'] ?? $item['image_url'] ?? ''),
+                'srcset'        => (string) ($item['srcset'] ?? ''),
                 'provider'      => (string) ($item['provider'] ?? 'community'),
                 'creator'       => (string) ($item['creator'] ?? ''),
                 'likes'         => (int) ($item['likes'] ?? 0),
@@ -786,6 +810,10 @@ final class YooY_Home_Sections_Service {
                 'feed_source'   => 'community',
                 'is_platform'   => true,
             ];
+            if ($feed) {
+                $row = $feed->hydrate_gallery_urls($row);
+            }
+            $works[] = $row;
         }
         return $works;
     }
