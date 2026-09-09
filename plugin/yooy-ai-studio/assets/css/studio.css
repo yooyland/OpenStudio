@@ -4013,13 +4013,20 @@ body:not(.yai-is-admin) .yoy-sys-widget { display: none !important; }
 }
 .yai-workspace-asset-thumb {
   aspect-ratio: 4 / 3;
+  background: #0a0a0a;
   border-radius: 10px;
   margin-bottom: 8px;
   overflow: hidden;
 }
-.yai-workspace-asset-thumb img {
+.yai-workspace-asset-thumb--hq {
+  min-height: 180px;
+}
+.yai-workspace-asset-thumb img,
+.yai-workspace-asset-image {
   display: block;
+  filter: none !important;
   height: 100%;
+  image-rendering: auto;
   object-fit: cover;
   width: 100%;
 }

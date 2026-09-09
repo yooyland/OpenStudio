@@ -1705,6 +1705,42 @@
     return '<img class="' + esc(className || '') + '" ' + attrs + '>';
   }
 
+  // Project Assets cards must NOT use 150px thumbnails for image media.
+  // Same Gallery SoT / pickUrl('full') path as Main Work; non-image keeps poster/thumb.
+  function workspaceAssetCardMediaHtml(w) {
+    if (!w || w.asset_missing) return '';
+    var type = String(w.type || 'image').toLowerCase();
+    var isVisualImage = (type === 'image' || type === 'avatar' || type === '');
+    var src = '';
+    var srcset = '';
+    var sizes = '(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 420px';
+
+    if (isVisualImage) {
+      src = workspaceHeroUrl(w);
+      srcset = w.srcset ? String(w.srcset) : '';
+    } else {
+      // Video/music/voice posters: prefer large over 150px thumb when available.
+      if (window.YooYGalleryImage && typeof window.YooYGalleryImage.pickUrl === 'function') {
+        src = window.YooYGalleryImage.pickUrl(w, 'large')
+          || window.YooYGalleryImage.pickUrl(w, 'full')
+          || window.YooYGalleryImage.pickUrl(w, 'thumb')
+          || '';
+      } else {
+        src = w.large_url || w.full_url || w.image_url || w.thumbnail_url || w.thumbnail || '';
+      }
+      srcset = w.srcset ? String(w.srcset) : '';
+    }
+    if (!src) return '';
+
+    var attrs = 'src="' + esc(src) + '" alt="" class="yai-workspace-asset-image" loading="lazy" decoding="async"';
+    if (srcset) {
+      attrs += ' srcset="' + esc(srcset) + '" sizes="' + esc(sizes) + '"';
+    }
+    return '<div class="yai-workspace-asset-thumb yai-workspace-asset-thumb--hq">' +
+      '<img ' + attrs + '>' +
+    '</div>';
+  }
+
   function projectTypeSummary(p) {
     var assets = Array.isArray(p.assets) ? p.assets : [];
     var types = [];
@@ -2629,10 +2665,9 @@
 
   function workspaceAssetCardHtml(w) {
     var id = w.id || '';
-    var studio = studioRouteForType(w.type);
-    var thumb = workspaceThumbUrl(w);
+    var media = workspaceAssetCardMediaHtml(w);
     return '<article class="yai-card yai-workspace-asset-card' + (w.asset_missing ? ' is-missing' : '') + '" data-work-id="' + esc(id) + '">' +
-      (thumb ? '<div class="yai-workspace-asset-thumb"><img src="' + esc(thumb) + '" alt="" loading="lazy"></div>' : '') +
+      media +
       '<strong>' + esc(w.title || (w.asset_missing ? '삭제된 작품' : 'Untitled')) + '</strong>' +
       '<span class="yai-muted">' + (w.asset_missing
         ? 'Gallery에서 찾을 수 없습니다'
