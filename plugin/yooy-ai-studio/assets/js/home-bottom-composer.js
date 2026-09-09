@@ -135,7 +135,12 @@
     var ta = document.getElementById('yai-home-prompt');
     if (!ta) return;
     ta.style.height = 'auto';
-    ta.style.height = Math.min(120, Math.max(44, ta.scrollHeight)) + 'px';
+    /* Compact default (~40–56px); grow only while typing up to ~88px. */
+    ta.style.height = Math.min(88, Math.max(40, ta.scrollHeight)) + 'px';
+    var example = ta.parentNode && ta.parentNode.querySelector('.yai-home-composer__example');
+    if (example) {
+      example.hidden = !!(ta.value && String(ta.value).trim());
+    }
   }
 
   function ensureFileInput(id, accept, multiple, onChange) {

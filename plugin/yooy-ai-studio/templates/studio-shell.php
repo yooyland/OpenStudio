@@ -368,33 +368,36 @@ $studio_quick = [
             <!-- Fixed bottom creation composer (Home only) -->
             <div class="yai-home-composer" id="yai-home-bottom-composer" hidden data-home-composer>
                 <div class="yai-home-composer__inner">
-                    <div class="yai-home-composer__plus-wrap">
-                        <button type="button" class="yai-home-composer__plus" id="yai-home-composer-plus" aria-label="첨부 메뉴" aria-expanded="false" aria-haspopup="true">+</button>
-                        <div class="yai-home-composer__plus-menu" id="yai-home-composer-plus-menu" role="menu" hidden>
-                            <button type="button" role="menuitem" data-home-attach="image">이미지 업로드</button>
-                            <button type="button" role="menuitem" data-home-attach="file">파일 업로드</button>
-                            <button type="button" role="menuitem" data-home-attach="url">URL 가져오기</button>
+                    <div class="yai-home-composer__main">
+                        <div class="yai-home-composer__plus-wrap">
+                            <button type="button" class="yai-home-composer__plus" id="yai-home-composer-plus" aria-label="첨부 메뉴" aria-expanded="false" aria-haspopup="true">+</button>
+                            <div class="yai-home-composer__plus-menu" id="yai-home-composer-plus-menu" role="menu" hidden>
+                                <button type="button" role="menuitem" data-home-attach="image">이미지 업로드</button>
+                                <button type="button" role="menuitem" data-home-attach="file">파일 업로드</button>
+                                <button type="button" role="menuitem" data-home-attach="url">URL 가져오기</button>
+                            </div>
                         </div>
+                        <div class="yai-home-composer__field">
+                            <div class="yai-home-composer__chip-row" id="yai-home-attach-chip" hidden></div>
+                            <label class="yai-sr-only" for="yai-home-prompt">무엇을 만들고 싶으신가요?</label>
+                            <textarea id="yai-home-prompt" rows="1" placeholder="무엇을 만들고 싶으신가요?"></textarea>
+                            <p class="yai-home-composer__example">예: 여름 바닷가 화장품 광고 이미지 만들어줘</p>
+                            <div class="yai-home-url-row" id="yai-home-url-row" hidden>
+                                <input type="url" id="yai-home-url-input" placeholder="https://..." autocomplete="off">
+                                <button type="button" id="yai-home-url-go">가져오기</button>
+                            </div>
+                            <div class="yai-home-intent-choice" id="yai-home-intent-choice" hidden></div>
+                            <p class="yai-home-composer__status" id="yai-home-composer-status" hidden></p>
+                        </div>
+                        <button type="button" class="yai-home-composer__submit" id="yai-home-create">생성하기 →</button>
                     </div>
-                    <div class="yai-home-composer__field">
-                        <div class="yai-home-composer__chip-row" id="yai-home-attach-chip" hidden></div>
-                        <label class="yai-sr-only" for="yai-home-prompt">만들고 싶은 것</label>
-                        <textarea id="yai-home-prompt" rows="1" placeholder="무엇을 만들고 싶으신가요?"></textarea>
-                        <div class="yai-home-url-row" id="yai-home-url-row" hidden>
-                            <input type="url" id="yai-home-url-input" placeholder="https://..." autocomplete="off">
-                            <button type="button" id="yai-home-url-go">가져오기</button>
-                        </div>
-                        <div class="yai-home-intent-choice" id="yai-home-intent-choice" hidden></div>
-                        <p class="yai-home-composer__status" id="yai-home-composer-status" hidden></p>
-                        <div class="yai-home-composer__pills">
-                            <button type="button" class="yai-home-composer__pill" id="yai-home-coach" aria-pressed="false">✨ 프롬프트 자동보완</button>
-                            <button type="button" class="yai-home-composer__pill is-on" id="yai-home-studio-auto" aria-pressed="true">◎ Studio 자동 선택</button>
-                        </div>
-                        <div class="yai-create-ux__coach" id="yai-home-coach-panel" hidden></div>
+                    <div class="yai-home-composer__pills" role="group" aria-label="생성 옵션">
+                        <button type="button" class="yai-home-composer__pill" id="yai-home-coach" aria-pressed="false">✨ 프롬프트 자동보완</button>
+                        <button type="button" class="yai-home-composer__pill is-on" id="yai-home-studio-auto" aria-pressed="true">◎ Studio 자동 선택</button>
+                        <button type="button" class="yai-home-composer__pill" id="yai-home-consult" data-route="assistant">AI와 상의하기</button>
                     </div>
-                    <button type="button" class="yai-home-composer__submit" id="yai-home-create">생성하기 →</button>
+                    <div class="yai-create-ux__coach" id="yai-home-coach-panel" hidden></div>
                 </div>
-                <p class="yai-home-composer__hint">예: 여름 바닷가 화장품 광고 이미지 만들어줘 · <button type="button" class="yai-home-composer__consult" data-route="assistant">AI와 상의하기</button></p>
             </div>
 
             <!-- PAGES -->
