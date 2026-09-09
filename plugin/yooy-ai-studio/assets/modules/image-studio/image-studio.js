@@ -1741,22 +1741,24 @@
       var cls = i < curIdx ? ' is-done' : (i === curIdx ? ' is-active' : '');
       return '<span class="yis-gen-step' + cls + '">' + s.label + '</span>';
     }).join('<span class="yis-gen-arrow">→</span>');
-    var elapsed = state.generateStartedAt ? Math.round((Date.now() - state.generateStartedAt) / 1000) : 0;
-    var bgMsg = elapsed >= 45
-      ? '<p class="yis-gen-bg">작업은 백그라운드에서 계속 진행됩니다. 완료되면 Gallery에 저장됩니다.</p>'
-      : '';
-    return '<div class="yis-generate-progress yis-generate-progress--stage" role="status" aria-live="polite">' +
+    // Stage-only markup (no .yis-generate-progress card — that class was the duplicate chrome near CTA).
+    return '<div class="yis-stage-progress" role="status" aria-live="polite">' +
       '<div class="yis-stage-spinner" aria-hidden="true"></div>' +
-      '<p class="yis-generate-progress__title">작품을 생성하고 있습니다</p>' +
-      '<p class="yis-generate-progress__support">잠시만 기다려 주세요.</p>' +
-      '<div class="yis-generate-progress__steps">' + stepHtml + '</div>' +
-      '<p class="yis-generate-progress__eta">예상 시간: ' + esc(estimateGenerationEta()) + '</p>' +
-      bgMsg + '</div>';
+      '<p class="yis-stage-progress__title">작품을 생성하고 있습니다</p>' +
+      '<p class="yis-stage-progress__support">잠시만 기다려 주세요. 생성이 진행 중입니다.</p>' +
+      '<div class="yis-stage-progress__steps">' + stepHtml + '</div>' +
+    '</div>';
   }
 
-  // Progress UI lives ONLY in the main result stage — never duplicate near the CTA.
+  // Progress UI lives ONLY in the main result stage — never near the CTA.
   function updateGenerateProgress(root) {
-    var boardHost = root && root.querySelector('#yis-result-board-progress');
+    if (!root) return;
+    // Hard-remove any legacy CTA progress card if an older cached shell left one in the DOM.
+    var legacy = root.querySelectorAll('#yis-generate-progress, .yis-actions .yis-generate-progress, #yis-primary-cta .yis-generate-progress');
+    for (var i = 0; i < legacy.length; i++) {
+      if (legacy[i] && legacy[i].parentNode) legacy[i].parentNode.removeChild(legacy[i]);
+    }
+    var boardHost = root.querySelector('#yis-result-board-progress');
     if (!boardHost) return;
     boardHost.innerHTML = state.generating ? generationProgressHtml() : '';
   }

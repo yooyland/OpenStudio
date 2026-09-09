@@ -40,8 +40,17 @@
 @keyframes yis-spin{to{transform:rotate(360deg)}}
 .yis-btn-spinner{animation:yis-spin .7s linear infinite;border:2px solid rgba(8,8,8,.2);border-radius:50%;border-top-color:#080808;display:inline-block;height:14px;margin-right:8px;vertical-align:-2px;width:14px}
 .yis-btn-primary.is-loading{opacity:.92}
-.yis-generate-progress--stage{background:transparent;border:0;margin:0;padding:0}
+/* Stage progress — flat content inside result board only (never a second card near CTA) */
+.yis-stage-progress{margin:0;max-width:420px;padding:8px 4px;text-align:center}
+.yis-stage-progress__title{color:#ffd76a;font-size:16px;font-weight:700;margin:0 0 8px}
+.yis-stage-progress__support{color:#aaa;font-size:13px;line-height:1.45;margin:0 0 16px}
+.yis-stage-progress__steps{align-items:center;display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+.yis-generate-progress--stage{background:transparent!important;border:0!important;margin:0!important;padding:0!important}
 .yis-generate-progress__support{color:#aaa;font-size:13px;line-height:1.45;margin:0 0 12px}
+/* CTA must never host a progress card */
+#yis-primary-cta .yis-generate-progress,
+.yis-actions--primary .yis-generate-progress,
+#yis-generate-progress{display:none!important}
 .yis-result-board__thumbs{display:flex;flex-wrap:nowrap;gap:10px;overflow-x:auto;padding:2px 2px 8px}
 .yis-result-board__thumb{background:#111;border:2px solid transparent;border-radius:12px;cursor:pointer;flex:0 0 auto;height:76px;opacity:.72;overflow:hidden;padding:0;width:76px}
 .yis-result-board__thumb.is-active{border-color:#ffd76a;box-shadow:0 0 0 1px rgba(255,215,106,.25);opacity:1}
