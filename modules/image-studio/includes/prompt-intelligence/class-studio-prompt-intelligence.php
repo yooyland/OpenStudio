@@ -88,6 +88,7 @@ final class YooY_Studio_Prompt_Intelligence {
             'composed_prompt'  => $composed['prompt'],
             'negative_prompt'  => $composed['negative_prompt'],
             'intent_domain'    => $composed['domain'],
+            'preset'           => $composed['preset'] ?? 'photoreal',
             'validation'       => $validation,
             'quality'          => $quality,
             'rewrite_count'    => $rewrite_count,

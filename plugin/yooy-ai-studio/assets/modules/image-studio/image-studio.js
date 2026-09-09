@@ -786,12 +786,16 @@
     var userReq = state.rawUserRequest || state.lastUserPrompt || state.settings.last_prompt || '';
     var understood = [
       ['중심 주제', brief.primary_subject || '—'],
-      ['목적', brief.ad_subtype || brief.what || brief.content_domain || '—'],
+      ['도메인', brief.content_domain || (state.lastComposerMeta && state.lastComposerMeta.analysis && state.lastComposerMeta.analysis.domain) || '—'],
+      ['아트디렉션', (state.lastComposerMeta && state.lastComposerMeta.analysis && state.lastComposerMeta.analysis.preset) || brief.visual_style || '—'],
+      ['목적', brief.ad_subtype || brief.what || '—'],
       ['형식', brief.medium || brief.output_format || '—'],
       ['타깃', brief.audience || '—'],
       ['톤', brief.tone || '—'],
+      ['조명', brief.lighting || (state.settings && state.settings.lighting) || '—'],
+      ['구도', brief.composition || (state.settings && state.settings.composition) || '—'],
       ['색감', brief.color_palette || '—'],
-      ['구도', brief.composition || '—'],
+      ['품질', (state.generationMode === 'premium' ? '고품질 (provider high)' : '빠르게 (provider medium)')],
       ['반드시 포함', (brief.required_elements || []).join(', ') || '—'],
       ['제외 요소', (brief.forbidden_elements || []).slice(0, 6).join(', ') || '—']
     ];

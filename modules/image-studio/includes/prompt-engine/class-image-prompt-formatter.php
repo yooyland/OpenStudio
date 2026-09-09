@@ -50,20 +50,16 @@ final class YooY_Image_Prompt_Formatter {
 
     /** @param array<string, mixed> $meta */
     private function format_openai(string $canonical, array $meta): string {
-        $parts = [$canonical];
-        if (!empty($meta['quality_tail'])) {
-            $parts[] = (string) $meta['quality_tail'];
-        }
-        return $this->trim_sentence(implode(' ', $parts));
+        // Canonical already carries domain art direction — avoid stacking Hasselblad/fluff tails.
+        return $this->trim_sentence($canonical);
     }
 
     /** @param array<string, mixed> $meta */
     private function format_flux(string $canonical, array $meta): string {
         $tags = $this->extract_visual_tags($canonical, $meta);
         $tags = array_merge(
-            ['photorealistic', 'ultra detailed', 'professional photography'],
-            $tags,
-            ['8k', 'sharp focus', 'cinematic']
+            ['photorealistic', 'detailed', 'professional photography'],
+            $tags
         );
         return implode(', ', array_unique(array_filter($tags)));
     }

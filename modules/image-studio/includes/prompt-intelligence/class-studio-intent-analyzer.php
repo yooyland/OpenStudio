@@ -76,8 +76,9 @@ final class YooY_Studio_Intent_Analyzer {
 
         $rules = [
             'politics'      => ['정치', '이재명', '대통령', '선거', '정책', '국회', '정당', '대선', '여야', 'political', 'president', 'election', 'policy'],
+            'lifestyle'     => ['부부', '가족', '커플', '라이프스타일', '일상', '행복한', '사람들', 'lifestyle', 'couple', 'family'],
             'architecture'  => ['조감도', '아파트', '건축', '단지', '외관', '건물', '빌딩', '타워', '주거단지', '분양', 'architectural', 'architecture', 'aerial view', "bird's eye", 'facade', 'residential complex', 'real estate visualization'],
-            'product'       => ['제품', '상품', '향수', '화장품', '스킨케어', '병', '패키지', 'perfume', 'cosmetic', 'skincare', 'bottle', 'product'],
+            'product'       => ['제품', '상품', '향수', '화장품', '스킨케어', '크림', '세럼', '병', '패키지', 'perfume', 'cosmetic', 'skincare', 'bottle', 'product', 'cream', 'serum'],
             'ecommerce'     => ['스마트스토어', '쿠팡', '이커머스', '상세페이지', 'ecommerce', 'coupang'],
             'travel'        => ['여행', '관광', '제주', '휴가', 'tour', 'travel'],
             'corporate'     => ['회사 소개', '기업', '채용', 'corporate', 'recruit'],
@@ -100,9 +101,23 @@ final class YooY_Studio_Intent_Analyzer {
         }
 
         if (preg_match('/광고|advert|campaign|캠페인/u', $lower)) {
+            if ($this->looks_like_architecture($lower)) {
+                return 'architecture';
+            }
+            if ($this->looks_like_product($lower)) {
+                return 'product';
+            }
             return 'brand';
         }
         return 'general';
+    }
+
+    private function looks_like_architecture(string $lower): bool {
+        return (bool) preg_match('/조감|아파트|건축|단지|건물|분양|architectural|apartment|real.?estate/u', $lower);
+    }
+
+    private function looks_like_product(string $lower): bool {
+        return (bool) preg_match('/제품|화장품|스킨케어|크림|향수|상품|cosmetic|skincare|product|cream|perfume/u', $lower);
     }
 
     private function classify_ad_subtype(string $domain, string $lower): string {
@@ -242,7 +257,16 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'architecture') {
             return 'photorealistic architectural visualization, real-estate marketing grade';
         }
-        return 'photorealistic commercial visual';
+        if ($domain === 'lifestyle') {
+            return 'editorial lifestyle campaign photography';
+        }
+        if ($domain === 'portrait') {
+            return 'editorial commercial portrait';
+        }
+        if ($domain === 'brand') {
+            return 'premium brand campaign key visual';
+        }
+        return 'professionally art-directed photograph';
     }
 
     private function composition(string $domain): string {
@@ -250,10 +274,16 @@ final class YooY_Studio_Intent_Analyzer {
             return 'magazine-cover hierarchy with headline space and message zones';
         }
         if ($domain === 'product') {
-            return 'hero product centered composition';
+            return 'hero product centered composition with elegant negative space';
         }
         if ($domain === 'architecture') {
             return 'wide establishing aerial or elevated viewpoint with accurate building proportions';
+        }
+        if ($domain === 'lifestyle') {
+            return 'editorial lifestyle framing with strong human focal point';
+        }
+        if ($domain === 'portrait') {
+            return 'close to medium portrait with eyes as focal point';
         }
         return 'clear focal hierarchy';
     }
@@ -267,6 +297,12 @@ final class YooY_Studio_Intent_Analyzer {
         }
         if ($domain === 'architecture') {
             return 'natural daylight materials, realistic façade colors';
+        }
+        if ($domain === 'product') {
+            return 'clean brand neutrals with controlled accent color';
+        }
+        if ($domain === 'lifestyle') {
+            return 'warm natural lifestyle grading';
         }
         return 'refined professional color grading';
     }

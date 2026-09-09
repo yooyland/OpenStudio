@@ -173,7 +173,7 @@
       return 'Cinematic fine-art scene expressing the feeling through visual storytelling — no text or lettering. (서버에서 최종 프롬프트를 생성합니다.)';
     }
 
-    return prompt + ' — premium photorealistic quality (서버 Prompt Composer가 최종 최적화합니다.)';
+    return prompt;
   }
 
   function applyComposerResult(settings, composed) {

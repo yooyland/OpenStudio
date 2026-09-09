@@ -14,7 +14,7 @@ require_once dirname(__DIR__) . '/prompt-intelligence/class-studio-prompt-intell
  */
 final class YooY_Image_Prompt_Composer {
 
-    private const GLOBAL_NEGATIVE = 'text, words, letters, typography, captions, subtitles, watermarks, logos with text, cartoon, anime, illustration, childish drawing, clip art, sticker style, low resolution, blurry, distorted face, bad hands, extra fingers, deformed anatomy, amateur, oversaturated, plastic skin, meaningless empty background, ugly, uncanny AI look';
+    private const GLOBAL_NEGATIVE = 'text, words, letters, typography, captions, subtitles, watermarks, logos with text, cartoon, anime, illustration, childish drawing, clip art, sticker style, low resolution, blurry, distorted face, bad hands, extra fingers, deformed anatomy, amateur, oversaturated, plastic skin, meaningless empty background, ugly, uncanny AI look, generic stock-photo pose, over-smoothed faces, excessive glow, cliché golden particles, glitter overload, warped geometry';
 
     private YooY_Image_Emotion_Engine $emotion;
     private YooY_Image_Scene_Planner $scene;
@@ -91,7 +91,7 @@ final class YooY_Image_Prompt_Composer {
             'intent'           => $intent,
             'korean'           => $korean,
             'premium'          => $premium,
-            'quality_tail'     => $this->quality_tail($premium, $intent),
+            'quality_tail'     => $this->quality_tail($premium, $intent, $brief),
             'creative_brief'   => $brief,
             'prompt_intelligence' => [
                 'used'           => $use_intel,
@@ -111,11 +111,15 @@ final class YooY_Image_Prompt_Composer {
             'emotion'  => $emotion['primary'] ?? '',
             'mood'     => $settings['mood'] ?? '',
             'style'    => $settings['style'] ?? '',
+            'lighting' => $settings['lighting'] ?? '',
+            'composition' => $settings['composition'] ?? '',
             'scene'    => array_slice($scene['elements'] ?? [], 0, 4),
             'korean'   => !empty($korean['active']) ? ($korean['motif'] ?? '') : '',
             'abstract' => !empty($intent['emotional']),
             'domain'   => $brief['content_domain'] ?? 'general',
+            'preset'   => $intel['preset'] ?? $this->infer_preset($brief, $intent),
             'primary_subject' => $brief['primary_subject'] ?? '',
+            'quality'  => $settings['quality'] ?? ($premium ? 'hd' : 'standard'),
         ];
 
         return apply_filters('yoy_image_prompt_compose', [
@@ -138,7 +142,7 @@ final class YooY_Image_Prompt_Composer {
         if (!empty($brief['wants_political']) || $domain === 'politics') {
             return true;
         }
-        if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'travel', 'corporate', 'social', 'architecture'], true)) {
+        if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'travel', 'corporate', 'social', 'architecture', 'lifestyle', 'portrait', 'brand'], true)) {
             return true;
         }
         if (!empty($brief['ad_subtype'])) {
@@ -174,6 +178,14 @@ final class YooY_Image_Prompt_Composer {
             $intent['architecture'] = true;
             $intent['landscape'] = true;
             $intent['product'] = false;
+        }
+        if ($domain === 'lifestyle' || $domain === 'portrait') {
+            $intent['lifestyle'] = ($domain === 'lifestyle');
+            $intent['portrait'] = true;
+            $intent['product'] = false;
+        }
+        if ($domain === 'brand') {
+            $intent['commercial'] = true;
         }
         return $intent;
     }
@@ -219,30 +231,45 @@ final class YooY_Image_Prompt_Composer {
             $segments[] = 'shallow depth of field, expressive emotion, visual storytelling';
             $segments[] = 'symbolic expression without any text or lettering';
         } elseif (!empty($intent['product']) && empty($intent['politics'])) {
-            $segments[] = 'Premium advertising photograph of ' . $scene['subject'];
+            $segments[] = 'Commercial product advertising photograph of ' . $scene['subject'];
+            $segments[] = 'Purpose: premium brand campaign packshot';
             $segments[] = $scene['environment'] . ', ' . $scene['framing'];
             $segments[] = $this->lighting_phrase($settings['lighting']);
+            $segments[] = 'accurate product geometry, realistic material reflections, elegant negative space';
+            $segments[] = 'no fake logos or glitter clichés';
         } elseif (!empty($intent['architecture']) || ($brief['content_domain'] ?? '') === 'architecture') {
             $subject = (string) ($brief['primary_subject'] ?? $scene['subject'] ?? $user_prompt);
             $raw = mb_strtolower($user_prompt . ' ' . $subject);
             $aerial = (bool) preg_match('/조감|aerial|bird.?s.?eye|birdseye|위에서|공중/u', $raw);
             $segments[] = 'Photorealistic architectural visualization of ' . $subject;
+            $segments[] = 'Purpose: premium real-estate marketing / brochure visual';
             $segments[] = $aerial
-                ? 'wide-angle elevated aerial bird\'s-eye viewpoint with accurate site layout'
-                : 'elevated architectural establishing viewpoint with accurate scale';
+                ? 'Camera: wide-angle elevated aerial bird\'s-eye viewpoint with accurate site layout'
+                : 'Camera: elevated architectural establishing viewpoint with straight verticals';
             $segments[] = $scene['environment'] ?? 'residential urban context with landscaping';
-            $segments[] = 'professional real-estate visualization, detailed façade materials, realistic proportions';
-            $segments[] = 'no warped geometry, no distorted windows, clean building lines';
+            $segments[] = 'Materials: detailed façade, aligned windows, realistic landscaping and ground plane';
+            $segments[] = 'Constraints: no warped geometry, no distorted windows, clean building lines';
+        } elseif (!empty($intent['lifestyle']) || (($brief['content_domain'] ?? '') === 'lifestyle')) {
+            $segments[] = 'Editorial lifestyle advertising photograph of ' . $scene['subject'];
+            $segments[] = 'Purpose: commercial lifestyle campaign key visual';
+            $segments[] = $scene['environment'] . ', ' . $scene['framing'];
+            $segments[] = 'natural posture, realistic skin texture, coherent wardrobe, cinematic depth';
+            $segments[] = 'avoid generic stock-photo poses and plastic skin';
+        } elseif (!empty($intent['portrait']) && empty($intent['politics'])) {
+            $segments[] = 'Editorial commercial portrait of ' . $scene['subject'];
+            $segments[] = $scene['environment'] . ', ' . $scene['framing'];
+            $segments[] = 'natural anatomy, realistic skin, plausible hands and gaze';
         } elseif (!empty($intent['landscape'])) {
-            $segments[] = 'Breathtaking ' . $scene['narrative'];
+            $segments[] = 'Cinematic establishing photograph of ' . $scene['narrative'];
             $segments[] = $scene['environment'] . ', ' . $scene['framing'];
         } else {
             $hint = $this->translate_concept($user_prompt, $intent, $brief);
-            $segments[] = 'A detailed photorealistic image of ' . $hint;
+            $segments[] = 'Professionally art-directed photograph of ' . $hint;
+            $segments[] = 'Subject and purpose derived from the user request';
             $segments[] = $scene['environment'];
             $segments[] = $scene['action'];
             $segments[] = $scene['framing'] ?? 'intentional camera viewpoint and composition';
-            $segments[] = 'specific materials, lighting, and environment detail matching the request';
+            $segments[] = 'specific materials, lighting, and environment detail — avoid generic AI-stock look';
         }
 
         if ($korean['active'] && !empty($korean['visuals'])) {
@@ -257,9 +284,7 @@ final class YooY_Image_Prompt_Composer {
         }
 
         $segments[] = $this->camera_phrase($settings);
-        $segments[] = $premium
-            ? 'award-winning photography, emotional realism, ultra detailed, premium advertising quality'
-            : 'professional quality, natural realism, highly detailed';
+        $segments[] = $this->quality_tail($premium, $intent, $brief);
 
         $text = $this->dedupe_segments($segments);
         return $this->trim_prompt($text);
@@ -333,6 +358,15 @@ final class YooY_Image_Prompt_Composer {
             $out['lighting'] = $this->is_auto($params, 'lighting') ? 'natural' : $out['lighting'];
             $out['background'] = $this->is_auto($params, 'background') ? 'contextual' : $out['background'];
         }
+        if (!empty($intent['lifestyle']) || ($brief['content_domain'] ?? '') === 'lifestyle') {
+            $out['style'] = $this->is_auto($params, 'style') ? 'editorial' : $out['style'];
+            $out['composition'] = $this->is_auto($params, 'composition') ? 'rule_of_thirds' : $out['composition'];
+            $out['camera'] = $this->is_auto($params, 'camera') ? 'cinema_50mm' : $out['camera'];
+            $out['depth_of_field'] = $this->is_auto($params, 'depth_of_field') ? 'shallow' : $out['depth_of_field'];
+            $out['lighting'] = $this->is_auto($params, 'lighting') ? 'natural' : $out['lighting'];
+            $out['background'] = $this->is_auto($params, 'background') ? 'contextual' : $out['background'];
+            $out['mood'] = $this->is_auto($params, 'mood') ? 'warm' : $out['mood'];
+        }
 
         return $out;
     }
@@ -390,15 +424,66 @@ final class YooY_Image_Prompt_Composer {
         return implode(', ', array_unique(array_filter(array_map('trim', explode(',', implode(', ', $parts))))));
     }
 
-    /** @param array<string, mixed> $intent */
-    private function quality_tail(bool $premium, array $intent): string {
+    /**
+     * @param array<string, mixed> $intent
+     * @param array<string, mixed> $brief
+     */
+    private function quality_tail(bool $premium, array $intent, array $brief = []): string {
+        $domain = (string) ($brief['content_domain'] ?? '');
+        if (!empty($intent['architecture']) || $domain === 'architecture') {
+            return $premium
+                ? 'developer sales-gallery architectural visualization quality, crisp façade detail'
+                : 'clean architectural visualization, accurate proportions';
+        }
+        if (!empty($intent['product']) || !empty($brief['wants_product'])) {
+            return $premium
+                ? 'luxury brand campaign hero packshot, advertising-grade material fidelity'
+                : 'clean commercial product photography finish';
+        }
+        if (!empty($intent['lifestyle']) || $domain === 'lifestyle') {
+            return $premium
+                ? 'premium lifestyle campaign editorial finish, authentic human presence'
+                : 'natural lifestyle photography finish';
+        }
+        if (!empty($intent['portrait']) || $domain === 'portrait') {
+            return $premium
+                ? 'magazine editorial portrait finish, natural skin detail'
+                : 'professional portrait photography finish';
+        }
         if ($premium) {
-            return 'museum-quality fine art print, Hasselblad medium format look, impeccable detail';
+            return 'commercially art-directed finish, high material fidelity, no generic AI-stock look';
         }
         if (!empty($intent['commercial'])) {
             return 'high-end commercial finish';
         }
         return 'professional photography quality';
+    }
+
+    /**
+     * @param array<string, mixed> $brief
+     * @param array<string, mixed> $intent
+     */
+    private function infer_preset(array $brief, array $intent): string {
+        $domain = (string) ($brief['content_domain'] ?? '');
+        if (!empty($intent['architecture']) || $domain === 'architecture') {
+            return 'architecture';
+        }
+        if (!empty($intent['product']) || !empty($brief['wants_product']) || $domain === 'product') {
+            return 'product';
+        }
+        if (!empty($intent['lifestyle']) || $domain === 'lifestyle') {
+            return 'editorial';
+        }
+        if (!empty($intent['portrait']) || $domain === 'portrait') {
+            return 'editorial';
+        }
+        if (!empty($intent['commercial']) || $domain === 'brand') {
+            return 'commercial';
+        }
+        if (!empty($intent['landscape']) || $domain === 'travel') {
+            return 'cinematic';
+        }
+        return 'photoreal';
     }
 
     /** @param array<string, mixed> $settings */
