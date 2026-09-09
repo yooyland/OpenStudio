@@ -147,6 +147,12 @@ final class YooY_Studio_Intent_Analyzer {
         if (!empty($hint['primary_subject'])) {
             return sanitize_text_field((string) $hint['primary_subject']);
         }
+        $cut = mb_substr(trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw), 0, 160);
+        if (in_array($domain, ['lifestyle', 'architecture', 'product', 'brand'], true) && $cut !== '') {
+            // Prefer the full user request as subject for commercial domains —
+            // place-only entity extraction (e.g. "Seoul") is too thin for art direction.
+            return $cut;
+        }
         if ($entities) {
             $names = [];
             foreach ($entities as $e) {
@@ -157,7 +163,6 @@ final class YooY_Studio_Intent_Analyzer {
             }
             return implode(', ', $names);
         }
-        $cut = mb_substr(trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw), 0, 160);
         return $cut !== '' ? $cut : 'user-requested creative subject';
     }
 
