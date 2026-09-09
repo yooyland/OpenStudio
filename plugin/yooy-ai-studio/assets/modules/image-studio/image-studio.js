@@ -831,9 +831,6 @@
         (state.generating ? '<span class="yis-btn-spinner" aria-hidden="true"></span>' : '') +
         esc(generateButtonLabel()) + '</button>' +
       '<span class="yis-credit-estimate"' + (est ? '' : ' hidden') + '>' + esc(est) + '</span>' +
-      '<div id="yis-generate-progress"' + (state.generating ? '' : ' hidden') + '>' +
-        (state.generating ? '' : '') +
-      '</div>' +
       '<div class="yis-info" id="yis-generate-info" hidden></div>' +
     '</div>';
   }
@@ -1751,28 +1748,17 @@
     return '<div class="yis-generate-progress yis-generate-progress--stage" role="status" aria-live="polite">' +
       '<div class="yis-stage-spinner" aria-hidden="true"></div>' +
       '<p class="yis-generate-progress__title">작품을 생성하고 있습니다</p>' +
-      '<p class="yis-generate-progress__support">잠시만 기다려 주세요. 생성이 진행 중입니다.</p>' +
+      '<p class="yis-generate-progress__support">잠시만 기다려 주세요.</p>' +
       '<div class="yis-generate-progress__steps">' + stepHtml + '</div>' +
       '<p class="yis-generate-progress__eta">예상 시간: ' + esc(estimateGenerationEta()) + '</p>' +
       bgMsg + '</div>';
   }
 
+  // Progress UI lives ONLY in the main result stage — never duplicate near the CTA.
   function updateGenerateProgress(root) {
-    var host = root && root.querySelector('#yis-generate-progress');
     var boardHost = root && root.querySelector('#yis-result-board-progress');
-    var html = state.generating ? generationProgressHtml() : '';
-    if (host) {
-      if (state.generating) {
-        host.innerHTML = html;
-        host.hidden = false;
-      } else {
-        host.innerHTML = '';
-        host.hidden = true;
-      }
-    }
-    if (boardHost && state.generating) {
-      boardHost.innerHTML = html;
-    }
+    if (!boardHost) return;
+    boardHost.innerHTML = state.generating ? generationProgressHtml() : '';
   }
 
   function shouldPollJob(data) {
@@ -2379,11 +2365,10 @@
     if (!state.lastResult || !state.lastResult.job_id) return '';
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
-        resultToolbarBtn('reuse', '이어서 만들기') +
-        resultToolbarBtn('publish', '공개하기') +
+        resultToolbarBtn('reuse', '비슷하게 만들기') +
+        resultToolbarBtn('gallery', 'Gallery에서 보기') +
         resultToolbarBtn('project', '프로젝트에 추가') +
         resultToolbarBtn('download', '다운로드') +
-        resultToolbarBtn('gallery', 'Gallery에서 보기') +
       '</div></div>';
   }
 
@@ -2955,18 +2940,44 @@
   }
 
   function extractErrorMessage(errOrMessage) {
-    if (!errOrMessage) return '생성에 실패했습니다. 잠시 후 다시 시도해 주세요.';
-    if (typeof errOrMessage === 'string') return errOrMessage;
-    if (errOrMessage.details && errOrMessage.details.message) return errOrMessage.details.message;
-    if (errOrMessage.message) return errOrMessage.message;
-    return '생성에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+    if (!errOrMessage) return '이미지 생성 중 문제가 발생했습니다.';
+    if (typeof errOrMessage === 'string') return friendlyGenerateError(errOrMessage);
+    var raw = '';
+    if (errOrMessage.details && errOrMessage.details.message) raw = errOrMessage.details.message;
+    else if (errOrMessage.message) raw = errOrMessage.message;
+    else if (errOrMessage.error) raw = String(errOrMessage.error);
+    return friendlyGenerateError(raw || '이미지 생성 중 문제가 발생했습니다.');
+  }
+
+  function friendlyGenerateError(raw) {
+    var msg = String(raw || '');
+    var lower = msg.toLowerCase();
+    if (/failed to save|uploads|could not write|파일에 쓸|저장하지/i.test(msg) || lower.indexOf('upload') !== -1) {
+      return '이미지는 생성됐지만 저장하지 못했습니다.';
+    }
+    if (/timeout|timed out|temporarily|service unavailable|502|503|504/i.test(msg)) {
+      return '생성 서비스에 일시적인 문제가 있습니다. 잠시 후 다시 시도해 주세요.';
+    }
+    if (/시작하지 못했|server_unavailable|rest_no_route|route not found/i.test(msg)) {
+      return '이미지 생성을 시작하지 못했습니다.';
+    }
+    if (/생성에 실패|generation failed|provider|openai|replicate/i.test(msg)) {
+      return '이미지 생성 중 문제가 발생했습니다.';
+    }
+    // Keep short Korean messages as-is; hide raw English/stack-like text.
+    if (/[가-힣]/.test(msg) && msg.length < 120) return msg;
+    return '이미지 생성 중 문제가 발생했습니다.';
   }
 
   function markGenerateFailed(root, errOrMessage) {
     state.generating = false;
     state.generateStep = '';
-    state.stageError = { message: extractErrorMessage(errOrMessage) };
-    showGenerateError(root, errOrMessage);
+    var friendly = extractErrorMessage(errOrMessage);
+    state.stageError = { message: friendly };
+    if (global.console && global.console.error) {
+      global.console.error('[ImageStudio] generate failed', errOrMessage);
+    }
+    showGenerateError(root, friendly);
     renderTab(root);
     bindGenerateButton(root);
     bindStageActions(root);
@@ -3007,14 +3018,14 @@
         bindGenerateButton(root);
         bindStageActions(root);
       } else {
-        markGenerateFailed(root, data.error || 'Generation failed.');
+        markGenerateFailed(root, data.error || data.message || '이미지 생성 중 문제가 발생했습니다.');
       }
       loadProviderHealth(root);
       return;
     }
 
     if (data.status === 'completed' && !hasOutputAsset(data)) {
-      markGenerateFailed(root, data.error || '생성은 완료됐지만 결과 이미지가 없습니다.');
+      markGenerateFailed(root, data.error || '이미지는 생성됐지만 저장하지 못했습니다.');
       return;
     }
 

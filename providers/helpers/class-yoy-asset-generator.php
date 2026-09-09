@@ -478,6 +478,53 @@ final class YooY_Asset_Generator {
         return self::import_from_binary($binary, $filename, $mime, $user_id);
     }
 
+    /**
+     * Ensure the current month upload directory is writable by PHP-FPM.
+     * Cloudways often creates year/month dirs as 0755 owned by the SSH user,
+     * so the FPM pool user cannot write OpenAI binaries via wp_upload_bits.
+     *
+     * @return array{path?:string,basedir?:string,error?:string}
+     */
+    public static function ensure_writable_upload_dir(): array {
+        $upload = wp_upload_dir();
+        if (!empty($upload['error'])) {
+            return $upload;
+        }
+
+        $path = isset($upload['path']) ? (string) $upload['path'] : '';
+        if ($path === '') {
+            return $upload;
+        }
+
+        if (!is_dir($path)) {
+            wp_mkdir_p($path);
+        }
+
+        $candidates = array_values(array_unique(array_filter([
+            $path,
+            dirname($path),
+            isset($upload['basedir']) ? (string) $upload['basedir'] : '',
+        ])));
+
+        foreach ($candidates as $dir) {
+            if ($dir === '' || !is_dir($dir)) {
+                continue;
+            }
+            if (!is_writable($dir)) {
+                @chmod($dir, 0775);
+            }
+        }
+
+        // Re-resolve after chmod/mkdir so path stays current.
+        $upload = wp_upload_dir();
+        $path   = isset($upload['path']) ? (string) $upload['path'] : $path;
+        if ($path !== '' && is_dir($path) && !is_writable($path)) {
+            @chmod($path, 0775);
+        }
+
+        return $upload;
+    }
+
     private static function store_media_binary(string $binary, string $filename, string $mime, int $user_id): array {
         if (!function_exists('wp_upload_bits')) {
             return [];
@@ -487,7 +534,14 @@ final class YooY_Asset_Generator {
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
+        self::ensure_writable_upload_dir();
+
         $upload = wp_upload_bits($filename, null, $binary);
+        if (!empty($upload['error']) || empty($upload['file'])) {
+            // One retry after forcing month-dir writability (common FPM/SSH ownership mismatch).
+            self::ensure_writable_upload_dir();
+            $upload = wp_upload_bits($filename, null, $binary);
+        }
         if (!empty($upload['error']) || empty($upload['file'])) {
             return [];
         }

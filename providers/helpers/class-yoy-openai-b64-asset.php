@@ -131,7 +131,15 @@ final class YooY_OpenAI_B64_Asset {
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
+        if (class_exists('YooY_Asset_Generator')) {
+            YooY_Asset_Generator::ensure_writable_upload_dir();
+        }
+
         $upload = wp_upload_bits($filename, null, $binary);
+        if ((!empty($upload['error']) || empty($upload['file'])) && class_exists('YooY_Asset_Generator')) {
+            YooY_Asset_Generator::ensure_writable_upload_dir();
+            $upload = wp_upload_bits($filename, null, $binary);
+        }
         if (!empty($upload['error']) || empty($upload['file'])) {
             return [
                 'attachment_id' => 0,
