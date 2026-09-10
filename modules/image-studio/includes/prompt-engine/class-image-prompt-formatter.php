@@ -126,9 +126,15 @@ final class YooY_Image_Prompt_Formatter {
 
     private function trim_sentence(string $text): string {
         $text = preg_replace('/\s+/', ' ', trim($text)) ?? '';
-        if (mb_strlen($text) > 900) {
-            $text = mb_substr($text, 0, 897) . '…';
+        $max = 2200;
+        if (mb_strlen($text) <= $max) {
+            return $text;
         }
-        return $text;
+        $cut = mb_substr($text, 0, $max - 1);
+        $dot = mb_strrpos($cut, '. ');
+        if ($dot !== false && $dot > (int) ($max * 0.6)) {
+            return mb_substr($cut, 0, $dot + 1);
+        }
+        return $cut . '…';
     }
 }
