@@ -104,6 +104,7 @@ final class YooY_Studio_Intent_Analyzer {
             'product'       => ['제품', '상품', '크림', '병', '패키지', 'bottle', 'product', 'cream', 'packshot', '제품컷'],
             'ecommerce'     => ['스마트스토어', '쿠팡', '이커머스', '상세페이지', 'ecommerce', 'coupang'],
             'cinematic'     => ['시네마틱', '영화적', 'cinematic', 'film still'],
+            'illustration'  => ['일러스트', '삽화', 'illustration', 'illustrated'],
             'travel'        => ['여행', '관광', '제주', '휴가', 'tour', 'travel'],
             'corporate'     => ['회사 소개', '기업', '채용', 'corporate', 'recruit'],
             'education'     => ['교육', '학교', '강의', 'education'],

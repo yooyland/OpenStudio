@@ -100,9 +100,14 @@ final class YooY_Image_Prompt_Composer {
                 'art_direction'  => $intel['art_direction'] ?? ($intel['preset'] ?? ''),
                 'quality_score'  => $intel['quality']['score'] ?? null,
                 'visual_qa'      => is_array($intel['visual_qa'] ?? null) ? $intel['visual_qa'] : [],
+                'normalized'     => is_array($intel['normalized'] ?? null) ? $intel['normalized'] : [],
+                'scene'          => is_array($intel['scene'] ?? null) ? $intel['scene'] : [],
+                'quality_escalator' => is_array($intel['quality_escalator'] ?? null) ? $intel['quality_escalator'] : [],
+                'title_preview'  => (string) ($intel['title_preview'] ?? ''),
+                'pipeline'       => is_array($intel['pipeline'] ?? null) ? $intel['pipeline'] : [],
                 'rewrite_count'  => $intel['rewrite_count'] ?? 0,
                 'validation'     => $intel['validation'] ?? null,
-                'prompt_version' => $intel['prompt_version'] ?? 'spi-image-3',
+                'prompt_version' => $intel['prompt_version'] ?? 'spi-image-orch-1',
                 'blocked'        => !empty($intel['blocked']),
             ],
         ];
@@ -145,7 +150,15 @@ final class YooY_Image_Prompt_Composer {
         if (!empty($brief['wants_political']) || $domain === 'politics') {
             return true;
         }
-        if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'travel', 'corporate', 'social', 'architecture', 'lifestyle', 'portrait', 'brand'], true)) {
+        if (!empty($brief['wants_product']) || in_array($domain, [
+            'product', 'ecommerce', 'travel', 'corporate', 'social', 'architecture',
+            'lifestyle', 'portrait', 'brand', 'storybook', 'fantasy', 'beauty',
+            'cinematic', 'illustration', 'fashion', 'food',
+        ], true)) {
+            return true;
+        }
+        // Orchestrator always produces usable output when present.
+        if (!empty($intel['composed_prompt']) && !empty($intel['preset'])) {
             return true;
         }
         if (!empty($brief['ad_subtype'])) {
@@ -322,6 +335,23 @@ final class YooY_Image_Prompt_Composer {
                 : (!isset($params['commercial']) || !empty($params['commercial'])),
             'korean_context' => !empty($params['korean_context']) || $korean['active'] || $is_politics,
         ];
+
+        $domain = (string) ($brief['content_domain'] ?? '');
+        if (in_array($domain, ['storybook', 'fantasy', 'illustration'], true)) {
+            if ($this->is_auto($params, 'style')) {
+                $out['style'] = 'illustration';
+            }
+            if ($this->is_auto($params, 'background')) {
+                $out['background'] = 'environmental';
+            }
+            if ($this->is_auto($params, 'lighting')) {
+                $out['lighting'] = 'cinematic';
+            }
+        }
+        if (($brief['quality_tier'] ?? '') === 'premium' || !empty($brief['quality_escalate'])) {
+            $out['quality'] = 'hd';
+            $out['brand_tone'] = 'premium';
+        }
 
         if ($this->is_auto($params, 'mood') && !empty($emotion['mood']) && !$is_politics) {
             $out['mood'] = (string) $emotion['mood'];
@@ -564,7 +594,7 @@ final class YooY_Image_Prompt_Composer {
     private function trim_prompt(string $text): string {
         $text = preg_replace('/\.+/', '.', $text) ?? '';
         $text = trim($text, " \t\n\r\0\x0B.");
-        $max = 2200;
+        $max = 3200;
         if (mb_strlen($text) <= $max) {
             return $text;
         }

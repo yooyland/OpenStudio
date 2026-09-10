@@ -1,0 +1,18 @@
+{
+    "http": 201,
+    "url": "http:\/\/yooyland.com\/wp-content\/uploads\/2026\/09\/openai-img_bd17b122-48db-4b90-a38b-e70a5bc4b06f-0.png",
+    "job_id": "img_bd17b122-48db-4b90-a38b-e70a5bc4b06f",
+    "title": "",
+    "provider": "",
+    "model": "",
+    "quality": "",
+    "size": "",
+    "preset": "",
+    "intent": "",
+    "negative": "",
+    "final_prompt": "",
+    "normalized_prompt": "",
+    "visual_qa": [],
+    "qa_scores": [],
+    "error": ""
+}

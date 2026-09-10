@@ -1105,14 +1105,19 @@
     if (!isDebugMode() && !isStudioAdmin()) return '';
     var info = state.lastDebugInfo || {};
     var trace = (state.lastResult && (state.lastResult.generation_trace || (state.lastResult.meta && state.lastResult.meta.generation_trace))) || {};
+    var vqa = trace.visual_qa || (state.lastResult && state.lastResult.visual_qa) || {};
+    var scores = trace.qa_scores || vqa.scores || {};
     var pid = info.provider || trace.provider || selectedProviderId();
     var model = info.model || trace.model || state.settings.default_model || state.settings.model || '';
     var size = trace.size || info.apiSize || state.settings.size || state.settings.resolution || '';
     var mapped = info.apiSize || mappedSizeForAspect(state.settings.aspect_ratio || '1:1');
     var latency = info.latency != null ? (info.latency + ' ms') : '—';
     var userP = trace.user_prompt || state.lastUserPrompt || '';
+    var normP = trace.normalized_prompt || '';
     var finalP = trace.final_prompt || (state.lastResult && state.lastResult.prompt) || '';
     var equals = !!trace.user_equals_final;
+    var scoreLine = formatQaScores(scores);
+    var escalator = trace.quality_escalator || {};
     return '<details class="yis-dev-info" id="yis-dev-info" open><summary>생성 파이프라인 (Admin / Debug)</summary>' +
       '<div class="yis-dev-info-grid">' +
       '<div><b>Provider</b><span data-yis-dev="provider">' + esc(pid) + '</span></div>' +
@@ -1121,15 +1126,31 @@
       '<div><b>Size</b><span data-yis-dev="api-size">' + esc(size || mapped || '—') + '</span></div>' +
       '<div><b>Mode</b><span data-yis-dev="mode">' + esc(trace.generation_mode || state.generationMode || '—') + '</span></div>' +
       '<div><b>Preset</b><span data-yis-dev="preset">' + esc(trace.art_direction_preset || '—') + '</span></div>' +
-      '<div><b>Domain</b><span data-yis-dev="domain">' + esc(trace.intent_domain || '—') + '</span></div>' +
+      '<div><b>Intent</b><span data-yis-dev="domain">' + esc(trace.intent_domain || trace.intent || '—') + '</span></div>' +
+      '<div><b>Escalator</b><span data-yis-dev="escalator">' + esc((escalator.tier || '—') + (escalator.reasons && escalator.reasons.length ? (' · ' + escalator.reasons.join(',')) : '')) + '</span></div>' +
+      '<div><b>Title</b><span data-yis-dev="title">' + esc(trace.display_title || resultTitle(state.lastResult) || '—') + '</span></div>' +
+      '<div><b>QA</b><span data-yis-dev="qa">' + esc(vqa.score != null ? String(vqa.score) : '—') + '</span></div>' +
       '<div><b>Latency</b><span data-yis-dev="latency">' + esc(latency) + '</span></div>' +
       '<div class="yis-dev-info-span"><b>user == final?</b><span data-yis-dev="equals">' + (equals ? 'YES (orchestration missed)' : 'NO (orchestrated)') + '</span></div>' +
+      '<div class="yis-dev-info-span"><b>QA scores</b><span data-yis-dev="qa-scores">' + esc(scoreLine) + '</span></div>' +
       '</div>' +
       '<div class="yis-dev-prompt"><b>User prompt</b><pre data-yis-dev="user-prompt">' + esc(userP || '—') + '</pre></div>' +
+      '<div class="yis-dev-prompt"><b>Normalized prompt</b><pre data-yis-dev="norm-prompt">' + esc(normP || '—') + '</pre></div>' +
       '<div class="yis-dev-prompt"><b>Final prompt</b><pre data-yis-dev="final-prompt">' + esc(finalP || '—') + '</pre></div>' +
       '<div class="yis-dev-prompt"><b>Negative</b><pre data-yis-dev="negative">' + esc(trace.negative_prompt || '—') + '</pre></div>' +
       '<div class="yis-dev-prompt"><b>References</b><pre data-yis-dev="refs">' + esc(formatRefsForDebug(trace)) + '</pre></div>' +
       '</details>';
+  }
+
+  function formatQaScores(scores) {
+    if (!scores || typeof scores !== 'object') return '—';
+    var keys = ['prompt_fidelity', 'premium_feel', 'composition_quality', 'subject_beauty', 'lighting_quality', 'detail_richness', 'non_kitschy_score', 'title_quality'];
+    var parts = [];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (scores[k] != null) parts.push(k + '=' + scores[k]);
+    }
+    return parts.length ? parts.join(' · ') : '—';
   }
 
   function formatRefsForDebug(trace) {
@@ -1159,10 +1180,17 @@
     set('api-size', trace.size || info.apiSize || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || state.settings.size || '—');
     set('mode', trace.generation_mode || state.generationMode || '—');
     set('preset', trace.art_direction_preset || '—');
-    set('domain', trace.intent_domain || '—');
+    set('domain', trace.intent_domain || trace.intent || '—');
+    var escObj = trace.quality_escalator || {};
+    set('escalator', (escObj.tier || '—') + (escObj.reasons && escObj.reasons.length ? (' · ' + escObj.reasons.join(',')) : ''));
+    set('title', trace.display_title || resultTitle(state.lastResult) || '—');
+    var vqa = trace.visual_qa || (state.lastResult && state.lastResult.visual_qa) || {};
+    set('qa', vqa.score != null ? String(vqa.score) : '—');
+    set('qa-scores', formatQaScores(trace.qa_scores || vqa.scores || {}));
     set('latency', info.latency != null ? (info.latency + ' ms') : '—');
     set('equals', trace.user_equals_final ? 'YES (orchestration missed)' : 'NO (orchestrated)');
     set('user-prompt', trace.user_prompt || state.lastUserPrompt || '—');
+    set('norm-prompt', trace.normalized_prompt || '—');
     set('final-prompt', trace.final_prompt || (state.lastResult && state.lastResult.prompt) || '—');
     set('negative', trace.negative_prompt || '—');
     set('refs', formatRefsForDebug(trace));
@@ -2434,10 +2462,12 @@
       || (vqa.suggest_premium_retry === true)
       || (vqa.score != null && Number(vqa.score) < 70);
     var qaNote = '';
-    if (vqa && (vqa.score != null || (vqa.flags && vqa.flags.length))) {
-      qaNote = '<p class="yis-result-board__quality-hint">Visual QA score: '
+    if (vqa && (vqa.score != null || (vqa.flags && vqa.flags.length) || vqa.scores)) {
+      var dim = formatQaScores(vqa.scores || {});
+      qaNote = '<p class="yis-result-board__quality-hint">Visual QA: '
         + esc(String(vqa.score != null ? vqa.score : '—'))
         + (vqa.flags && vqa.flags.length ? (' · ' + esc(vqa.flags.join(', '))) : '')
+        + (dim && dim !== '—' ? (' · ' + esc(dim)) : '')
         + '</p>';
     }
     return '<div class="yis-result-board__toolbar">' +

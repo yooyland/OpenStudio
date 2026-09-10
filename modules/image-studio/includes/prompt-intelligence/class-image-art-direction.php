@@ -2,23 +2,32 @@
 if (!defined('ABSPATH')) exit;
 
 /**
- * Internal image art-direction presets — not a new provider.
- * Maps visual intent → preset id + premium visual bias fragments.
+ * Internal art-direction presets (not providers).
+ * Canonical ids use *_PREMIUM naming; legacy aliases kept for BC.
  */
 final class YooY_Image_Art_Direction {
 
-    public const PREMIUM_COMMERCIAL = 'PREMIUM_COMMERCIAL';
-    public const EDITORIAL_PORTRAIT = 'EDITORIAL_PORTRAIT';
-    public const LUXURY_PRODUCT = 'LUXURY_PRODUCT';
-    public const BEAUTY_CAMPAIGN = 'BEAUTY_CAMPAIGN';
-    public const ARCHITECTURAL_VISUALIZATION = 'ARCHITECTURAL_VISUALIZATION';
-    public const MODERN_STORYBOOK = 'MODERN_STORYBOOK';
-    public const CINEMATIC_LIFESTYLE = 'CINEMATIC_LIFESTYLE';
-    public const CLEAN_EDITORIAL = 'CLEAN_EDITORIAL';
-    public const FANTASY_ILLUSTRATION = 'FANTASY_ILLUSTRATION';
+    public const MODERN_STORYBOOK_PREMIUM = 'MODERN_STORYBOOK_PREMIUM';
     public const PREMIUM_FANTASY_ILLUSTRATION = 'PREMIUM_FANTASY_ILLUSTRATION';
+    public const BEAUTY_EDITORIAL_PREMIUM = 'BEAUTY_EDITORIAL_PREMIUM';
+    public const LUXURY_PRODUCT_CAMPAIGN = 'LUXURY_PRODUCT_CAMPAIGN';
+    public const ARCHITECTURAL_VISUALIZATION_PREMIUM = 'ARCHITECTURAL_VISUALIZATION_PREMIUM';
+    public const CINEMATIC_LIFESTYLE_PREMIUM = 'CINEMATIC_LIFESTYLE_PREMIUM';
+    public const EDITORIAL_PORTRAIT_PREMIUM = 'EDITORIAL_PORTRAIT_PREMIUM';
+    public const GENERAL_PHOTOREAL_PREMIUM = 'GENERAL_PHOTOREAL_PREMIUM';
+    public const PREMIUM_COMMERCIAL = 'PREMIUM_COMMERCIAL';
+    public const CLEAN_EDITORIAL = 'CLEAN_EDITORIAL';
     public const FOOD_EDITORIAL = 'FOOD_EDITORIAL';
-    public const GENERAL_PHOTOREAL = 'GENERAL_PHOTOREAL';
+
+    // Legacy aliases
+    public const MODERN_STORYBOOK = 'MODERN_STORYBOOK_PREMIUM';
+    public const BEAUTY_CAMPAIGN = 'BEAUTY_EDITORIAL_PREMIUM';
+    public const LUXURY_PRODUCT = 'LUXURY_PRODUCT_CAMPAIGN';
+    public const ARCHITECTURAL_VISUALIZATION = 'ARCHITECTURAL_VISUALIZATION_PREMIUM';
+    public const CINEMATIC_LIFESTYLE = 'CINEMATIC_LIFESTYLE_PREMIUM';
+    public const EDITORIAL_PORTRAIT = 'EDITORIAL_PORTRAIT_PREMIUM';
+    public const GENERAL_PHOTOREAL = 'GENERAL_PHOTOREAL_PREMIUM';
+    public const FANTASY_ILLUSTRATION = 'PREMIUM_FANTASY_ILLUSTRATION';
 
     /**
      * @param array<string, mixed> $brief
@@ -26,53 +35,52 @@ final class YooY_Image_Art_Direction {
     public static function resolve_preset(array $brief): string {
         $domain = sanitize_key((string) ($brief['content_domain'] ?? 'general'));
         $raw = mb_strtolower((string) ($brief['raw_user_request'] ?? $brief['primary_subject'] ?? ''));
+        $premium = self::looks_premium_visual($raw) || (($brief['quality_tier'] ?? '') === 'premium');
 
         if ($domain === 'politics') {
             return self::CLEAN_EDITORIAL;
         }
 
-        // Explicit fantasy (+ premium polish) before broad storybook keyword match.
-        if ($domain === 'fantasy'
-            || (self::looks_fantasy($raw) && (self::looks_premium_visual($raw) || $domain === 'fantasy'))) {
+        // Kids + fantasy + refined → never cheap clipart; prefer premium fantasy or modern storybook.
+        if ((self::looks_storybook($raw) || $domain === 'storybook')
+            && (self::looks_fantasy($raw) || $domain === 'fantasy')
+            && $premium) {
+            return self::looks_fantasy($raw) ? self::PREMIUM_FANTASY_ILLUSTRATION : self::MODERN_STORYBOOK_PREMIUM;
+        }
+        if ($domain === 'fantasy' || (self::looks_fantasy($raw) && $premium)) {
             return self::PREMIUM_FANTASY_ILLUSTRATION;
         }
         if ($domain === 'storybook' || self::looks_storybook($raw)) {
-            return self::MODERN_STORYBOOK;
+            return self::MODERN_STORYBOOK_PREMIUM;
         }
         if (self::looks_fantasy($raw)) {
             return self::PREMIUM_FANTASY_ILLUSTRATION;
         }
         if ($domain === 'architecture') {
-            return self::ARCHITECTURAL_VISUALIZATION;
+            return self::ARCHITECTURAL_VISUALIZATION_PREMIUM;
         }
         if ($domain === 'product' || $domain === 'ecommerce') {
-            if (self::looks_beauty($raw)) {
-                return self::BEAUTY_CAMPAIGN;
-            }
-            return self::LUXURY_PRODUCT;
+            return self::looks_beauty($raw) ? self::BEAUTY_EDITORIAL_PREMIUM : self::LUXURY_PRODUCT_CAMPAIGN;
         }
         if ($domain === 'fashion' || $domain === 'beauty') {
-            return self::BEAUTY_CAMPAIGN;
+            return self::BEAUTY_EDITORIAL_PREMIUM;
         }
         if ($domain === 'food') {
             return self::FOOD_EDITORIAL;
         }
-        if ($domain === 'lifestyle') {
-            return self::CINEMATIC_LIFESTYLE;
+        if ($domain === 'lifestyle' || $domain === 'cinematic') {
+            return self::CINEMATIC_LIFESTYLE_PREMIUM;
         }
         if ($domain === 'portrait') {
-            return self::EDITORIAL_PORTRAIT;
+            return self::EDITORIAL_PORTRAIT_PREMIUM;
         }
-        if ($domain === 'brand' || $domain === 'corporate' || $domain === 'social') {
+        if ($domain === 'illustration') {
+            return $premium ? self::PREMIUM_FANTASY_ILLUSTRATION : self::MODERN_STORYBOOK_PREMIUM;
+        }
+        if ($domain === 'brand' || $domain === 'corporate' || $domain === 'social' || self::looks_commercial($raw)) {
             return self::PREMIUM_COMMERCIAL;
         }
-        if ($domain === 'travel' || $domain === 'cinematic') {
-            return self::CINEMATIC_LIFESTYLE;
-        }
-        if (self::looks_commercial($raw)) {
-            return self::PREMIUM_COMMERCIAL;
-        }
-        return self::GENERAL_PHOTOREAL;
+        return self::GENERAL_PHOTOREAL_PREMIUM;
     }
 
     public static function looks_storybook(string $raw): bool {
@@ -82,11 +90,10 @@ final class YooY_Image_Art_Direction {
         if (preg_match('/어린이|아동|키즈|kids|for\s*children/u', $raw)) {
             return true;
         }
-        // Dream + imaginative adventure animals (literal scene, not "child imagining").
-        if (preg_match('/꿈|상상/u', $raw) && preg_match('/펭귄|고래|용|요정|마법|날아|하늘을|세계\s*여행|판타지/u', $raw)) {
+        if (preg_match('/꿈|상상/u', $raw) && preg_match('/펭귄|팽귄|고래|용|요정|마법|날아|하늘을|세계\s*여행|판타지/u', $raw)) {
             return true;
         }
-        if (preg_match('/펭귄/u', $raw) && preg_match('/고래|하늘|날/u', $raw)) {
+        if (preg_match('/펭귄|팽귄/u', $raw) && preg_match('/고래|하늘|날/u', $raw)) {
             return true;
         }
         return false;
@@ -111,11 +118,7 @@ final class YooY_Image_Art_Direction {
         return (bool) preg_match('/광고|캠페인|브랜드|분양|advert|campaign|brand/u', $raw);
     }
 
-    /**
-     * Shared premium visual bias — applied once, not keyword soup spam.
-     *
-     * @return string[]
-     */
+    /** @return string[] */
     public static function premium_visual_bias(string $preset): array {
         $common = [
             'sophisticated refined premium editorial-quality finish',
@@ -123,107 +126,129 @@ final class YooY_Image_Art_Direction {
             'cinematic lighting, beautifully composed, high-detail, non-kitschy',
         ];
         switch ($preset) {
-            case self::MODERN_STORYBOOK:
+            case self::MODERN_STORYBOOK_PREMIUM:
             case self::PREMIUM_FANTASY_ILLUSTRATION:
-            case self::FANTASY_ILLUSTRATION:
                 return array_merge($common, [
                     'modern premium picture-book cover illustration aesthetic',
                     'grand outdoor adventure scale — not an indoor mural or flat wall decoration',
-                    'Disney-theme-park kitsch avoided; prefer refined European/Japanese premium picture-book cover mood',
+                    'Disney-theme-park kitsch avoided; refined premium picture-book cover mood',
                 ]);
-            case self::EDITORIAL_PORTRAIT:
-            case self::CINEMATIC_LIFESTYLE:
-                return array_merge($common, [
-                    'contemporary editorial portrait / lifestyle photography',
-                ]);
-            case self::BEAUTY_CAMPAIGN:
-            case self::LUXURY_PRODUCT:
-                return array_merge($common, [
-                    'quiet luxury product still, magazine double-page quality',
-                ]);
-            case self::ARCHITECTURAL_VISUALIZATION:
-                return array_merge($common, [
-                    'premium real-estate campaign architectural visualization',
-                ]);
+            case self::EDITORIAL_PORTRAIT_PREMIUM:
+            case self::CINEMATIC_LIFESTYLE_PREMIUM:
+                return array_merge($common, ['contemporary editorial portrait / lifestyle photography']);
+            case self::BEAUTY_EDITORIAL_PREMIUM:
+            case self::LUXURY_PRODUCT_CAMPAIGN:
+                return array_merge($common, ['quiet luxury product / beauty still, magazine double-page quality']);
+            case self::ARCHITECTURAL_VISUALIZATION_PREMIUM:
+                return array_merge($common, ['premium real-estate campaign architectural visualization']);
             default:
                 return $common;
         }
     }
 
-    /**
-     * Shared quality constraints appended once.
-     *
-     * @return string[]
-     */
+    /** @return string[] */
     public static function quality_constraints(string $preset): array {
         switch ($preset) {
-            case self::EDITORIAL_PORTRAIT:
-            case self::CINEMATIC_LIFESTYLE:
+            case self::EDITORIAL_PORTRAIT_PREMIUM:
+            case self::CINEMATIC_LIFESTYLE_PREMIUM:
                 return [
                     'contemporary sophisticated but believable human styling',
                     'natural micro-expression, plausible anatomy and hands',
                     'realistic skin texture with subtle natural imperfections',
-                    'refined wardrobe and grooming appropriate to context — not generic stock smiles',
                     'no plastic skin, no mannequin faces, no awkward proportions',
                 ];
-            case self::MODERN_STORYBOOK:
+            case self::MODERN_STORYBOOK_PREMIUM:
             case self::PREMIUM_FANTASY_ILLUSTRATION:
-            case self::FANTASY_ILLUSTRATION:
                 return [
                     'modern premium picture-book / editorial illustration',
-                    'cinematic storytelling composition with atmospheric depth and layered parallax',
-                    'sophisticated child-friendly palette — warm and emotional but never childish clipart',
-                    'depict the requested adventure as the main scene — do not invent an unrelated child observer unless asked',
+                    'cinematic storytelling composition with atmospheric depth',
+                    'sophisticated child-friendly palette — warm but never childish clipart',
+                    'depict the requested adventure as the main scene',
                     'avoid dated clip-art, flat mural, toy-like oversaturation, cheap poster look',
                 ];
-            case self::BEAUTY_CAMPAIGN:
-            case self::LUXURY_PRODUCT:
+            case self::BEAUTY_EDITORIAL_PREMIUM:
+            case self::LUXURY_PRODUCT_CAMPAIGN:
                 return [
                     'premium product photography with accurate geometry',
                     'realistic glass/metal/plastic materials and controlled speculars',
-                    'hero composition with refined negative space',
-                    'do not invent readable logos, Hangul/English product text, or fake brand marks',
+                    'do not invent readable logos or random label text unless requested',
                 ];
-            case self::ARCHITECTURAL_VISUALIZATION:
+            case self::ARCHITECTURAL_VISUALIZATION_PREMIUM:
                 return [
                     'coherent building geometry, straight verticals, plausible perspective',
                     'detailed façade materials and realistic landscaping',
-                    'professional real-estate campaign visualization',
                     'no warped towers or identical plastic clone façades',
-                ];
-            case self::PREMIUM_COMMERCIAL:
-                return [
-                    'strong focal hierarchy and brand-ready framing',
-                    'polished materials, deliberate lighting, modern restrained palette',
-                    'avoid generic stock imagery and tacky luxury clichés',
                 ];
             default:
                 return [
-                    'professionally art-directed photograph',
+                    'professionally art-directed image',
                     'intentional composition and believable materials',
                     'avoid generic AI-stock look',
                 ];
         }
     }
 
-    /**
-     * Common negative guidance for all image domains.
-     *
-     * @return string[]
-     */
+    /** @return string[] */
     public static function common_negatives(): array {
         return [
             'childish clipart',
-            'kitschy',
             'cheap poster look',
             'flat mural look',
             'awkward anatomy',
-            'plasticky skin',
+            'plasticky surfaces',
             'generic stock composition',
-            'overly saturated toy-like colors',
+            'low-detail rendering',
+            'toy-like oversaturation',
             'random text overlays',
+            'tacky visual treatment',
+            'kitschy',
             'low detail mush',
-            'dated cheap storybook look',
         ];
+    }
+
+    /**
+     * Genre-specific negatives.
+     *
+     * @return string[]
+     */
+    public static function genre_negatives(string $preset): array {
+        switch ($preset) {
+            case self::MODERN_STORYBOOK_PREMIUM:
+            case self::PREMIUM_FANTASY_ILLUSTRATION:
+                return [
+                    'dated cheap storybook look',
+                    'Disney theme-park kitsch',
+                    'indoor bedroom child observer',
+                    'plastic CGI toys',
+                ];
+            case self::EDITORIAL_PORTRAIT_PREMIUM:
+            case self::CINEMATIC_LIFESTYLE_PREMIUM:
+                return [
+                    'plasticky skin',
+                    'uncanny smile',
+                    'bad hands',
+                    'extra fingers',
+                    'generic stock-photo pose',
+                ];
+            case self::BEAUTY_EDITORIAL_PREMIUM:
+            case self::LUXURY_PRODUCT_CAMPAIGN:
+                return [
+                    'warped bottle geometry',
+                    'melted packaging',
+                    'invented Hangul text',
+                    'fake logos',
+                    'glitter overload',
+                ];
+            case self::ARCHITECTURAL_VISUALIZATION_PREMIUM:
+                return [
+                    'warped geometry',
+                    'distorted windows',
+                    'bent buildings',
+                    'floating structures',
+                    'cartoon architecture',
+                ];
+            default:
+                return [];
+        }
     }
 }

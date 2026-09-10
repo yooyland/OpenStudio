@@ -70,12 +70,22 @@ final class YooY_Image_Domain_Prompt_Composer {
             $extra = YooY_Image_Art_Direction::quality_constraints($art_preset);
             $bits = array_merge($bias, $extra);
             if ($bits) {
-                $composed['prompt'] = rtrim((string) $composed['prompt'], '. ')
-                    . '. PREMIUM BIAS: ' . implode('; ', $bits);
+                $prompt = (string) $composed['prompt'];
+                if (stripos($prompt, 'PREMIUM BIAS:') === false) {
+                    $composed['prompt'] = 'PREMIUM BIAS: ' . implode('; ', $bits) . '. ' . $prompt;
+                } else {
+                    $composed['prompt'] = rtrim($prompt, '. ')
+                        . '. QUALITY CONSTRAINTS (PRESET): ' . implode('; ', $extra);
+                }
             }
             $neg = (string) ($composed['negative_prompt'] ?? '');
             $common = implode(', ', YooY_Image_Art_Direction::common_negatives());
-            $composed['negative_prompt'] = $neg !== '' ? ($neg . ', ' . $common) : $common;
+            $genre = implode(', ', YooY_Image_Art_Direction::genre_negatives($art_preset));
+            $merged = $common;
+            if ($genre !== '') {
+                $merged .= ', ' . $genre;
+            }
+            $composed['negative_prompt'] = $neg !== '' ? ($neg . ', ' . $merged) : $merged;
             $composed['preset'] = $art_preset;
         }
         return $composed;
@@ -190,10 +200,6 @@ final class YooY_Image_Domain_Prompt_Composer {
     private function compose_storybook(array $brief, array $settings, string $forced_preset = ''): array {
         $raw = (string) ($brief['raw_user_request'] ?? '');
         $subject = (string) ($brief['primary_subject'] ?? 'imaginative adventure scene');
-        // Prefer full user request for concept fidelity (primary_subject may be truncated).
-        if ($raw !== '' && mb_strlen($raw) > mb_strlen($subject)) {
-            $subject = $raw;
-        }
         if ($subject === '') {
             $subject = 'imaginative adventure scene';
         }
@@ -204,12 +210,21 @@ final class YooY_Image_Domain_Prompt_Composer {
             ? YooY_Image_Art_Direction::looks_premium_visual($raw_l)
             : (bool) preg_match('/세련|고급|현대|premium|refined/u', $raw_l);
 
+        // Structured English core keeps fidelity without blowing the prompt budget.
+        $core = $this->storybook_core_scene($raw_l, $subject, $is_fantasy);
+        $user_ref = $raw !== '' ? $raw : $subject;
+        if (mb_strlen($user_ref) > 420) {
+            $user_ref = mb_substr($user_ref, 0, 419) . '…';
+        }
+
         $purpose = $is_fantasy
             ? 'premium fantasy editorial illustration — refined picture-book cover energy, not toddler clipart'
             : 'modern premium picture-book cover illustration for children\'s imagination — sophisticated, not babyish';
 
         $parts = [
-            'CORE SCENE: Depict exactly this outdoor adventure as the main visual — ' . $subject,
+            'PREMIUM BIAS: sophisticated refined premium picture-book cover; cinematic depth; non-kitschy; outdoor sky adventure scale',
+            'CORE SCENE: Depict exactly this outdoor adventure as the main visual — ' . $core,
+            'USER REQUEST (fidelity): ' . $user_ref,
             'PURPOSE: ' . $purpose,
             'VISUAL DIRECTION: contemporary cinematic ' . ($is_fantasy ? 'fantasy' : 'storybook')
                 . ' illustration; sophisticated, refined, elegant, polished, editorial-quality; non-kitschy',
@@ -238,7 +253,7 @@ final class YooY_Image_Domain_Prompt_Composer {
         $domain = $is_fantasy ? 'fantasy' : 'storybook';
         $preset = $forced_preset !== ''
             ? $forced_preset
-            : ($is_fantasy ? 'PREMIUM_FANTASY_ILLUSTRATION' : 'MODERN_STORYBOOK');
+            : ($is_fantasy ? 'PREMIUM_FANTASY_ILLUSTRATION' : 'MODERN_STORYBOOK_PREMIUM');
 
         return [
             'prompt'          => implode('. ', $parts),
@@ -246,6 +261,35 @@ final class YooY_Image_Domain_Prompt_Composer {
             'domain'          => $domain,
             'preset'          => $preset,
         ];
+    }
+
+    private function storybook_core_scene(string $raw_l, string $subject, bool $is_fantasy): string {
+        $bits = [];
+        if (preg_match('/고래|whale/u', $raw_l)) {
+            $bits[] = 'a majestic giant blue whale flying through the night sky';
+        }
+        if (preg_match('/펭귄|팽귄|penguin/u', $raw_l)) {
+            $bits[] = 'a cute penguin family riding together on the whale\'s back on a world journey';
+        }
+        if (preg_match('/별|star/u', $raw_l)) {
+            $bits[] = 'star-filled heavens';
+        }
+        if (preg_match('/달|moon/u', $raw_l)) {
+            $bits[] = 'soft moonlight';
+        }
+        if (preg_match('/오로라|aurora/u', $raw_l)) {
+            $bits[] = 'dreamlike aurora light';
+        }
+        if (preg_match('/에펠|피라미드|빅벤|자유의\s*여신|eiffel|pyramid|big\s*ben|liberty/u', $raw_l)) {
+            $bits[] = 'distant fantastical landmarks (Eiffel Tower, pyramids, Big Ben, Statue of Liberty) as ethereal silhouettes';
+        }
+        if (!$bits) {
+            $cut = mb_strlen($subject) > 280 ? (mb_substr($subject, 0, 279) . '…') : $subject;
+            return $cut;
+        }
+        $genre = $is_fantasy ? 'premium fantasy' : 'modern storybook';
+        return $genre . ' illustration of ' . implode(', ', $bits)
+            . ' — grand outdoor flying adventure, warm and moving, never indoor mural';
     }
 
     /**

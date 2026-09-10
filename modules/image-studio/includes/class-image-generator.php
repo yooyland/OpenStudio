@@ -158,26 +158,28 @@ final class YooY_Image_Generator {
             ? $payload['composer_meta']['prompt_intelligence']
             : [];
         $visual_qa = is_array($pi['visual_qa'] ?? null) ? $pi['visual_qa'] : [];
-        if (!$visual_qa) {
-            $qa_file = dirname(__FILE__) . '/prompt-intelligence/class-image-visual-qa.php';
-            if (!class_exists('YooY_Image_Visual_QA') && file_exists($qa_file)) {
-                require_once $qa_file;
-            }
-            if (class_exists('YooY_Image_Visual_QA')) {
-                $visual_qa = YooY_Image_Visual_QA::assess([
-                    'user_prompt'            => (string) ($entry['user_prompt'] ?? $payload['user_prompt'] ?? ''),
-                    'final_prompt'           => (string) ($payload['prompt'] ?? $entry['prompt'] ?? ''),
-                    'intent_domain'          => (string) ($entry['intent_domain'] ?? $pi['intent_domain'] ?? ''),
-                    'art_direction'          => (string) ($pi['art_direction'] ?? $pi['preset'] ?? ''),
-                    'composer_quality_score' => (int) ($pi['quality_score'] ?? 0),
-                ]);
-            }
+        $display_title = (string) ($entry['display_title'] ?? $entry['title'] ?? $pi['title_preview'] ?? '');
+        $qa_file = dirname(__FILE__) . '/prompt-intelligence/class-image-visual-qa.php';
+        if (!class_exists('YooY_Image_Visual_QA') && file_exists($qa_file)) {
+            require_once $qa_file;
+        }
+        if (class_exists('YooY_Image_Visual_QA')) {
+            $visual_qa = YooY_Image_Visual_QA::assess([
+                'user_prompt'            => (string) ($entry['user_prompt'] ?? $payload['user_prompt'] ?? ''),
+                'final_prompt'           => (string) ($payload['prompt'] ?? $entry['prompt'] ?? ''),
+                'intent_domain'          => (string) ($entry['intent_domain'] ?? $pi['intent_domain'] ?? ''),
+                'art_direction'          => (string) ($pi['art_direction'] ?? $pi['preset'] ?? ''),
+                'display_title'          => $display_title,
+                'composer_quality_score' => (int) ($pi['quality_score'] ?? 0),
+            ]);
         }
         $meta['visual_qa'] = $visual_qa;
 
         $size_val = (string) ($result['size'] ?? $payload['size'] ?? $payload['resolution'] ?? '');
+        $norm = is_array($pi['normalized'] ?? null) ? $pi['normalized'] : [];
         $trace = [
             'user_prompt'          => (string) ($entry['user_prompt'] ?? $payload['user_prompt'] ?? ''),
+            'normalized_prompt'    => (string) ($norm['normalized'] ?? ''),
             'final_prompt'         => (string) ($payload['prompt'] ?? $entry['prompt'] ?? ''),
             'optimized_prompt'     => (string) ($payload['optimized_prompt'] ?? ''),
             'negative_prompt'      => (string) ($payload['negative_prompt'] ?? $entry['negative_prompt'] ?? ''),
@@ -188,9 +190,14 @@ final class YooY_Image_Generator {
             'generation_mode'      => (string) ($payload['generation_mode'] ?? 'premium'),
             'art_direction_preset' => (string) ($pi['art_direction'] ?? $pi['preset'] ?? ''),
             'intent_domain'        => (string) ($entry['intent_domain'] ?? $pi['intent_domain'] ?? ''),
+            'intent'               => (string) ($pi['intent_domain'] ?? ''),
+            'display_title'        => $display_title,
             'references'           => $payload['reference_assets'] ?? [],
             'reference_url'        => (string) ($payload['reference_url'] ?? ''),
             'visual_qa'            => $visual_qa,
+            'qa_scores'            => is_array($visual_qa['scores'] ?? null) ? $visual_qa['scores'] : [],
+            'quality_escalator'    => is_array($pi['quality_escalator'] ?? null) ? $pi['quality_escalator'] : [],
+            'pipeline'             => is_array($pi['pipeline'] ?? null) ? $pi['pipeline'] : [],
             'prompt_version'       => (string) ($entry['prompt_version'] ?? $pi['prompt_version'] ?? ''),
             'user_equals_final'    => mb_strtolower(trim((string) ($entry['user_prompt'] ?? '')))
                 === mb_strtolower(trim((string) ($payload['prompt'] ?? ''))),

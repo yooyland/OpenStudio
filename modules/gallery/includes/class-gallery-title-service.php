@@ -120,6 +120,9 @@ final class YooY_Gallery_Title_Service {
             if (preg_match('/오로라|aurora/u', $raw_lower)) {
                 return '오로라 너머의 여행';
             }
+            if (preg_match('/달|moon/u', $raw_lower)) {
+                return '달빛을 타는 푸른 고래';
+            }
             if (preg_match('/밤|별|night|star/u', $raw_lower)) {
                 return '별을 건너는 펭귄 가족';
             }

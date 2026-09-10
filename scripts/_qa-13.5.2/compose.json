@@ -1,0 +1,146 @@
+{
+    "version": "13.5.2",
+    "intent_domain": "fantasy",
+    "preset": "PREMIUM_FANTASY_ILLUSTRATION",
+    "escalator": {
+        "tier": "premium",
+        "escalate": true,
+        "reasons": [
+            "premium_language",
+            "cover_or_cinematic",
+            "domain_default_escalate"
+        ]
+    },
+    "pipeline": [
+        "input_normalizer",
+        "intent_analyzer",
+        "subject_scene_extractor",
+        "quality_escalator",
+        "art_direction_preset_selector",
+        "domain_prompt_composer",
+        "negative_guidance_injector",
+        "final_prompt_builder",
+        "provider_quality_selector",
+        "visual_qa_lite",
+        "title_generator"
+    ],
+    "normalized": {
+        "raw": "어린이를 위한 꿈같은 판타지 장면을 현대적이고 세련된 고급 일러스트 스타일로 그려줘. 거대한 푸른 고래가 밤하늘을 날고 있고, 그 위에 귀여운 팽귄 가족이 함께 타고 세계 여행을 하고 있다. 별이 가득한 하늘, 은은한 달빛, 반짝이는 구름, 오로라 같은 몽환적인 빛을 넣고, 멀리 에펠탑, 피라미드, 빅벤, 자유의 여신상 등 세계 여행을 상징하는 랜드마크가 환상적으로 보이게 해줘. 전체적으로 따뜻하고 감동적이지만 촌스럽지 않게, 디즈니풍 감성보다는 고급 그림책 표지 같은 세련된 분위기, 풍부한 디테일, 아름다운 조명, 깊이감 있는 구도로 표현해줘. 실내 장면처럼 보이지 않게 하고, 벽화처럼 단순한 느낌도 피하고, 실제로 하늘을 나는 모험 장면처럼 웅장하고 아름답게 표현해줘.",
+        "normalized": "어린이를 위한 꿈같은 판타지 장면을 현대적이고 세련된 고급 일러스트 스타일로 그려줘. 거대한 푸른 고래가 밤하늘을 날고 있고, 그 위에 귀여운 팽귄 가족이 함께 타고 세계 여행을 하고 있다. 별이 가득한 하늘, 은은한 달빛, 반짝이는 구름, 오로라 같은 몽환적인 빛을 넣고, 멀리 에펠탑, 피라미드, 빅벤, 자유의 여신상 등 세계 여행을 상징하는 랜드마크가 환상적으로 보이게 해줘. 전체적으로 따뜻하고 감동적이지만 촌스럽지 않게, 디즈니풍 감성보다는 고급 그림책 표지 같은 세련된 분위기, 풍부한 디테일, 아름다운 조명, 깊이감 있는 구도로 표현해줘. 실내 장면처럼 보이지 않게 하고, 벽화처럼 단순한 느낌도 피하고, 실제로 하늘을 나는 모험 장면처럼 웅장하고 아름답게 표현해줘.",
+        "language": "ko",
+        "is_short": false,
+        "word_count": 92
+    },
+    "negative_prompt": "childish clipart, kitschy, cheap poster look, flat mural look, dated storybook cliché, Disney theme-park kitsch, indoor bedroom child observer, generic stock photo, plastic CGI toys, overly saturated toy-like colors, childish clipart, cheap poster look, flat mural look, awkward anatomy, plasticky surfaces, generic stock composition, low-detail rendering, toy-like oversaturation, random text overlays, tacky visual treatment, kitschy, low detail mush, dated cheap storybook look, Disney theme-park kitsch, indoor bedroom child observer, plastic CGI toys",
+    "final_prompt": "CORE SCENE: Depict exactly this outdoor adventure as the main visual — 어린이를 위한 꿈같은 판타지 장면을 현대적이고 세련된 고급 일러스트 스타일로 그려줘. 거대한 푸른 고래가 밤하늘을 날고 있고, 그 위에 귀여운 팽귄 가족이 함께 타고 세계 여행을 하고 있다. 별이 가득한 하늘, 은은한 달빛, 반짝이는 구름, 오로라 같은 몽환적인 빛을 넣고, 멀리 에펠탑, 피라미드, 빅벤, 자유의 여신상 등 세계 여행을 상징하는 랜드마크가 환상적으로 보이게 해줘. 전체적으로 따뜻하고 감동적이지만 촌스럽지 않게, 디즈니풍 감성보다는 고급 그림책 표지 같은 세련된 분위기, 풍부한 디테일, 아름다운 조명, 깊이감 있는 구도로 표현해줘. 실내 장면처럼 보이지 않게 하고, 벽화처럼 단순한 느낌도 피하고, 실제로 하늘을 나는 모험 장면처럼 웅장하고 아름답게 표현해줘. PURPOSE: premium fantasy editorial illustration — refined picture-book cover energy, not toddler clipart. VISUAL DIRECTION: contemporary cinematic fantasy illustration; sophisticated, refined, elegant, polished, editorial-quality; non-kitschy. COMPOSITION: grand widescreen storytelling frame with imaginative scale, layered atmospheric depth, clear narrative hero, beautiful depth of field. LIGHTING: cinematic magical light — soft moonlight, star glitter, optional aurora glow, volumetric haze; rich but tasteful. STYLING & MATERIALS: expressive character design with coherent anatomy for the requested creatures; rich environmental detail; high-detail surfaces. COLOR & ATMOSPHERE: sophisticated child-friendly cinematic palette with luminous night accents. QUALITY CONSTRAINTS: emotional visual narrative; respect literal subjects, actions, landmarks, and relationships from the user request. AVOID: childish clipart; kitschy Disney-park look; cheap poster; flat mural; indoor bedroom framing; inserting an unrelated child observer unless asked. IMPORTANT: do not rewrite into a child looking at a picture or a wall mural — show the sky adventure itself, majestic and beautifully composed. SETTING DETAIL: star-filled night sky as the primary backdrop. ATMOSPHERE DETAIL: soft aurora-like dream light across the sky. LANDMARKS: distant fantastical silhouettes of world landmarks matching the request, ethereal and secondary to the flying adventure. TONE CUE: modern, sophisticated, premium picture-book cover — warm and moving but never rustic or childish",
+    "canonical_prompt": "CORE SCENE: Depict exactly this outdoor adventure as the main visual — 어린이를 위한 꿈같은 판타지 장면을 현대적이고 세련된 고급 일러스트 스타일로 그려줘. 거대한 푸른 고래가 밤하늘을 날고 있고, 그 위에 귀여운 팽귄 가족이 함께 타고 세계 여행을 하고 있다. 별이 가득한 하늘, 은은한 달빛, 반짝이는 구름, 오로라 같은 몽환적인 빛을 넣고, 멀리 에펠탑, 피라미드, 빅벤, 자유의 여신상 등 세계 여행을 상징하는 랜드마크가 환상적으로 보이게 해줘. 전체적으로 따뜻하고 감동적이지만 촌스럽지 않게, 디즈니풍 감성보다는 고급 그림책 표지 같은 세련된 분위기, 풍부한 디테일, 아름다운 조명, 깊이감 있는 구도로 표현해줘. 실내 장면처럼 보이지 않게 하고, 벽화처럼 단순한 느낌도 피하고, 실제로 하늘을 나는 모험 장면처럼 웅장하고 아름답게 표현해줘. PURPOSE: premium fantasy editorial illustration — refined picture-book cover energy, not toddler clipart. VISUAL DIRECTION: contemporary cinematic fantasy illustration; sophisticated, refined, elegant, polished, editorial-quality; non-kitschy. COMPOSITION: grand widescreen storytelling frame with imaginative scale, layered atmospheric depth, clear narrative hero, beautiful depth of field. LIGHTING: cinematic magical light — soft moonlight, star glitter, optional aurora glow, volumetric haze; rich but tasteful. STYLING & MATERIALS: expressive character design with coherent anatomy for the requested creatures; rich environmental detail; high-detail surfaces. COLOR & ATMOSPHERE: sophisticated child-friendly cinematic palette with luminous night accents. QUALITY CONSTRAINTS: emotional visual narrative; respect literal subjects, actions, landmarks, and relationships from the user request. AVOID: childish clipart; kitschy Disney-park look; cheap poster; flat mural; indoor bedroom framing; inserting an unrelated child observer unless asked. IMPORTANT: do not rewrite into a child looking at a picture or a wall mural — show the sky adventure itself, majestic and beautifully composed. SETTING DETAIL: star-filled night sky as the primary backdrop. ATMOSPHERE DETAIL: soft aurora-like dream light across the sky. LANDMARKS: distant fantastical silhouettes of world landmarks matching the request, ethereal and secondary to the flying adventure. TONE CUE: modern, sophisticated, premium picture-book cover — warm and moving but never rustic or childish",
+    "title_preview": "오로라 너머의 여행",
+    "visual_qa": {
+        "score": 80,
+        "pass": true,
+        "scores": {
+            "prompt_fidelity": 88,
+            "premium_feel": 86,
+            "composition_quality": 84,
+            "subject_beauty": 82,
+            "lighting_quality": 85,
+            "detail_richness": 84,
+            "non_kitschy_score": 40,
+            "title_quality": 90
+        },
+        "flags": [
+            "concept_risk_indoor_or_kitsch"
+        ],
+        "notes": [
+            "Structured art-direction brief detected.",
+            "Possible kitsch\/indoor dilution language outside AVOID clauses."
+        ],
+        "suggest_premium_retry": false,
+        "retry_policy": "none"
+    },
+    "prompt_version": "spi-image-orch-1",
+    "composer_pi": {
+        "used": true,
+        "intent_domain": "fantasy",
+        "preset": "PREMIUM_FANTASY_ILLUSTRATION",
+        "art_direction": "PREMIUM_FANTASY_ILLUSTRATION",
+        "quality_score": 102,
+        "visual_qa": {
+            "score": 80,
+            "pass": true,
+            "scores": {
+                "prompt_fidelity": 88,
+                "premium_feel": 86,
+                "composition_quality": 84,
+                "subject_beauty": 82,
+                "lighting_quality": 85,
+                "detail_richness": 84,
+                "non_kitschy_score": 40,
+                "title_quality": 90
+            },
+            "flags": [
+                "concept_risk_indoor_or_kitsch"
+            ],
+            "notes": [
+                "Structured art-direction brief detected.",
+                "Possible kitsch\/indoor dilution language outside AVOID clauses."
+            ],
+            "suggest_premium_retry": false,
+            "retry_policy": "none"
+        },
+        "normalized": {
+            "raw": "어린이를 위한 꿈같은 판타지 장면을 현대적이고 세련된 고급 일러스트 스타일로 그려줘. 거대한 푸른 고래가 밤하늘을 날고 있고, 그 위에 귀여운 팽귄 가족이 함께 타고 세계 여행을 하고 있다. 별이 가득한 하늘, 은은한 달빛, 반짝이는 구름, 오로라 같은 몽환적인 빛을 넣고, 멀리 에펠탑, 피라미드, 빅벤, 자유의 여신상 등 세계 여행을 상징하는 랜드마크가 환상적으로 보이게 해줘. 전체적으로 따뜻하고 감동적이지만 촌스럽지 않게, 디즈니풍 감성보다는 고급 그림책 표지 같은 세련된 분위기, 풍부한 디테일, 아름다운 조명, 깊이감 있는 구도로 표현해줘. 실내 장면처럼 보이지 않게 하고, 벽화처럼 단순한 느낌도 피하고, 실제로 하늘을 나는 모험 장면처럼 웅장하고 아름답게 표현해줘.",
+            "normalized": "어린이를 위한 꿈같은 판타지 장면을 현대적이고 세련된 고급 일러스트 스타일로 그려줘. 거대한 푸른 고래가 밤하늘을 날고 있고, 그 위에 귀여운 팽귄 가족이 함께 타고 세계 여행을 하고 있다. 별이 가득한 하늘, 은은한 달빛, 반짝이는 구름, 오로라 같은 몽환적인 빛을 넣고, 멀리 에펠탑, 피라미드, 빅벤, 자유의 여신상 등 세계 여행을 상징하는 랜드마크가 환상적으로 보이게 해줘. 전체적으로 따뜻하고 감동적이지만 촌스럽지 않게, 디즈니풍 감성보다는 고급 그림책 표지 같은 세련된 분위기, 풍부한 디테일, 아름다운 조명, 깊이감 있는 구도로 표현해줘. 실내 장면처럼 보이지 않게 하고, 벽화처럼 단순한 느낌도 피하고, 실제로 하늘을 나는 모험 장면처럼 웅장하고 아름답게 표현해줘.",
+            "language": "ko",
+            "is_short": false,
+            "word_count": 92
+        },
+        "scene": {
+            "subject": "어린이를 위한 꿈같은 판타지 장면을 현대적이고 세련된 고급 일러스트 스타일로 그려줘. 거대한 푸른 고래가 밤하늘을 날고 있고, 그 위에 귀여운 팽귄 가족이 함께 타고 세계 여행을 하고 있다. 별이 가득한 하늘, 은은한 달빛, 반짝이는 구름, 오로라 같은 몽환적인 빛을 넣고, 멀리 에펠탑",
+            "action": "날",
+            "setting": "밤하늘",
+            "mood": "clear, professional",
+            "must_include": [
+                "고래",
+                "팽귄",
+                "에펠",
+                "피라미드",
+                "빅벤",
+                "여신상",
+                "오로라"
+            ]
+        },
+        "quality_escalator": {
+            "tier": "premium",
+            "escalate": true,
+            "reasons": [
+                "premium_language",
+                "cover_or_cinematic",
+                "domain_default_escalate"
+            ]
+        },
+        "title_preview": "오로라 너머의 여행",
+        "pipeline": [
+            "input_normalizer",
+            "intent_analyzer",
+            "subject_scene_extractor",
+            "quality_escalator",
+            "art_direction_preset_selector",
+            "domain_prompt_composer",
+            "negative_guidance_injector",
+            "final_prompt_builder",
+            "provider_quality_selector",
+            "visual_qa_lite",
+            "title_generator"
+        ],
+        "rewrite_count": 0,
+        "validation": {
+            "ok": true,
+            "code": "ok",
+            "message": "Pass",
+            "rewrite": false
+        },
+        "prompt_version": "spi-image-orch-1",
+        "blocked": false
+    }
+}
