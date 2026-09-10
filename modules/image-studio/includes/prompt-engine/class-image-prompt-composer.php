@@ -564,9 +564,15 @@ final class YooY_Image_Prompt_Composer {
     private function trim_prompt(string $text): string {
         $text = preg_replace('/\.+/', '.', $text) ?? '';
         $text = trim($text, " \t\n\r\0\x0B.");
-        if (mb_strlen($text) > 850) {
-            $text = mb_substr($text, 0, 847) . '…';
+        $max = 2200;
+        if (mb_strlen($text) <= $max) {
+            return $text;
         }
-        return $text;
+        $cut = mb_substr($text, 0, $max - 1);
+        $dot = mb_strrpos($cut, '. ');
+        if ($dot !== false && $dot > (int) ($max * 0.6)) {
+            return rtrim(mb_substr($cut, 0, $dot + 1), '.');
+        }
+        return rtrim($cut, '.') . '…';
     }
 }
