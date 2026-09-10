@@ -22,14 +22,11 @@ final class YooY_Image_Domain_Prompt_Composer {
         if (!empty($brief['wants_political']) || $domain === 'politics') {
             return $this->finalize($this->compose_politics($brief, $settings), $preset);
         }
-        // Storybook / fantasy before lifestyle "가족" so adventure scenes stay literal.
+        // Fantasy + premium polish before storybook so "세련된 판타지" does not stay on weak kids-clipart defaults.
         if ($domain === 'fantasy'
             || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_fantasy($raw)
-                && (YooY_Image_Art_Direction::looks_premium_visual($raw) || YooY_Image_Art_Direction::looks_storybook($raw)))) {
-            // Premium fantasy illustration when explicitly fantasy + polish cues.
-            if ($preset !== YooY_Image_Art_Direction::MODERN_STORYBOOK) {
-                $preset = YooY_Image_Art_Direction::PREMIUM_FANTASY_ILLUSTRATION;
-            }
+                && YooY_Image_Art_Direction::looks_premium_visual($raw))) {
+            $preset = YooY_Image_Art_Direction::PREMIUM_FANTASY_ILLUSTRATION;
             return $this->finalize($this->compose_storybook($brief, $settings, $preset), $preset);
         }
         if ($domain === 'storybook'

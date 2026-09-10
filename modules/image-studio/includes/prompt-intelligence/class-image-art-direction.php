@@ -26,21 +26,21 @@ final class YooY_Image_Art_Direction {
     public static function resolve_preset(array $brief): string {
         $domain = sanitize_key((string) ($brief['content_domain'] ?? 'general'));
         $raw = mb_strtolower((string) ($brief['raw_user_request'] ?? $brief['primary_subject'] ?? ''));
-        $wants_premium = self::looks_premium_visual($raw);
 
         if ($domain === 'politics') {
             return self::CLEAN_EDITORIAL;
         }
 
-        // Premium storybook / fantasy before weaker defaults.
+        // Explicit fantasy (+ premium polish) before broad storybook keyword match.
+        if ($domain === 'fantasy'
+            || (self::looks_fantasy($raw) && (self::looks_premium_visual($raw) || $domain === 'fantasy'))) {
+            return self::PREMIUM_FANTASY_ILLUSTRATION;
+        }
         if ($domain === 'storybook' || self::looks_storybook($raw)) {
-            if ($wants_premium || self::looks_fantasy($raw)) {
-                return self::MODERN_STORYBOOK;
-            }
             return self::MODERN_STORYBOOK;
         }
-        if ($domain === 'fantasy' || self::looks_fantasy($raw)) {
-            return $wants_premium ? self::PREMIUM_FANTASY_ILLUSTRATION : self::PREMIUM_FANTASY_ILLUSTRATION;
+        if (self::looks_fantasy($raw)) {
+            return self::PREMIUM_FANTASY_ILLUSTRATION;
         }
         if ($domain === 'architecture') {
             return self::ARCHITECTURAL_VISUALIZATION;

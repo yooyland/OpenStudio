@@ -42,8 +42,12 @@ final class YooY_Image_Visual_QA {
 
         $final_l = mb_strtolower($final);
         $user_l = mb_strtolower($user);
+        // Ignore avoidance clauses when scanning for kitsch/indoor risk words.
+        $risk_scan = preg_replace('/\b(avoid|avoids|do not|don\'t|never|not)\b[^.]*\./iu', ' ', $final_l) ?? $final_l;
+        $risk_scan = preg_replace('/AVOID:[^.]*\./u', ' ', $risk_scan) ?? $risk_scan;
+        $risk_scan = preg_replace('/non-kitschy/u', ' ', $risk_scan) ?? $risk_scan;
 
-        if (preg_match('/bedroom|child observer|looking at a picture|벽화|mural|clip.?art|kitschy|toy-like/u', $final_l)
+        if (preg_match('/bedroom|child observer|looking at a picture|벽화|\bmural\b|clip.?art|\bkitschy\b|toy-like/u', $risk_scan)
             && preg_match('/고래|펭귄|whale|penguin|판타지|fantasy|하늘을/u', $user_l)) {
             $flags[] = 'concept_risk_indoor_or_kitsch';
             $notes[] = 'Final prompt may dilute adventure into indoor/kitsch framing.';
