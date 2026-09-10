@@ -2316,6 +2316,21 @@ body.yai-failure-open { overflow: hidden; }
   max-height: 280px;
   overflow: hidden;
 }
+button.yai-project-detail-cover {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: zoom-in;
+  display: block;
+  padding: 0;
+  width: 100%;
+  text-align: center;
+}
+button.yai-project-detail-cover:focus-visible {
+  outline: 2px solid rgba(220, 170, 45, 0.85);
+  outline-offset: 3px;
+}
 
 .yai-project-detail-cover img {
   display: block;
@@ -4019,6 +4034,20 @@ body:not(.yai-is-admin) .yoy-sys-widget { display: none !important; }
   margin-bottom: 8px;
   overflow: hidden;
 }
+button.yai-workspace-asset-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  cursor: zoom-in;
+  display: block;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+}
+button.yai-workspace-asset-thumb:focus-visible {
+  outline: 2px solid rgba(220, 170, 45, 0.85);
+  outline-offset: 2px;
+}
 .yai-workspace-asset-thumb--hq {
   min-height: 180px;
 }
@@ -4378,6 +4407,42 @@ body:not(.yai-is-admin) .yoy-sys-widget { display: none !important; }
   background: #0a0a0a;
   overflow: hidden;
 }
+button.yai-pub-card__thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  cursor: zoom-in;
+  display: block;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+}
+button.yai-pub-card__thumb:focus-visible {
+  outline: 2px solid rgba(220, 170, 45, 0.85);
+  outline-offset: 2px;
+}
+.yai-pub-detail__media {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #0a0a0a;
+  border: 0;
+  border-radius: 12px;
+  cursor: zoom-in;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+}
+.yai-pub-detail__media img {
+  display: block;
+  max-height: 48vh;
+  object-fit: contain;
+  width: 100%;
+}
+.yai-pub-detail__media:focus-visible {
+  outline: 2px solid rgba(220, 170, 45, 0.85);
+  outline-offset: 2px;
+}
 .yai-pub-card__thumb img {
   width: 100%;
   height: 100%;
@@ -4409,7 +4474,7 @@ body:not(.yai-is-admin) .yoy-sys-widget { display: none !important; }
 .yai-pub-detail-host {
   position: fixed;
   inset: 0;
-  z-index: 12000;
+  z-index: 1000015;
   display: flex;
   align-items: flex-end;
   justify-content: center;

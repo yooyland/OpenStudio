@@ -99,6 +99,9 @@
 .ygl-detail-head{padding:20px 20px 0}
 .ygl-drawer-preview{min-height:280px;max-height:56vh}
 .ygl-drawer-preview img,.ygl-drawer-preview video{max-height:52vh}
+.ygl-original-hit{appearance:none;-webkit-appearance:none;background:transparent;border:0;cursor:zoom-in;display:block;padding:0;margin:0;width:100%;text-align:center}
+.ygl-original-hit:focus-visible{outline:2px solid rgba(220,170,45,.85);outline-offset:4px}
+.ygl-original-hit img{pointer-events:none}
 .ygl-lineage{color:#c9a227;font-size:13px;margin:8px 0 0}
 .ygl-related{display:grid;gap:8px}
 .ygl-related-list{display:flex;flex-wrap:wrap;gap:8px}

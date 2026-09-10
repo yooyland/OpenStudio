@@ -241,6 +241,20 @@ final class YooY_AI_Studio {
             true
         );
 
+        wp_enqueue_style(
+            'yoy-original-image-viewer',
+            YOY_AI_STUDIO_URL . 'assets/css/original-image-viewer.css',
+            ['yoy-ai-studio'],
+            YOY_AI_STUDIO_VERSION
+        );
+        wp_enqueue_script(
+            'yoy-original-image-viewer',
+            YOY_AI_STUDIO_URL . 'assets/js/original-image-viewer.js',
+            ['yoy-gallery-image'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
         wp_enqueue_script(
             'yoy-gallery-api',
             YOY_AI_STUDIO_URL . 'assets/modules/gallery/gallery-api.js',
@@ -252,7 +266,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-gallery',
             YOY_AI_STUDIO_URL . 'assets/modules/gallery/gallery.js',
-            ['yoy-gallery-api', 'yoy-gallery-image'],
+            ['yoy-gallery-api', 'yoy-gallery-image', 'yoy-original-image-viewer'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -319,7 +333,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-home-onboarding', 'yoy-credits-ui', 'yoy-my-account', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
+            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-original-image-viewer', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-home-onboarding', 'yoy-credits-ui', 'yoy-my-account', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -376,7 +390,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-image-studio',
             YOY_AI_STUDIO_URL . 'assets/modules/image-studio/image-studio.js',
-            ['yoy-image-api', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-studio-handoff', 'yoy-studio-simple-mode'],
+            ['yoy-image-api', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-studio-handoff', 'yoy-studio-simple-mode', 'yoy-gallery-image', 'yoy-original-image-viewer'],
             YOY_AI_STUDIO_VERSION,
             true
         );

@@ -2477,6 +2477,7 @@
     }
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
+        resultToolbarBtn('view-original', '원본 보기') +
         resultToolbarBtn('reuse', '이어서 만들기') +
         resultToolbarBtn('premium-retry', '더 고급스럽게 다시 만들기') +
         resultToolbarBtn('variation', '다른 시안 만들기') +
@@ -2520,9 +2521,9 @@
 
     return '<section class="yis-result-board yis-result-board--stage" id="yis-result-board" aria-label="Result Board">' +
       '<div class="yis-result-board__stage">' +
-        '<div class="yis-result-board__canvas yis-result-board__canvas--' + ratioCls + '" data-ratio="' + esc(ratio) + '">' +
+        '<button type="button" class="yis-result-board__canvas yis-result-board__canvas--' + ratioCls + '" data-ratio="' + esc(ratio) + '" data-yis-action="view-original" aria-label="원본 보기">' +
           '<img class="yis-result-board__image" src="' + esc(img.url) + '" alt="' + esc(resultTitle(data)) + '">' +
-        '</div>' +
+        '</button>' +
       '</div>' +
       (images.length > 1 ? resultBoardThumbsHtml(images, idx) : '') +
       resultBoardMetaHtml(data, idx, images.length) +
@@ -2539,22 +2540,76 @@
     if (!data) return [];
     if (data.images && data.images.length) {
       return data.images.filter(function (img) {
-        return img && (img.url || img.image_url);
+        return img && (img.url || img.image_url || img.full_url);
       }).map(function (img) {
+        var full = img.full_url || img.original_url || img.url || img.image_url;
         return {
-          url: img.url || img.image_url,
+          url: img.url || img.image_url || full,
+          full_url: full,
           thumbnail: img.thumbnail || img.thumbnail_url || img.url || img.image_url
         };
       });
     }
-    var primary = data.image_url || (data.output && (data.output.primary || data.output.url));
+    var primary = data.full_url || data.image_url || (data.output && (data.output.primary || data.output.url || data.output.full_url));
     if (primary) {
       return [{
-        url: primary,
+        url: data.image_url || primary,
+        full_url: data.full_url || primary,
         thumbnail: data.thumbnail_url || (data.output && data.output.thumbnail) || primary
       }];
     }
     return [];
+  }
+
+  function openOriginalViewerFromResult() {
+    if (!global.YooYOriginalImageViewer) {
+      showStudioToast('원본 뷰어를 불러오지 못했습니다.', true);
+      return;
+    }
+    var images = resultImages(state.lastResult);
+    var idx = activeResultIndex();
+    var img = images[idx] || {};
+    var title = resultTitle(state.lastResult);
+    var galleryId = state.activeGalleryId || (state.lastResult && (state.lastResult.job_id + '_' + idx));
+
+    function openWithItem(item, urlFallback) {
+      global.YooYOriginalImageViewer.open({
+        item: item || {
+          id: galleryId,
+          title: title,
+          full_url: urlFallback || img.full_url || img.url,
+          url: img.url
+        },
+        url: urlFallback || null,
+        title: title,
+        items: images.length > 1 ? images.map(function (entry, i) {
+          return {
+            item: {
+              id: (state.lastResult && state.lastResult.job_id ? state.lastResult.job_id + '_' + i : galleryId),
+              title: title,
+              full_url: entry.full_url || entry.url,
+              url: entry.url
+            }
+          };
+        }) : null,
+        index: idx
+      });
+    }
+
+    if (galleryId && Core && Core.gallery && typeof Core.gallery.item === 'function') {
+      Core.gallery.item(galleryId).then(function (res) {
+        var item = (res.data && res.data.item) || null;
+        if (item) {
+          openWithItem(item);
+          return;
+        }
+        openWithItem(null, img.full_url || img.url);
+      }).catch(function () {
+        openWithItem(null, img.full_url || img.url);
+      });
+      return;
+    }
+    openWithItem(null, img.full_url || img.url);
   }
 
   function hasOutputAsset(data) {
@@ -2594,6 +2649,11 @@
   }
 
   function handleResultAction(action, root) {
+    if (action === 'view-original') {
+      openOriginalViewerFromResult();
+      return;
+    }
+
     var galleryId = state.activeGalleryId || (state.lastResult && (state.lastResult.job_id + '_0'));
     if (!galleryId) {
       if (action === 'publish') showStudioToast('작품 정보를 찾지 못했습니다.', true);
@@ -2878,6 +2938,9 @@
     var cls = resultBoardRatioClass(ratio);
     canvas.dataset.ratio = ratio;
     canvas.className = 'yis-result-board__canvas yis-result-board__canvas--' + cls;
+    if (canvas.getAttribute('data-yis-action') !== 'view-original' && canvas.tagName === 'BUTTON') {
+      canvas.setAttribute('data-yis-action', 'view-original');
+    }
   }
 
   function updatePreviewRatio(root) {

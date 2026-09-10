@@ -243,7 +243,9 @@
       return '<video src="' + esc(url) + '" controls autoplay></video>';
     }
     if (url && type === 'image') {
-      return galleryImg(item, { size: 'full', lazy: false, className: 'yai-gallery-img yai-gallery-img--preview' });
+      return '<button type="button" class="ygl-original-hit" data-ygl-action="view-original" aria-label="원본 보기">' +
+        galleryImg(item, { size: 'full', lazy: false, className: 'yai-gallery-img yai-gallery-img--preview' }) +
+        '</button>';
     }
     if (url && (type === 'music' || type === 'voice')) {
       return '<audio src="' + esc(url) + '" controls autoplay></audio>';
@@ -347,6 +349,7 @@
       '</div></div>' +
       publicationStateHtml(item) +
       '<div class="ygl-action-group"><div class="ygl-actions">' +
+        (item.type === 'image' ? actionBtn('원본 보기', 'view-original', 'ygl-btn-primary') : '') +
         actionBtn('프로젝트에 추가', 'project') +
         actionBtn('다운로드', 'download') +
         actionBtn('복제', 'duplicate') +
@@ -747,6 +750,23 @@
 
   function handleAction(action, item, overlay) {
     switch (action) {
+      case 'view-original':
+        if (item && item.type === 'image' && global.YooYOriginalImageViewer) {
+          var list = (state.items || []).filter(function (x) { return x && x.type === 'image'; });
+          var idx = 0;
+          for (var i = 0; i < list.length; i++) {
+            if (String(list[i].id) === String(item.id)) { idx = i; break; }
+          }
+          global.YooYOriginalImageViewer.open({
+            item: item,
+            items: list.map(function (x) { return { item: x }; }),
+            index: idx,
+            title: item.title || item.display_title || ''
+          });
+        } else {
+          toast('원본 이미지를 열 수 없습니다.');
+        }
+        break;
       case 'download':
         Core.gallery.download(item.id).then(function (res) {
           var info = res.data || {};

@@ -1742,9 +1742,10 @@
     if (srcset) {
       attrs += ' srcset="' + esc(srcset) + '" sizes="' + esc(sizes) + '"';
     }
-    return '<div class="yai-workspace-asset-thumb yai-workspace-asset-thumb--hq">' +
+    var workId = w.id || w.gallery_id || '';
+    return '<button type="button" class="yai-workspace-asset-thumb yai-workspace-asset-thumb--hq" data-ws-original-view="' + esc(workId) + '" aria-label="원본 보기">' +
       '<img ' + attrs + '>' +
-    '</div>';
+    '</button>';
   }
 
   function projectTypeSummary(p) {
@@ -2280,8 +2281,41 @@
     }
   }
 
+  function openOriginalImageViewer(work, listOpt) {
+    if (!work || !window.YooYOriginalImageViewer) return false;
+    var type = String(work.type || 'image').toLowerCase();
+    if (type && type !== 'image') return false;
+    var list = listOpt;
+    if (!list) {
+      var works = (workspaceCache && workspaceCache.works) || [];
+      list = works.filter(function (w) {
+        if (!w || w.asset_missing) return false;
+        var t = String(w.type || 'image').toLowerCase();
+        return !t || t === 'image';
+      });
+    }
+    var idx = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].id || list[i].gallery_id) === String(work.id || work.gallery_id)) {
+        idx = i;
+        break;
+      }
+    }
+    window.YooYOriginalImageViewer.open({
+      item: work,
+      items: list.length > 1 ? list.map(function (x) { return { item: x }; }) : null,
+      index: idx,
+      title: work.title || work.display_title || ''
+    });
+    return true;
+  }
+
   function openWorkPreview(work) {
     if (!work) return;
+    var type = String(work.type || 'image').toLowerCase();
+    if ((type === 'image' || type === '') && window.YooYOriginalImageViewer) {
+      if (openOriginalImageViewer(work)) return;
+    }
     var mediaUrl = window.YooYGalleryImage
       ? window.YooYGalleryImage.pickUrl(work, 'full')
       : (work.full_url || work.original_url || work.url || work.asset_url || work.image_url || work.output_url || '');
@@ -2708,12 +2742,13 @@
         '<button type="button" class="yai-btn yai-btn--outline" id="yai-project-add-works">Gallery에서 추가</button>' +
         (mainId && !main.asset_missing
           ? '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ws-asset-action="publish" data-work-id="' + esc(mainId) + '" data-gallery-id="' + esc(mainId) + '">공개하기</button>' +
-            '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ws-asset-action="open" data-work-id="' + esc(mainId) + '">Gallery에서 보기</button>'
+            '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ws-asset-action="open" data-work-id="' + esc(mainId) + '">Gallery에서 보기</button>' +
+            '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ws-original-view="' + esc(mainId) + '">원본 보기</button>'
           : '') +
       '</div>' +
       '<section class="yai-workspace-section"><h3>Main Work</h3>' +
         (coverHtml
-          ? '<div class="yai-project-detail-cover yai-project-detail-cover--large yai-project-detail-cover--hq">' + coverHtml + '</div>'
+          ? '<button type="button" class="yai-project-detail-cover yai-project-detail-cover--large yai-project-detail-cover--hq" data-ws-original-view="' + esc(mainId) + '" aria-label="원본 보기">' + coverHtml + '</button>'
           : '<p class="yai-muted">이 프로젝트에는 아직 작품이 없습니다.</p>') +
       '</section>' +
       '<section class="yai-workspace-section"><h3>Project Assets</h3>' +
@@ -3365,6 +3400,40 @@
     });
   }
 
+  function publicSafeFullUrl(item) {
+    if (!item) return '';
+    if (window.YooYGalleryImage && typeof window.YooYGalleryImage.pickUrl === 'function') {
+      return window.YooYGalleryImage.pickUrl(item, 'full')
+        || window.YooYGalleryImage.pickUrl(item, 'large')
+        || '';
+    }
+    return item.full_url || item.large_url || item.display_url || item.image_url || item.output_url || '';
+  }
+
+  function openPublicOriginalViewer(item) {
+    if (!item || !window.YooYOriginalImageViewer) return false;
+    var type = String(item.type || 'image').toLowerCase();
+    if (type && type !== 'image') return false;
+    var url = publicSafeFullUrl(item);
+    if (!url) return false;
+    // Public-safe payload only — no private prompt/project/provider metadata.
+    var safeItem = {
+      id: item.gallery_id || item.id || '',
+      gallery_id: item.gallery_id || item.id || '',
+      type: 'image',
+      title: item.title || item.caption || '',
+      full_url: url,
+      large_url: item.large_url || '',
+      mime: item.mime || item.format || ''
+    };
+    window.YooYOriginalImageViewer.open({
+      item: safeItem,
+      url: url,
+      title: safeItem.title
+    });
+    return true;
+  }
+
   function publicDiscoverThumb(item) {
     var url = (window.YooYGalleryImage && typeof window.YooYGalleryImage.pickUrl === 'function')
       ? (window.YooYGalleryImage.pickUrl(item, 'card') || window.YooYGalleryImage.pickUrl(item, 'large') || '')
@@ -3372,16 +3441,15 @@
     if (!url) {
       return '<div class="yai-pub-card__thumb yai-pub-card__thumb--empty" aria-hidden="true"></div>';
     }
-    if (window.YooYGalleryImage && typeof window.YooYGalleryImage.imgTag === 'function') {
-      return '<div class="yai-pub-card__thumb">' +
-        window.YooYGalleryImage.imgTag(item, {
+    var thumbInner = (window.YooYGalleryImage && typeof window.YooYGalleryImage.imgTag === 'function')
+      ? window.YooYGalleryImage.imgTag(item, {
           size: 'card',
           className: 'yai-pub-card__img',
           sizes: '(max-width: 700px) 100vw, 50vw'
-        }) +
-        '</div>';
-    }
-    return '<div class="yai-pub-card__thumb"><img src="' + esc(url) + '" alt="" loading="lazy" decoding="async"></div>';
+        })
+      : ('<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async">');
+    return '<button type="button" class="yai-pub-card__thumb" data-pub-action="original" data-gallery-id="' +
+      esc(item.gallery_id || item.id || '') + '" aria-label="원본 보기">' + thumbInner + '</button>';
   }
 
   function storePublicRemixShell(item) {
@@ -3493,8 +3561,15 @@
           return String(x.gallery_id || x.id || '') === String(gid);
         });
         if (!item) return;
-        if (btn.getAttribute('data-pub-action') === 'remix') {
+        var act = btn.getAttribute('data-pub-action');
+        if (act === 'remix') {
           remixPublicWork(item);
+          return;
+        }
+        if (act === 'original') {
+          if (!openPublicOriginalViewer(item)) {
+            openPublicDetail(item, kind);
+          }
           return;
         }
         openPublicDetail(item, kind);
@@ -3518,7 +3593,11 @@
     host.innerHTML =
       '<div class="yai-pub-detail" tabindex="-1">' +
         '<button type="button" class="yai-icon-btn" data-pub-close aria-label="닫기">×</button>' +
-        publicDiscoverThumb(item) +
+        '<button type="button" class="yai-pub-detail__media" data-pub-original aria-label="원본 보기">' +
+          (window.YooYGalleryImage && typeof window.YooYGalleryImage.imgTag === 'function'
+            ? window.YooYGalleryImage.imgTag(item, { size: 'large', className: 'yai-pub-card__img', lazy: false })
+            : ('<img src="' + esc(publicSafeFullUrl(item) || '') + '" alt="">')) +
+        '</button>' +
         '<h3>' + esc(item.title || item.caption || '작품') + '</h3>' +
         '<p class="yai-muted">' + esc(metaBits.join(' · ')) + '</p>' +
         (desc ? '<p>' + esc(desc) + '</p>' : '') +
@@ -3527,6 +3606,7 @@
           : '') +
         '<div class="yai-pub-card__actions">' +
           '<button type="button" class="yai-btn yai-btn--gold" data-pub-remix>따라 만들기</button>' +
+          '<button type="button" class="yai-btn yai-btn--outline" data-pub-original>원본 보기</button>' +
           '<button type="button" class="yai-btn yai-btn--outline" data-pub-close>닫기</button>' +
         '</div></div>';
     document.body.appendChild(host);
@@ -3535,6 +3615,9 @@
     document.addEventListener('keydown', onKey);
     host.addEventListener('click', function (e) {
       if (e.target === host || e.target.closest('[data-pub-close]')) close();
+      if (e.target.closest('[data-pub-original]')) {
+        openPublicOriginalViewer(item);
+      }
     });
     var remixBtn = host.querySelector('[data-pub-remix]');
     if (remixBtn) {
@@ -4283,6 +4366,22 @@
       }
       route(studioRoute, { source_context: 'project-workspace' });
       return;
+    }
+
+    var wsOriginal = e.target.closest('[data-ws-original-view]');
+    if (wsOriginal) {
+      e.preventDefault();
+      e.stopPropagation();
+      var ovid = wsOriginal.getAttribute('data-ws-original-view') || '';
+      var worksList = (workspaceCache && workspaceCache.works) || [];
+      var ovItem = worksList.find(function (w) {
+        return w && (String(w.id) === String(ovid) || String(w.gallery_id || '') === String(ovid));
+      });
+      if (ovItem && openOriginalImageViewer(ovItem)) return;
+      if (ovid) {
+        openWorkDetail(ovid);
+        return;
+      }
     }
 
     var wsAsset = e.target.closest('[data-ws-asset-action]');
