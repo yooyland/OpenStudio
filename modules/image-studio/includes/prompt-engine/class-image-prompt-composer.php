@@ -99,9 +99,10 @@ final class YooY_Image_Prompt_Composer {
                 'preset'         => $intel['preset'] ?? ($intel['art_direction'] ?? ''),
                 'art_direction'  => $intel['art_direction'] ?? ($intel['preset'] ?? ''),
                 'quality_score'  => $intel['quality']['score'] ?? null,
+                'visual_qa'      => is_array($intel['visual_qa'] ?? null) ? $intel['visual_qa'] : [],
                 'rewrite_count'  => $intel['rewrite_count'] ?? 0,
                 'validation'     => $intel['validation'] ?? null,
-                'prompt_version' => $intel['prompt_version'] ?? 'spi-image-2',
+                'prompt_version' => $intel['prompt_version'] ?? 'spi-image-3',
                 'blocked'        => !empty($intel['blocked']),
             ],
         ];

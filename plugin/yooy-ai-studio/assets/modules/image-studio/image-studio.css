@@ -159,10 +159,15 @@
 .yis-output-size{font-weight:600;letter-spacing:.2px}
 .yis-dev-info summary{cursor:pointer;color:#d8a63a;font-size:12px;font-weight:700;list-style:none}
 .yis-dev-info summary::-webkit-details-marker{display:none}
-.yis-dev-info-grid{display:grid;gap:8px;margin-top:10px}
+.yis-dev-info-grid{display:grid;gap:8px;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px}
 .yis-dev-info-grid div{display:flex;flex-direction:column;gap:2px;font-size:11px}
 .yis-dev-info-grid b{color:#888;font-weight:600;letter-spacing:.4px;text-transform:uppercase}
 .yis-dev-info-grid span{color:#e8e8e8;font-family:Consolas,monospace;font-size:12px}
+.yis-dev-info-span{grid-column:1/-1}
+.yis-dev-prompt{margin-top:12px}
+.yis-dev-prompt b{color:#888;display:block;font-size:10px;letter-spacing:.4px;margin-bottom:4px;text-transform:uppercase}
+.yis-dev-prompt pre{background:#0a0a0a;border:1px solid rgba(220,170,45,.18);border-radius:10px;color:#d8d8d8;font-family:Consolas,monospace;font-size:11px;line-height:1.45;margin:0;max-height:220px;overflow:auto;padding:10px 12px;white-space:pre-wrap;word-break:break-word}
+.yis-result-board__quality-hint{color:#a89860;font-size:12px;line-height:1.45;margin:0}
 @media(max-width:1100px){.yis-studio{grid-template-columns:1fr}.yis-tabs,.yis-controls{display:none}}
 .yis-badge--smart{background:linear-gradient(135deg,#1a1508,#2a2010);color:#ffd76a}
 .yis-prompt-label{color:#888;font-size:11px;letter-spacing:.5px;text-transform:uppercase}

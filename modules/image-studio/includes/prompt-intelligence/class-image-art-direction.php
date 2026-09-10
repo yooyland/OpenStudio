@@ -3,7 +3,7 @@ if (!defined('ABSPATH')) exit;
 
 /**
  * Internal image art-direction presets — not a new provider.
- * Maps visual intent → preset id + prompt guidance fragments.
+ * Maps visual intent → preset id + premium visual bias fragments.
  */
 final class YooY_Image_Art_Direction {
 
@@ -16,6 +16,7 @@ final class YooY_Image_Art_Direction {
     public const CINEMATIC_LIFESTYLE = 'CINEMATIC_LIFESTYLE';
     public const CLEAN_EDITORIAL = 'CLEAN_EDITORIAL';
     public const FANTASY_ILLUSTRATION = 'FANTASY_ILLUSTRATION';
+    public const PREMIUM_FANTASY_ILLUSTRATION = 'PREMIUM_FANTASY_ILLUSTRATION';
     public const FOOD_EDITORIAL = 'FOOD_EDITORIAL';
     public const GENERAL_PHOTOREAL = 'GENERAL_PHOTOREAL';
 
@@ -25,15 +26,21 @@ final class YooY_Image_Art_Direction {
     public static function resolve_preset(array $brief): string {
         $domain = sanitize_key((string) ($brief['content_domain'] ?? 'general'));
         $raw = mb_strtolower((string) ($brief['raw_user_request'] ?? $brief['primary_subject'] ?? ''));
+        $wants_premium = self::looks_premium_visual($raw);
 
         if ($domain === 'politics') {
             return self::CLEAN_EDITORIAL;
         }
+
+        // Premium storybook / fantasy before weaker defaults.
         if ($domain === 'storybook' || self::looks_storybook($raw)) {
+            if ($wants_premium || self::looks_fantasy($raw)) {
+                return self::MODERN_STORYBOOK;
+            }
             return self::MODERN_STORYBOOK;
         }
         if ($domain === 'fantasy' || self::looks_fantasy($raw)) {
-            return self::FANTASY_ILLUSTRATION;
+            return $wants_premium ? self::PREMIUM_FANTASY_ILLUSTRATION : self::PREMIUM_FANTASY_ILLUSTRATION;
         }
         if ($domain === 'architecture') {
             return self::ARCHITECTURAL_VISUALIZATION;
@@ -69,11 +76,31 @@ final class YooY_Image_Art_Direction {
     }
 
     public static function looks_storybook(string $raw): bool {
-        return (bool) preg_match('/어린이|동화|그림책|꿈|상상|storybook|fairy|아동|키즈|kids/u', $raw);
+        if (preg_match('/그림책|동화|picture.?book|storybook/u', $raw)) {
+            return true;
+        }
+        if (preg_match('/어린이|아동|키즈|kids|for\s*children/u', $raw)) {
+            return true;
+        }
+        // Dream + imaginative adventure animals (literal scene, not "child imagining").
+        if (preg_match('/꿈|상상/u', $raw) && preg_match('/펭귄|고래|용|요정|마법|날아|하늘을|세계\s*여행|판타지/u', $raw)) {
+            return true;
+        }
+        if (preg_match('/펭귄/u', $raw) && preg_match('/고래|하늘|날/u', $raw)) {
+            return true;
+        }
+        return false;
     }
 
     public static function looks_fantasy(string $raw): bool {
-        return (bool) preg_match('/판타지|마법|드래곤|요정|fantasy|magic|unicorn|요괴/u', $raw);
+        return (bool) preg_match('/판타지|드래곤|유니콘|마법|요정|fantasy|dragon|unicorn|wizard|aurora|오로라/u', $raw);
+    }
+
+    public static function looks_premium_visual(string $raw): bool {
+        return (bool) preg_match(
+            '/현대적|세련|고급|프리미엄|우아|정교|그림책\s*표지|촌스럽지|디즈니풍\s*아니라|editorial|premium|sophisticated|refined|elegant|polished|cinematic|high.?end|tasteful|non.?kitschy|not\s*kitschy/u',
+            $raw
+        );
     }
 
     public static function looks_beauty(string $raw): bool {
@@ -85,7 +112,46 @@ final class YooY_Image_Art_Direction {
     }
 
     /**
-     * Shared quality constraints appended once (not keyword soup).
+     * Shared premium visual bias — applied once, not keyword soup spam.
+     *
+     * @return string[]
+     */
+    public static function premium_visual_bias(string $preset): array {
+        $common = [
+            'sophisticated refined premium editorial-quality finish',
+            'elegant polished composition with rich depth and tasteful color harmony',
+            'cinematic lighting, beautifully composed, high-detail, non-kitschy',
+        ];
+        switch ($preset) {
+            case self::MODERN_STORYBOOK:
+            case self::PREMIUM_FANTASY_ILLUSTRATION:
+            case self::FANTASY_ILLUSTRATION:
+                return array_merge($common, [
+                    'modern premium picture-book cover illustration aesthetic',
+                    'grand outdoor adventure scale — not an indoor mural or flat wall decoration',
+                    'Disney-theme-park kitsch avoided; prefer refined European/Japanese premium picture-book cover mood',
+                ]);
+            case self::EDITORIAL_PORTRAIT:
+            case self::CINEMATIC_LIFESTYLE:
+                return array_merge($common, [
+                    'contemporary editorial portrait / lifestyle photography',
+                ]);
+            case self::BEAUTY_CAMPAIGN:
+            case self::LUXURY_PRODUCT:
+                return array_merge($common, [
+                    'quiet luxury product still, magazine double-page quality',
+                ]);
+            case self::ARCHITECTURAL_VISUALIZATION:
+                return array_merge($common, [
+                    'premium real-estate campaign architectural visualization',
+                ]);
+            default:
+                return $common;
+        }
+    }
+
+    /**
+     * Shared quality constraints appended once.
      *
      * @return string[]
      */
@@ -101,13 +167,14 @@ final class YooY_Image_Art_Direction {
                     'no plastic skin, no mannequin faces, no awkward proportions',
                 ];
             case self::MODERN_STORYBOOK:
+            case self::PREMIUM_FANTASY_ILLUSTRATION:
             case self::FANTASY_ILLUSTRATION:
                 return [
                     'modern premium picture-book / editorial illustration',
-                    'cinematic storytelling composition with atmospheric depth',
-                    'sophisticated child-friendly palette, polished lighting',
+                    'cinematic storytelling composition with atmospheric depth and layered parallax',
+                    'sophisticated child-friendly palette — warm and emotional but never childish clipart',
                     'depict the requested adventure as the main scene — do not invent an unrelated child observer unless asked',
-                    'avoid dated clip-art or flat mural aesthetics',
+                    'avoid dated clip-art, flat mural, toy-like oversaturation, cheap poster look',
                 ];
             case self::BEAUTY_CAMPAIGN:
             case self::LUXURY_PRODUCT:
@@ -137,5 +204,26 @@ final class YooY_Image_Art_Direction {
                     'avoid generic AI-stock look',
                 ];
         }
+    }
+
+    /**
+     * Common negative guidance for all image domains.
+     *
+     * @return string[]
+     */
+    public static function common_negatives(): array {
+        return [
+            'childish clipart',
+            'kitschy',
+            'cheap poster look',
+            'flat mural look',
+            'awkward anatomy',
+            'plasticky skin',
+            'generic stock composition',
+            'overly saturated toy-like colors',
+            'random text overlays',
+            'low detail mush',
+            'dated cheap storybook look',
+        ];
     }
 }

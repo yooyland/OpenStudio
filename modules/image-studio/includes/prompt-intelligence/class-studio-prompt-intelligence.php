@@ -6,6 +6,7 @@ require_once __DIR__ . '/class-studio-creative-brief-builder.php';
 require_once __DIR__ . '/class-image-art-direction.php';
 require_once __DIR__ . '/class-image-domain-prompt-composer.php';
 require_once __DIR__ . '/class-studio-prompt-validator.php';
+require_once __DIR__ . '/class-image-visual-qa.php';
 
 /**
  * Studio Prompt Intelligence orchestrator (Image-first, reusable).
@@ -71,6 +72,16 @@ final class YooY_Studio_Prompt_Intelligence {
 
         $quality = $this->validator->score($brief, $composed['prompt'], $validation);
 
+        $visual_qa = YooY_Image_Visual_QA::assess([
+            'user_prompt'             => $raw_user_request,
+            'raw_user_request'        => $raw_user_request,
+            'final_prompt'            => $composed['prompt'],
+            'intent_domain'           => $composed['domain'],
+            'art_direction'           => $composed['art_direction'] ?? ($composed['preset'] ?? ''),
+            'preset'                  => $composed['preset'] ?? '',
+            'composer_quality_score'  => (int) ($quality['score'] ?? 0),
+        ]);
+
         if (defined('YOOY_DEBUG') && YOOY_DEBUG && class_exists('YooY_System_Log')) {
             YooY_System_Log::write('info', 'prompt_intelligence', [
                 'raw_user_request' => mb_substr($raw_user_request, 0, 200),
@@ -93,8 +104,9 @@ final class YooY_Studio_Prompt_Intelligence {
             'art_direction'    => $composed['art_direction'] ?? ($composed['preset'] ?? ''),
             'validation'       => $validation,
             'quality'          => $quality,
+            'visual_qa'        => $visual_qa,
             'rewrite_count'    => $rewrite_count,
-            'prompt_version'   => 'spi-image-2',
+            'prompt_version'   => 'spi-image-3',
             'blocked'          => empty($validation['ok']) || (($quality['score'] ?? 0) < 60),
         ];
     }

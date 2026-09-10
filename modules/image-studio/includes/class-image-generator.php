@@ -153,7 +153,55 @@ final class YooY_Image_Generator {
         $perf['total_generation_ms'] = (int) round((microtime(true) - $started_at) * 1000);
         $meta = is_array($entry['meta'] ?? null) ? $entry['meta'] : [];
         $meta['generation_perf'] = $perf;
+
+        $pi = is_array($payload['composer_meta']['prompt_intelligence'] ?? null)
+            ? $payload['composer_meta']['prompt_intelligence']
+            : [];
+        $visual_qa = is_array($pi['visual_qa'] ?? null) ? $pi['visual_qa'] : [];
+        if (!$visual_qa) {
+            $qa_file = dirname(__FILE__) . '/prompt-intelligence/class-image-visual-qa.php';
+            if (!class_exists('YooY_Image_Visual_QA') && file_exists($qa_file)) {
+                require_once $qa_file;
+            }
+            if (class_exists('YooY_Image_Visual_QA')) {
+                $visual_qa = YooY_Image_Visual_QA::assess([
+                    'user_prompt'            => (string) ($entry['user_prompt'] ?? $payload['user_prompt'] ?? ''),
+                    'final_prompt'           => (string) ($payload['prompt'] ?? $entry['prompt'] ?? ''),
+                    'intent_domain'          => (string) ($entry['intent_domain'] ?? $pi['intent_domain'] ?? ''),
+                    'art_direction'          => (string) ($pi['art_direction'] ?? $pi['preset'] ?? ''),
+                    'composer_quality_score' => (int) ($pi['quality_score'] ?? 0),
+                ]);
+            }
+        }
+        $meta['visual_qa'] = $visual_qa;
+
+        $size_val = (string) ($result['size'] ?? $payload['size'] ?? $payload['resolution'] ?? '');
+        $trace = [
+            'user_prompt'          => (string) ($entry['user_prompt'] ?? $payload['user_prompt'] ?? ''),
+            'final_prompt'         => (string) ($payload['prompt'] ?? $entry['prompt'] ?? ''),
+            'optimized_prompt'     => (string) ($payload['optimized_prompt'] ?? ''),
+            'negative_prompt'      => (string) ($payload['negative_prompt'] ?? $entry['negative_prompt'] ?? ''),
+            'provider'             => (string) ($entry['provider_used'] ?? $entry['provider'] ?? $result['provider'] ?? ''),
+            'model'                => (string) ($entry['model'] ?? $result['model'] ?? ''),
+            'quality'              => (string) ($entry['quality'] ?? $payload['quality'] ?? ''),
+            'size'                 => $size_val,
+            'generation_mode'      => (string) ($payload['generation_mode'] ?? 'premium'),
+            'art_direction_preset' => (string) ($pi['art_direction'] ?? $pi['preset'] ?? ''),
+            'intent_domain'        => (string) ($entry['intent_domain'] ?? $pi['intent_domain'] ?? ''),
+            'references'           => $payload['reference_assets'] ?? [],
+            'reference_url'        => (string) ($payload['reference_url'] ?? ''),
+            'visual_qa'            => $visual_qa,
+            'prompt_version'       => (string) ($entry['prompt_version'] ?? $pi['prompt_version'] ?? ''),
+            'user_equals_final'    => mb_strtolower(trim((string) ($entry['user_prompt'] ?? '')))
+                === mb_strtolower(trim((string) ($payload['prompt'] ?? ''))),
+        ];
+        $meta['generation_trace'] = $trace;
         $entry['meta'] = $meta;
+        $entry['generation_trace'] = $trace;
+        $entry['visual_qa'] = $visual_qa;
+        $entry['quality'] = $trace['quality'];
+        $entry['size'] = $size_val !== '' ? $size_val : ($entry['size'] ?? '');
+        $entry['generation_mode'] = $trace['generation_mode'];
         $entry = $this->history->add($user_id, $entry);
 
         $this->record_provider_stats($entry, true, $fallback_applied, (int) ($perf['api_request_ms'] ?? 0));

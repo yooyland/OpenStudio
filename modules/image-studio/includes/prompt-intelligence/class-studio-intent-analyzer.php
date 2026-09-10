@@ -82,6 +82,13 @@ final class YooY_Studio_Intent_Analyzer {
         }
 
         // Storybook / fantasy adventure before lifestyle "가족" or travel "여행".
+        // Premium cues + fantasy → fantasy domain; children/dream adventure → storybook.
+        if ($this->looks_like_fantasy($lower) && (
+            preg_match('/세련|고급|현대|프리미엄|일러스트|그림책\s*표지|premium|refined|sophisticated/u', $lower)
+            || !$this->looks_like_storybook($lower)
+        )) {
+            return 'fantasy';
+        }
         if ($this->looks_like_storybook($lower)) {
             return 'storybook';
         }
@@ -142,10 +149,12 @@ final class YooY_Studio_Intent_Analyzer {
     }
 
     private function looks_like_storybook(string $lower): bool {
+        if (class_exists('YooY_Image_Art_Direction')) {
+            return YooY_Image_Art_Direction::looks_storybook($lower);
+        }
         if (preg_match('/어린이|동화|그림책|아동|키즈|storybook|fairy.?tale|picture.?book/u', $lower)) {
             return true;
         }
-        // Dream + imaginative adventure animals (literal scene, not "child imagining").
         if (preg_match('/꿈|상상/u', $lower) && preg_match('/펭귄|고래|용|요정|마법|날아|하늘을|세계\s*여행/u', $lower)) {
             return true;
         }
@@ -156,7 +165,10 @@ final class YooY_Studio_Intent_Analyzer {
     }
 
     private function looks_like_fantasy(string $lower): bool {
-        return (bool) preg_match('/판타지|드래곤|유니콘|마법사|fantasy|dragon|unicorn|wizard/u', $lower);
+        if (class_exists('YooY_Image_Art_Direction')) {
+            return YooY_Image_Art_Direction::looks_fantasy($lower);
+        }
+        return (bool) preg_match('/판타지|드래곤|유니콘|마법사|fantasy|dragon|unicorn|wizard|오로라|aurora/u', $lower);
     }
 
     private function classify_ad_subtype(string $domain, string $lower): string {

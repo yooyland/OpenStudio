@@ -23,9 +23,19 @@ final class YooY_Image_Domain_Prompt_Composer {
             return $this->finalize($this->compose_politics($brief, $settings), $preset);
         }
         // Storybook / fantasy before lifestyle "가족" so adventure scenes stay literal.
-        if ($domain === 'storybook' || $domain === 'fantasy'
+        if ($domain === 'fantasy'
+            || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_fantasy($raw)
+                && (YooY_Image_Art_Direction::looks_premium_visual($raw) || YooY_Image_Art_Direction::looks_storybook($raw)))) {
+            // Premium fantasy illustration when explicitly fantasy + polish cues.
+            if ($preset !== YooY_Image_Art_Direction::MODERN_STORYBOOK) {
+                $preset = YooY_Image_Art_Direction::PREMIUM_FANTASY_ILLUSTRATION;
+            }
+            return $this->finalize($this->compose_storybook($brief, $settings, $preset), $preset);
+        }
+        if ($domain === 'storybook'
             || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_storybook($raw))) {
-            return $this->finalize($this->compose_storybook($brief, $settings), $preset);
+            $preset = YooY_Image_Art_Direction::MODERN_STORYBOOK;
+            return $this->finalize($this->compose_storybook($brief, $settings, $preset), $preset);
         }
         // People + apartment → lifestyle campaign (not empty architecture plate)
         if ($domain === 'lifestyle' || $domain === 'cinematic' || $this->looks_lifestyle($raw)) {
@@ -59,12 +69,16 @@ final class YooY_Image_Domain_Prompt_Composer {
     private function finalize(array $composed, string $art_preset): array {
         $composed['art_direction'] = $art_preset;
         if (class_exists('YooY_Image_Art_Direction')) {
+            $bias = YooY_Image_Art_Direction::premium_visual_bias($art_preset);
             $extra = YooY_Image_Art_Direction::quality_constraints($art_preset);
-            if ($extra) {
+            $bits = array_merge($bias, $extra);
+            if ($bits) {
                 $composed['prompt'] = rtrim((string) $composed['prompt'], '. ')
-                    . '. Quality: ' . implode('; ', $extra);
+                    . '. PREMIUM BIAS: ' . implode('; ', $bits);
             }
-            // Prefer art-direction preset id for meta (domain preset remains for compatibility).
+            $neg = (string) ($composed['negative_prompt'] ?? '');
+            $common = implode(', ', YooY_Image_Art_Direction::common_negatives());
+            $composed['negative_prompt'] = $neg !== '' ? ($neg . ', ' . $common) : $common;
             $composed['preset'] = $art_preset;
         }
         return $composed;
@@ -170,37 +184,63 @@ final class YooY_Image_Domain_Prompt_Composer {
     }
 
     /**
-     * Modern storybook / fantasy — literal adventure scene, not "child imagining".
+     * Modern storybook / premium fantasy — literal adventure, never flat kids mural.
      *
      * @param array<string, mixed> $brief
      * @param array<string, mixed> $settings
      * @return array{prompt:string,negative_prompt:string,domain:string,preset:string}
      */
-    private function compose_storybook(array $brief, array $settings): array {
+    private function compose_storybook(array $brief, array $settings, string $forced_preset = ''): array {
         $subject = (string) ($brief['primary_subject'] ?? 'imaginative adventure scene');
         $raw = (string) ($brief['raw_user_request'] ?? $subject);
+        $raw_l = mb_strtolower($raw);
+        $is_fantasy = ($forced_preset === 'PREMIUM_FANTASY_ILLUSTRATION')
+            || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_fantasy($raw_l));
+        $wants_premium = class_exists('YooY_Image_Art_Direction')
+            ? YooY_Image_Art_Direction::looks_premium_visual($raw_l)
+            : (bool) preg_match('/세련|고급|현대|premium|refined/u', $raw_l);
+
+        $purpose = $is_fantasy
+            ? 'premium fantasy editorial illustration — refined picture-book cover energy, not toddler clipart'
+            : 'modern premium picture-book cover illustration for children\'s imagination — sophisticated, not babyish';
 
         $parts = [
-            'CORE SCENE: Depict exactly this adventure as the main visual — ' . $subject,
-            'PURPOSE: modern premium picture-book / editorial illustration for children\'s imagination',
-            'VISUAL DIRECTION: contemporary cinematic storybook, polished editorial illustration, sophisticated but child-friendly',
-            'COMPOSITION: cinematic storytelling frame with imaginative scale, layered atmospheric depth, clear narrative focal point',
-            'LIGHTING: magical but believable atmospheric light — moonlight, star glow, soft volumetric haze where appropriate',
-            'STYLING & MATERIALS: expressive character design with coherent anatomy for the requested creatures; rich environmental detail',
-            'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette'] ?: 'sophisticated luminous night / dream palette without neon overload')),
-            'QUALITY CONSTRAINTS: emotional visual narrative; respect literal subjects, actions, and relationships from the user request',
-            'AVOID: dated cheap storybook look; clip-art; flat mural decoration; inserting an unrelated child observer in a bedroom unless the user asked for that framing',
-            'IMPORTANT: do not rewrite the concept into a child looking at a picture — show the requested scene itself',
+            'CORE SCENE: Depict exactly this outdoor adventure as the main visual — ' . $subject,
+            'PURPOSE: ' . $purpose,
+            'VISUAL DIRECTION: contemporary cinematic ' . ($is_fantasy ? 'fantasy' : 'storybook')
+                . ' illustration; sophisticated, refined, elegant, polished, editorial-quality; non-kitschy',
+            'COMPOSITION: grand widescreen storytelling frame with imaginative scale, layered atmospheric depth, clear narrative hero, beautiful depth of field',
+            'LIGHTING: cinematic magical light — soft moonlight, star glitter, optional aurora glow, volumetric haze; rich but tasteful',
+            'STYLING & MATERIALS: expressive character design with coherent anatomy for the requested creatures; rich environmental detail; high-detail surfaces',
+            'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette']
+                ?: 'warm emotional luminous night palette with tasteful color harmony — never neon toy oversaturation')),
+            'QUALITY CONSTRAINTS: emotional visual narrative; respect literal subjects, actions, landmarks, and relationships from the user request',
+            'AVOID: childish clipart; kitschy Disney-park look; cheap poster; flat mural; indoor bedroom framing; inserting an unrelated child observer unless asked',
+            'IMPORTANT: do not rewrite into a child looking at a picture or a wall mural — show the sky adventure itself, majestic and beautifully composed',
         ];
-        if (preg_match('/밤|별|night|star/u', mb_strtolower($raw))) {
-            $parts[] = 'SETTING DETAIL: night sky with stars as the primary backdrop';
+        if (preg_match('/밤|별|night|star/u', $raw_l)) {
+            $parts[] = 'SETTING DETAIL: star-filled night sky as the primary backdrop';
         }
+        if (preg_match('/오로라|aurora/u', $raw_l)) {
+            $parts[] = 'ATMOSPHERE DETAIL: soft aurora-like dream light across the sky';
+        }
+        if (preg_match('/에펠|피라미드|빅벤|자유의\s*여신|eiffel|pyramid|big\s*ben|liberty/u', $raw_l)) {
+            $parts[] = 'LANDMARKS: distant fantastical silhouettes of world landmarks matching the request, ethereal and secondary to the flying adventure';
+        }
+        if ($wants_premium) {
+            $parts[] = 'TONE CUE: modern, sophisticated, premium picture-book cover — warm and moving but never rustic or childish';
+        }
+
+        $domain = $is_fantasy ? 'fantasy' : 'storybook';
+        $preset = $forced_preset !== ''
+            ? $forced_preset
+            : ($is_fantasy ? 'PREMIUM_FANTASY_ILLUSTRATION' : 'MODERN_STORYBOOK');
 
         return [
             'prompt'          => implode('. ', $parts),
-            'negative_prompt' => 'dated storybook cliché, clip-art, flat mural, unrelated bedroom child observer, generic stock photo, low detail mush, plastic CGI toys',
-            'domain'          => 'storybook',
-            'preset'          => 'storybook',
+            'negative_prompt' => 'childish clipart, kitschy, cheap poster look, flat mural look, dated storybook cliché, Disney theme-park kitsch, indoor bedroom child observer, generic stock photo, plastic CGI toys, overly saturated toy-like colors',
+            'domain'          => $domain,
+            'preset'          => $preset,
         ];
     }
 

@@ -115,13 +115,17 @@ final class YooY_Gallery_Title_Service {
             $raw_lower = $lower;
         }
         // Penguin family whale adventure
-        if (preg_match('/펭귄/u', $clean) && preg_match('/고래/u', $clean)) {
+        if ((preg_match('/펭귄|팽귄/u', $clean) || preg_match('/펭귄|팽귄/u', $raw_lower))
+            && preg_match('/고래/u', $raw_lower)) {
+            if (preg_match('/오로라|aurora/u', $raw_lower)) {
+                return '오로라 너머의 여행';
+            }
             if (preg_match('/밤|별|night|star/u', $raw_lower)) {
                 return '별을 건너는 펭귄 가족';
             }
             return '고래 등에 올라탄 세계여행';
         }
-        if (preg_match('/펭귄/u', $clean) && preg_match('/가족|family/u', $lower)) {
+        if (preg_match('/펭귄|팽귄/u', $raw_lower) && preg_match('/가족|family/u', $raw_lower)) {
             return '하늘을 나는 펭귄 가족';
         }
         if (preg_match('/고래/u', $clean) && preg_match('/여행|하늘|날/u', $clean)) {

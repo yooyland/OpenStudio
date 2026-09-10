@@ -1102,35 +1102,70 @@
   }
 
   function developerInfoHtml() {
-    if (!isDebugMode()) return '';
+    if (!isDebugMode() && !isStudioAdmin()) return '';
     var info = state.lastDebugInfo || {};
-    var pid = info.provider || selectedProviderId();
-    var model = info.model || state.settings.default_model || state.settings.model || '';
-    var size = state.settings.size || state.settings.resolution || '';
+    var trace = (state.lastResult && (state.lastResult.generation_trace || (state.lastResult.meta && state.lastResult.meta.generation_trace))) || {};
+    var pid = info.provider || trace.provider || selectedProviderId();
+    var model = info.model || trace.model || state.settings.default_model || state.settings.model || '';
+    var size = trace.size || info.apiSize || state.settings.size || state.settings.resolution || '';
     var mapped = info.apiSize || mappedSizeForAspect(state.settings.aspect_ratio || '1:1');
     var latency = info.latency != null ? (info.latency + ' ms') : '—';
-    return '<details class="yis-dev-info" id="yis-dev-info"><summary>Developer Info</summary>' +
+    var userP = trace.user_prompt || state.lastUserPrompt || '';
+    var finalP = trace.final_prompt || (state.lastResult && state.lastResult.prompt) || '';
+    var equals = !!trace.user_equals_final;
+    return '<details class="yis-dev-info" id="yis-dev-info" open><summary>생성 파이프라인 (Admin / Debug)</summary>' +
       '<div class="yis-dev-info-grid">' +
       '<div><b>Provider</b><span data-yis-dev="provider">' + esc(pid) + '</span></div>' +
       '<div><b>Model</b><span data-yis-dev="model">' + esc(model) + '</span></div>' +
-      '<div><b>API Size</b><span data-yis-dev="api-size">' + esc(mapped || size || '—') + '</span></div>' +
+      '<div><b>Quality</b><span data-yis-dev="quality">' + esc(trace.quality || state.generationMode || '—') + '</span></div>' +
+      '<div><b>Size</b><span data-yis-dev="api-size">' + esc(size || mapped || '—') + '</span></div>' +
+      '<div><b>Mode</b><span data-yis-dev="mode">' + esc(trace.generation_mode || state.generationMode || '—') + '</span></div>' +
+      '<div><b>Preset</b><span data-yis-dev="preset">' + esc(trace.art_direction_preset || '—') + '</span></div>' +
+      '<div><b>Domain</b><span data-yis-dev="domain">' + esc(trace.intent_domain || '—') + '</span></div>' +
       '<div><b>Latency</b><span data-yis-dev="latency">' + esc(latency) + '</span></div>' +
-      '</div></details>';
+      '<div class="yis-dev-info-span"><b>user == final?</b><span data-yis-dev="equals">' + (equals ? 'YES (orchestration missed)' : 'NO (orchestrated)') + '</span></div>' +
+      '</div>' +
+      '<div class="yis-dev-prompt"><b>User prompt</b><pre data-yis-dev="user-prompt">' + esc(userP || '—') + '</pre></div>' +
+      '<div class="yis-dev-prompt"><b>Final prompt</b><pre data-yis-dev="final-prompt">' + esc(finalP || '—') + '</pre></div>' +
+      '<div class="yis-dev-prompt"><b>Negative</b><pre data-yis-dev="negative">' + esc(trace.negative_prompt || '—') + '</pre></div>' +
+      '<div class="yis-dev-prompt"><b>References</b><pre data-yis-dev="refs">' + esc(formatRefsForDebug(trace)) + '</pre></div>' +
+      '</details>';
+  }
+
+  function formatRefsForDebug(trace) {
+    if (!trace) return '—';
+    if (trace.reference_url) return String(trace.reference_url);
+    var refs = trace.references;
+    if (!refs || !refs.length) return '(none)';
+    try { return JSON.stringify(refs, null, 2); } catch (e) { return String(refs); }
   }
 
   function refreshDeveloperInfoPanel(root) {
-    if (!isDebugMode() || !root) return;
+    if ((!isDebugMode() && !isStudioAdmin()) || !root) return;
     var panel = root.querySelector('#yis-dev-info');
-    if (!panel) return;
+    if (!panel) {
+      // Re-render generate tab section if needed — board refresh covers most cases.
+      return;
+    }
     var info = state.lastDebugInfo || {};
+    var trace = (state.lastResult && (state.lastResult.generation_trace || (state.lastResult.meta && state.lastResult.meta.generation_trace))) || {};
     var set = function (key, val) {
       var el = panel.querySelector('[data-yis-dev="' + key + '"]');
       if (el) el.textContent = val || '—';
     };
-    set('provider', info.provider || selectedProviderId());
-    set('model', info.model || state.settings.default_model || state.settings.model || '');
-    set('api-size', info.apiSize || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || state.settings.size || '—');
+    set('provider', info.provider || trace.provider || selectedProviderId());
+    set('model', info.model || trace.model || state.settings.default_model || state.settings.model || '');
+    set('quality', trace.quality || state.generationMode || '—');
+    set('api-size', trace.size || info.apiSize || mappedSizeForAspect(state.settings.aspect_ratio || '1:1') || state.settings.size || '—');
+    set('mode', trace.generation_mode || state.generationMode || '—');
+    set('preset', trace.art_direction_preset || '—');
+    set('domain', trace.intent_domain || '—');
     set('latency', info.latency != null ? (info.latency + ' ms') : '—');
+    set('equals', trace.user_equals_final ? 'YES (orchestration missed)' : 'NO (orchestrated)');
+    set('user-prompt', trace.user_prompt || state.lastUserPrompt || '—');
+    set('final-prompt', trace.final_prompt || (state.lastResult && state.lastResult.prompt) || '—');
+    set('negative', trace.negative_prompt || '—');
+    set('refs', formatRefsForDebug(trace));
   }
 
   function isMockModel(model) {
@@ -2391,18 +2426,33 @@
   function resultBoardToolbarHtml() {
     if (!state.lastResult || !state.lastResult.job_id) return '';
     var qi = (state.lastResult.composer_meta && state.lastResult.composer_meta.prompt_intelligence) || {};
-    var lowConfidence = qi.quality_score != null && Number(qi.quality_score) < 72;
+    var vqa = state.lastResult.visual_qa
+      || (state.lastResult.meta && state.lastResult.meta.visual_qa)
+      || qi.visual_qa
+      || {};
+    var lowConfidence = (qi.quality_score != null && Number(qi.quality_score) < 72)
+      || (vqa.suggest_premium_retry === true)
+      || (vqa.score != null && Number(vqa.score) < 70);
+    var qaNote = '';
+    if (vqa && (vqa.score != null || (vqa.flags && vqa.flags.length))) {
+      qaNote = '<p class="yis-result-board__quality-hint">Visual QA score: '
+        + esc(String(vqa.score != null ? vqa.score : '—'))
+        + (vqa.flags && vqa.flags.length ? (' · ' + esc(vqa.flags.join(', '))) : '')
+        + '</p>';
+    }
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
         resultToolbarBtn('reuse', '이어서 만들기') +
+        (lowConfidence ? resultToolbarBtn('premium-retry', '더 고급스럽게 재시도') : '') +
         (lowConfidence ? resultToolbarBtn('variation', '다른 시안 만들기') : '') +
         resultToolbarBtn('publish', '공개하기') +
         resultToolbarBtn('project', '프로젝트에 추가') +
         resultToolbarBtn('download', '다운로드') +
         resultToolbarBtn('gallery', 'Gallery에서 보기') +
       '</div>' +
+      qaNote +
       (lowConfidence
-        ? '<p class="yis-result-board__quality-hint">결과가 아쉽다면 「다른 시안 만들기」로 요청을 다시 불러온 뒤, 생성하기로 새 시안을 만들 수 있습니다.</p>'
+        ? '<p class="yis-result-board__quality-hint">「더 고급스럽게 재시도」는 고품질 모드로 요청을 다시 넣고 생성하기를 누를 때 크레딧이 사용됩니다.</p>'
         : '') +
     '</div>';
   }
@@ -2428,6 +2478,7 @@
       (images.length > 1 ? resultBoardThumbsHtml(images, idx) : '') +
       resultBoardMetaHtml(data, idx, images.length) +
       resultBoardToolbarHtml() +
+      ((isDebugMode() || isStudioAdmin()) ? developerInfoHtml() : '') +
     '</section>';
   }
 
@@ -2515,6 +2566,28 @@
       renderTab(root);
       if (typeof showStudioToast === 'function') {
         showStudioToast('요청을 다시 불러왔습니다. 생성하기로 다른 시안을 만들 수 있습니다.');
+      }
+      return;
+    }
+
+    if (action === 'premium-retry') {
+      reusePrompt(galleryId, 'result', root);
+      state.generationMode = 'premium';
+      state.settings.generation_mode = 'premium';
+      state.settings.quality = 'hd';
+      var premiumSize = mappedSizeForAspect(state.settings.aspect_ratio || '1:1');
+      if (premiumSize) {
+        state.settings.size = premiumSize;
+      }
+      // Soft premium nudge appended only as internal hint via session — user prompt stays clean.
+      try {
+        global.sessionStorage.setItem('yoy_premium_retry', '1');
+      } catch (e) { /* ignore */ }
+      state.tab = 'generate';
+      setTab(root);
+      renderTab(root);
+      if (typeof showStudioToast === 'function') {
+        showStudioToast('고품질 모드로 준비했습니다. 생성하기를 누르면 새 시안이 만들어집니다.');
       }
       return;
     }
