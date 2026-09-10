@@ -84,11 +84,12 @@ final class YooY_Gallery_Title_Service {
      * @param array<string, mixed> $context
      */
     private static function creative_title(string $source, string $domain, string $type, array $context): string {
+        $raw_lower = mb_strtolower($source);
         $clean = self::strip_purpose_language($source);
         $lower = mb_strtolower($clean);
 
         // Domain / scene-specific creative titles (deterministic, concept-faithful).
-        $special = self::scene_title($clean, $lower, $domain);
+        $special = self::scene_title($clean, $lower, $domain, $raw_lower);
         if ($special !== '') {
             return self::clamp($special, 22);
         }
@@ -109,10 +110,13 @@ final class YooY_Gallery_Title_Service {
         return self::clamp($subject, 22);
     }
 
-    private static function scene_title(string $clean, string $lower, string $domain): string {
+    private static function scene_title(string $clean, string $lower, string $domain, string $raw_lower = ''): string {
+        if ($raw_lower === '') {
+            $raw_lower = $lower;
+        }
         // Penguin family whale adventure
         if (preg_match('/펭귄/u', $clean) && preg_match('/고래/u', $clean)) {
-            if (preg_match('/밤|별|night|star/u', $lower)) {
+            if (preg_match('/밤|별|night|star/u', $raw_lower)) {
                 return '별을 건너는 펭귄 가족';
             }
             return '고래 등에 올라탄 세계여행';
@@ -125,39 +129,39 @@ final class YooY_Gallery_Title_Service {
         }
 
         // Summer beach cosmetics
-        if (preg_match('/화장품|스킨케어|크림|세럼|cosmetic|skincare/u', $lower)
-            && preg_match('/여름|바다|해변|beach|summer|sea/u', $lower)) {
+        if (preg_match('/화장품|스킨케어|크림|세럼|cosmetic|skincare/u', $raw_lower)
+            && preg_match('/여름|바다|해변|beach|summer|sea/u', $raw_lower)) {
             return '바다빛을 담은 여름';
         }
-        if (preg_match('/스킨케어|크림|skincare|cream/u', $lower)
-            && preg_match('/럭셔리|프리미엄|luxury|premium/u', $lower)) {
+        if (preg_match('/스킨케어|크림|skincare|cream/u', $raw_lower)
+            && preg_match('/럭셔리|프리미엄|luxury|premium/u', $raw_lower)) {
             return '빛을 담은 스킨케어';
         }
-        if (preg_match('/화장품|스킨케어|크림|세럼|향수/u', $lower)) {
+        if (preg_match('/화장품|스킨케어|크림|세럼|향수/u', $raw_lower)) {
             return '순수함의 한 순간';
         }
 
         // Lifestyle couple (before architecture keywords like 아파트)
-        if (preg_match('/부부|커플|couple/u', $clean) && preg_match('/아파트|서울|단지/u', $clean)) {
+        if (preg_match('/부부|커플|couple/u', $raw_lower) && preg_match('/아파트|서울|단지/u', $raw_lower)) {
             return '도시의 오후, 둘';
         }
-        if (preg_match('/부부|커플|couple/u', $clean)) {
+        if (preg_match('/부부|커플|couple/u', $raw_lower)) {
             return '자연스러운 하루의 대화';
         }
 
-        // Architecture / apartment
-        if ($domain === 'architecture' || preg_match('/아파트|조감|분양|단지|건축/u', $clean)) {
-            if (preg_match('/조감/u', $clean)) {
+        // Architecture / apartment — purpose words may already be stripped from $clean
+        if ($domain === 'architecture' || preg_match('/아파트|조감|단지|건축/u', $raw_lower)) {
+            if (preg_match('/조감/u', $raw_lower)) {
                 return '한강빛 주거단지 조감도';
             }
-            if (preg_match('/분양|광고|캠페인/u', $lower)) {
+            if (preg_match('/분양|광고|캠페인|advert|campaign/u', $raw_lower)) {
                 return '빛이 머무는 프리미엄 라이프';
             }
             return '도시와 만나는 하루';
         }
 
         // Children dream without specific adventure nouns already handled
-        if (preg_match('/어린이|꿈|동화|storybook/u', $lower) && preg_match('/여행|하늘|바다/u', $clean)) {
+        if (preg_match('/어린이|꿈|동화|storybook/u', $raw_lower) && preg_match('/여행|하늘|바다/u', $raw_lower)) {
             return '꿈속의 세계여행';
         }
 
