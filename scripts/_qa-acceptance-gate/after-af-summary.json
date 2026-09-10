@@ -1,0 +1,8 @@
+[
+  {"id":"A","preset":"PREMIUM_FANTASY_ILLUSTRATION","title":"오로라 너머의 여행","final_len":3152,"quality":"hd","size":"1536x1024","credits":20,"url":"https://yooyland.com/wp-content/uploads/2026/09/openai-img_25746d2d-056b-4561-8192-911e50b15169-0.png","bloat_premium":2},
+  {"id":"B","preset":"BEAUTY_EDITORIAL_PREMIUM","title":"여름빛 스킨케어","final_len":2009,"quality":"hd","size":"1024x1536","credits":20,"url":"https://yooyland.com/wp-content/uploads/2026/09/openai-img_876651db-f1ff-44f4-a858-12ed19fe9f8c-0.png","bloat_premium":2},
+  {"id":"C","preset":"ARCHITECTURAL_VISUALIZATION_PREMIUM","title":"프리미엄 아파트 분양 조감도","final_len":1673,"quality":"hd","size":"1536x1024","credits":20,"url":"https://yooyland.com/wp-content/uploads/2026/09/openai-img_b84d0f01-1990-4209-b282-f89047562d24-0.png","bloat_premium":2},
+  {"id":"D","preset":"CINEMATIC_LIFESTYLE_PREMIUM","title":"아파트 단지에서 이야기하는 부부","final_len":1658,"quality":"hd","size":"1024x1536","credits":20,"url":"https://yooyland.com/wp-content/uploads/2026/09/openai-img_fa923090-cae5-4eea-bf92-c14e1099cfc0-0.png","bloat_premium":2},
+  {"id":"E","preset":"BEAUTY_EDITORIAL_PREMIUM","title":"럭셔리 스킨케어 제품컷","final_len":1879,"quality":"hd","size":"1024x1024","credits":20,"url":"https://yooyland.com/wp-content/uploads/2026/09/openai-img_5cf4c33d-3026-40b5-8aa5-1b78af91bf73-0.png","bloat_premium":2},
+  {"id":"F","preset":"EDITORIAL_PORTRAIT_PREMIUM","title":"프리미엄 브랜드 화보","final_len":1445,"quality":"hd","size":"1024x1536","credits":20,"url":"https://yooyland.com/wp-content/uploads/2026/09/openai-img_8d16ac60-9d47-4d93-b763-54c9dc3e0364-0.png","bloat_premium":2}
+]
