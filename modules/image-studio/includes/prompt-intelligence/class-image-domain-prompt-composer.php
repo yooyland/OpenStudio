@@ -188,9 +188,16 @@ final class YooY_Image_Domain_Prompt_Composer {
      * @return array{prompt:string,negative_prompt:string,domain:string,preset:string}
      */
     private function compose_storybook(array $brief, array $settings, string $forced_preset = ''): array {
+        $raw = (string) ($brief['raw_user_request'] ?? '');
         $subject = (string) ($brief['primary_subject'] ?? 'imaginative adventure scene');
-        $raw = (string) ($brief['raw_user_request'] ?? $subject);
-        $raw_l = mb_strtolower($raw);
+        // Prefer full user request for concept fidelity (primary_subject may be truncated).
+        if ($raw !== '' && mb_strlen($raw) > mb_strlen($subject)) {
+            $subject = $raw;
+        }
+        if ($subject === '') {
+            $subject = 'imaginative adventure scene';
+        }
+        $raw_l = mb_strtolower($raw !== '' ? $raw : $subject);
         $is_fantasy = ($forced_preset === 'PREMIUM_FANTASY_ILLUSTRATION')
             || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_fantasy($raw_l));
         $wants_premium = class_exists('YooY_Image_Art_Direction')
