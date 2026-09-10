@@ -82,9 +82,9 @@ final class YooY_Image_Size_Resolver {
 
     public static function aspect_ratios_for(string $routed_provider, string $catalog_provider = '', string $model = ''): array {
         if (self::is_gpt_image_1($routed_provider, $catalog_provider, $model)) {
-            return ['1:1', '16:9', '9:16', '4:5', '3:2', '2:3'];
+            return ['1:1', '16:9', '9:16', '4:5', '3:4', '3:2', '2:3'];
         }
-        return ['1:1', '16:9', '9:16', '4:5', '3:2', '2:3'];
+        return ['1:1', '16:9', '9:16', '4:5', '3:4', '3:2', '2:3'];
     }
 
     public static function map_aspect_to_size(
@@ -138,10 +138,12 @@ final class YooY_Image_Size_Resolver {
                 return '1536x1024';
             case '9:16':
             case '4:5':
+            case '3:4':
             case '2:3':
                 return '1024x1536';
             default:
-                return 'auto';
+                // Prefer closest native portrait/landscape over opaque "auto" when ratio is unknown.
+                return '1024x1024';
         }
     }
 

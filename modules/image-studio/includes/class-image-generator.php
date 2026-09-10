@@ -529,6 +529,7 @@ final class YooY_Image_Generator {
             'resolution'     => sanitize_text_field($params['resolution'] ?? '1024'),
             'quality'        => $quality,
             'generation_mode'=> $generation_mode,
+            'retry_mode'     => sanitize_key((string) ($params['retry_mode'] ?? '')),
             'lighting'       => sanitize_text_field($params['lighting'] ?? 'auto'),
             'composition'    => sanitize_text_field($params['composition'] ?? 'auto'),
             'style'          => sanitize_text_field($params['style'] ?? 'auto'),

@@ -82,7 +82,6 @@ final class YooY_Studio_Intent_Analyzer {
         }
 
         // Storybook / fantasy adventure before lifestyle "가족" or travel "여행".
-        // Premium cues + fantasy → fantasy domain; children/dream adventure → storybook.
         if ($this->looks_like_fantasy($lower) && (
             preg_match('/세련|고급|현대|프리미엄|일러스트|그림책\s*표지|premium|refined|sophisticated/u', $lower)
             || !$this->looks_like_storybook($lower)
@@ -94,6 +93,13 @@ final class YooY_Studio_Intent_Analyzer {
         }
         if ($this->looks_like_fantasy($lower)) {
             return 'fantasy';
+        }
+        // Human portrait / 화보 before brand keyword hijack.
+        if (preg_match('/화보|초상|portrait|인물/u', $lower)
+            || (preg_match('/여성|남성|여자|남자|woman|man/u', $lower)
+                && preg_match('/세련|신뢰|프리미엄|브랜드|화보|editorial/u', $lower)
+                && !preg_match('/제품|크림|아파트|단지|화장품/u', $lower))) {
+            return 'portrait';
         }
 
         $rules = [
@@ -111,8 +117,8 @@ final class YooY_Studio_Intent_Analyzer {
             'entertainment' => ['영화', '엔터', '드라마', 'entertainment', 'movie'],
             'food'          => ['음식', '맛집', '요리', 'food', 'restaurant'],
             'fashion'       => ['패션', '의류', 'fashion', 'apparel'],
-            'portrait'      => ['인물 사진', '초상', 'portrait', '인물'],
-            'editorial'     => ['매거진', 'editorial', '화보'],
+            'portrait'      => ['인물 사진', '초상', 'portrait', '인물', '화보'],
+            'editorial'     => ['매거진', 'editorial'],
             'social'        => ['사회 캠페인', '공익', 'social campaign', 'psa'],
             'brand'         => ['브랜드', 'brand identity', '로고'],
         ];

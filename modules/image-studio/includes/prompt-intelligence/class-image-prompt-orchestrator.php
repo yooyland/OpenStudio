@@ -4,6 +4,7 @@ if (!defined('ABSPATH')) exit;
 require_once __DIR__ . '/class-image-input-normalizer.php';
 require_once __DIR__ . '/class-image-subject-scene-extractor.php';
 require_once __DIR__ . '/class-image-quality-escalator.php';
+require_once __DIR__ . '/class-image-prompt-fidelity.php';
 require_once __DIR__ . '/class-studio-intent-analyzer.php';
 require_once __DIR__ . '/class-studio-creative-brief-builder.php';
 require_once __DIR__ . '/class-image-art-direction.php';
@@ -14,10 +15,7 @@ require_once __DIR__ . '/class-image-visual-qa.php';
 /**
  * Premium Image Prompt Orchestration Layer.
  *
- * Pipeline:
- * Input Normalizer → Intent Analyzer → Subject/Scene Extractor → Quality Escalator
- * → Art Direction Preset Selector → Domain Prompt Composer → Negative Guidance Injector
- * → Final Prompt Builder → (Provider/Quality Selector outside) → Visual QA Lite → Title Generator (Gallery)
+ * Priority: P1 user subject/action/scene → P2 user style → P3 refs → P4 art direction → P5 defaults → P6 negatives.
  */
 final class YooY_Image_Prompt_Orchestrator {
 
@@ -38,7 +36,42 @@ final class YooY_Image_Prompt_Orchestrator {
      * @return array<string, mixed>
      */
     public function run(string $raw_user_request, array $params = []): array {
-        // 1) Input Normalizer
+        try {
+            return $this->run_pipeline($raw_user_request, $params);
+        } catch (Exception $e) {
+            // Failsafe: never block generation because orchestration failed.
+            $safe = trim($raw_user_request);
+            return [
+                'raw_user_request'  => $raw_user_request,
+                'normalized'        => ['raw' => $raw_user_request, 'normalized' => $safe, 'is_short' => mb_strlen($safe) < 40],
+                'intent'            => [],
+                'scene'             => [],
+                'quality_escalator' => ['tier' => 'refined', 'escalate' => true, 'reasons' => ['orchestration_failsafe']],
+                'creative_brief'    => ['content_domain' => 'general', 'raw_user_request' => $raw_user_request, 'primary_subject' => mb_substr($safe, 0, 120)],
+                'composed_prompt'   => $safe . '. Contemporary refined professional visual, clear subject fidelity, tasteful lighting and depth.',
+                'negative_prompt'   => implode(', ', class_exists('YooY_Image_Art_Direction') ? YooY_Image_Art_Direction::common_negatives() : ['low quality', 'blurry']),
+                'intent_domain'     => 'general',
+                'preset'            => 'GENERAL_PHOTOREAL_PREMIUM',
+                'art_direction'     => 'GENERAL_PHOTOREAL_PREMIUM',
+                'validation'        => ['ok' => true, 'code' => 'failsafe'],
+                'quality'           => ['score' => 70],
+                'visual_qa'         => ['score' => 60, 'pass' => true, 'mode' => 'prompt_metadata_qa', 'suggest_premium_retry' => false],
+                'title_preview'     => '',
+                'provider_quality'  => ['generation_mode' => 'premium', 'quality' => 'hd', 'prefer_large_size' => true],
+                'rewrite_count'     => 0,
+                'prompt_version'    => 'spi-image-orch-2',
+                'pipeline'          => ['failsafe'],
+                'blocked'           => false,
+                'orchestration_error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    private function run_pipeline(string $raw_user_request, array $params): array {
         $normalized = YooY_Image_Input_Normalizer::normalize($raw_user_request);
         $work = $normalized['normalized'] !== '' ? $normalized['normalized'] : $raw_user_request;
 
@@ -52,18 +85,20 @@ final class YooY_Image_Prompt_Orchestrator {
         if (!empty($params['project_context']) && is_array($params['project_context'])) {
             $hint['project_context'] = $params['project_context'];
         }
+        // Retry modes (user-confirmed only): premium_retry vs variation.
+        $retry_mode = sanitize_key((string) ($params['retry_mode'] ?? ''));
+        if ($retry_mode === '' && !empty($params['premium_retry'])) {
+            $retry_mode = 'premium_retry';
+        }
 
-        // 2) Intent Analyzer
         $intent = $this->analyzer->analyze($work, $hint);
         $intent['raw_user_request'] = $raw_user_request;
 
-        // 3) Subject / Scene Extractor
         $scene = YooY_Image_Subject_Scene_Extractor::extract($work, $intent);
         if ($scene['subject'] !== '') {
             $intent['primary_subject'] = $scene['subject'];
         }
 
-        // 4) Creative brief + 5) Quality Escalator
         $brief = $this->brief_builder->build($intent);
         $brief['raw_user_request'] = $raw_user_request;
         if (!empty($hint['primary_subject'])) {
@@ -72,24 +107,34 @@ final class YooY_Image_Prompt_Orchestrator {
         $escalated = YooY_Image_Quality_Escalator::escalate($brief, $normalized, $scene);
         $brief = $escalated['brief'];
 
-        // 6) Art Direction Preset Selector
         $preset = YooY_Image_Art_Direction::resolve_preset($brief);
         $brief['art_direction_preset'] = $preset;
 
-        // 7) Domain Prompt Composer (+ 8 Negative Guidance Injector via finalize)
         $rewrite_count = 0;
         $composed = $this->composer->compose($brief, $params);
-        // Force canonical premium preset id on output.
         $composed['preset'] = $preset;
         $composed['art_direction'] = $preset;
+
+        // P1 fidelity lock first — art direction may enhance but not replace.
+        $lock = YooY_Image_Prompt_Fidelity::lock_block($scene, $brief, $raw_user_request);
+        $composed['prompt'] = $lock . '. ' . (string) $composed['prompt'];
+
+        if ($retry_mode === 'premium_retry') {
+            $composed['prompt'] = 'RETRY MODE: same concept, stronger refinement and premium art direction only — do not change core subject/action/setting. '
+                . (string) $composed['prompt'];
+        } elseif ($retry_mode === 'variation') {
+            $composed['prompt'] = 'RETRY MODE: same concept, different composition and camera direction — keep subject fidelity. '
+                . (string) $composed['prompt'];
+        }
+
         if (!empty($escalated['bias_lines'])) {
             $prompt = (string) $composed['prompt'];
-            $esc = 'QUALITY ESCALATOR (' . $escalated['tier'] . '): ' . implode('; ', $escalated['bias_lines']);
             if (stripos($prompt, 'QUALITY ESCALATOR') === false) {
-                $composed['prompt'] = $esc . '. ' . $prompt;
+                $composed['prompt'] = 'QUALITY ESCALATOR: ' . implode('; ', array_slice($escalated['bias_lines'], 0, 3))
+                    . '. ' . $prompt;
             }
         }
-        // Genre negatives already merged in domain composer finalize; ensure genre extras once more.
+
         $genre_neg = YooY_Image_Art_Direction::genre_negatives($preset);
         if ($genre_neg) {
             $neg = (string) ($composed['negative_prompt'] ?? '');
@@ -97,6 +142,15 @@ final class YooY_Image_Prompt_Orchestrator {
             if ($extra !== '' && strpos($neg, $genre_neg[0]) === false) {
                 $composed['negative_prompt'] = $neg !== '' ? ($neg . ', ' . $extra) : $extra;
             }
+        }
+
+        // Product/beauty: blank packaging when user did not ask for typography.
+        $raw_l = mb_strtolower($raw_user_request);
+        if (in_array($composed['domain'] ?? '', ['product', 'beauty', 'ecommerce'], true)
+            && !preg_match('/텍스트|로고|타이포|글자|label|logo|typography|text\s*on/u', $raw_l)) {
+            $composed['prompt'] = rtrim((string) $composed['prompt'], '. ')
+                . '. PACKAGING: blank unbranded packaging — no invented logos, no invented Korean/English label text, no random typography';
+            $composed['negative_prompt'] = trim((string) ($composed['negative_prompt'] ?? '') . ', invented logos, invented brand names, Korean characters on packaging, English label text, random typography', ' ,');
         }
 
         $validation = $this->validator->validate($brief, $composed['prompt'], $composed['domain']);
@@ -112,24 +166,23 @@ final class YooY_Image_Prompt_Orchestrator {
             $composed = $this->composer->compose($brief, $params);
             $composed['preset'] = $preset;
             $composed['art_direction'] = $preset;
+            $composed['prompt'] = $lock . '. ' . (string) $composed['prompt'];
             $validation = $this->validator->validate($brief, $composed['prompt'], $composed['domain']);
         }
 
-        // 9) Final Prompt Builder meta
+        $composed['prompt'] = YooY_Image_Prompt_Fidelity::compress_bloat((string) $composed['prompt']);
         $quality = $this->validator->score($brief, $composed['prompt'], $validation);
 
-        // Title preview (Gallery remains SoT on save)
         $title_preview = '';
         if (class_exists('YooY_Gallery_Title_Service')) {
             $title_preview = YooY_Gallery_Title_Service::resolve([
-                'user_prompt'    => $raw_user_request,
-                'prompt'         => $composed['prompt'],
-                'intent_domain'  => $composed['domain'],
-                'type'           => 'image',
+                'user_prompt'   => $raw_user_request,
+                'prompt'        => '', // never title from orchestrated final prompt
+                'intent_domain' => $composed['domain'],
+                'type'          => 'image',
             ]);
         }
 
-        // 10) Visual QA Lite (pre-generation prompt QA; post-gen reuses same schema)
         $visual_qa = YooY_Image_Visual_QA::assess([
             'user_prompt'            => $raw_user_request,
             'final_prompt'           => $composed['prompt'],
@@ -140,12 +193,9 @@ final class YooY_Image_Prompt_Orchestrator {
             'composer_quality_score' => (int) ($quality['score'] ?? 0),
         ]);
 
-        // 11) Provider/Quality Selector hints (applied by Image Generator normalize)
         $provider_quality = [
-            'generation_mode' => 'premium',
-            'quality'         => ($escalated['tier'] === 'premium' || empty($params['generation_mode']) || ($params['generation_mode'] ?? '') === 'premium')
-                ? 'hd'
-                : (string) ($params['quality'] ?? 'standard'),
+            'generation_mode'   => 'premium',
+            'quality'           => 'hd',
             'prefer_large_size' => true,
         ];
         if (($params['generation_mode'] ?? '') === 'fast') {
@@ -155,42 +205,45 @@ final class YooY_Image_Prompt_Orchestrator {
         }
 
         return [
-            'raw_user_request'   => $raw_user_request,
-            'normalized'         => $normalized,
-            'intent'             => $intent,
-            'scene'              => $scene,
-            'quality_escalator'  => [
+            'raw_user_request'  => $raw_user_request,
+            'normalized'        => $normalized,
+            'intent'            => $intent,
+            'scene'             => $scene,
+            'quality_escalator' => [
                 'tier'     => $escalated['tier'],
                 'escalate' => $escalated['escalate'],
                 'reasons'  => $escalated['reasons'],
             ],
-            'creative_brief'     => $brief,
-            'composed_prompt'    => $composed['prompt'],
-            'negative_prompt'    => $composed['negative_prompt'],
-            'intent_domain'      => $composed['domain'],
-            'preset'             => $preset,
-            'art_direction'      => $preset,
-            'validation'         => $validation,
-            'quality'            => $quality,
-            'visual_qa'          => $visual_qa,
-            'title_preview'      => $title_preview,
-            'provider_quality'   => $provider_quality,
-            'rewrite_count'      => $rewrite_count,
-            'prompt_version'     => 'spi-image-orch-1',
-            'pipeline'           => [
+            'creative_brief'    => $brief,
+            'composed_prompt'   => $composed['prompt'],
+            'negative_prompt'   => $composed['negative_prompt'],
+            'intent_domain'     => $composed['domain'],
+            'preset'            => $preset,
+            'art_direction'     => $preset,
+            'validation'        => $validation,
+            'quality'           => $quality,
+            'visual_qa'         => $visual_qa,
+            'title_preview'     => $title_preview,
+            'provider_quality'  => $provider_quality,
+            'rewrite_count'     => $rewrite_count,
+            'retry_mode'        => $retry_mode,
+            'prompt_version'    => 'spi-image-orch-2',
+            'pipeline'          => [
                 'input_normalizer',
                 'intent_analyzer',
                 'subject_scene_extractor',
                 'quality_escalator',
                 'art_direction_preset_selector',
                 'domain_prompt_composer',
+                'prompt_fidelity_lock',
                 'negative_guidance_injector',
+                'prompt_bloat_compressor',
                 'final_prompt_builder',
                 'provider_quality_selector',
-                'visual_qa_lite',
+                'prompt_metadata_qa',
                 'title_generator',
             ],
-            'blocked'            => empty($validation['ok']) || (($quality['score'] ?? 0) < 60),
+            'blocked'           => false, // never block generation on soft QA
         ];
     }
 }

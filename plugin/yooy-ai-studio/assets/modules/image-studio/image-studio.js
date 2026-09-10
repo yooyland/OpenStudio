@@ -2461,10 +2461,15 @@
     var lowConfidence = (qi.quality_score != null && Number(qi.quality_score) < 72)
       || (vqa.suggest_premium_retry === true)
       || (vqa.score != null && Number(vqa.score) < 70);
+    var showTextless = !!vqa.suggest_textless_retry || !!vqa.unrequested_text_detected;
+    var creditHint = estimateCreditsHint();
     var qaNote = '';
     if (vqa && (vqa.score != null || (vqa.flags && vqa.flags.length) || vqa.scores)) {
       var dim = formatQaScores(vqa.scores || {});
-      qaNote = '<p class="yis-result-board__quality-hint">Visual QA: '
+      var modeNote = (vqa.mode === 'prompt_metadata_qa' || vqa.inspects_pixels === false)
+        ? ' (prompt metadata QA)'
+        : '';
+      qaNote = '<p class="yis-result-board__quality-hint">Quality check' + modeNote + ': '
         + esc(String(vqa.score != null ? vqa.score : '—'))
         + (vqa.flags && vqa.flags.length ? (' · ' + esc(vqa.flags.join(', '))) : '')
         + (dim && dim !== '—' ? (' · ' + esc(dim)) : '')
@@ -2473,18 +2478,32 @@
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
         resultToolbarBtn('reuse', '이어서 만들기') +
-        (lowConfidence ? resultToolbarBtn('premium-retry', '더 고급스럽게 재시도') : '') +
-        (lowConfidence ? resultToolbarBtn('variation', '다른 시안 만들기') : '') +
+        resultToolbarBtn('premium-retry', '더 고급스럽게 다시 만들기') +
+        resultToolbarBtn('variation', '다른 시안 만들기') +
+        (showTextless ? resultToolbarBtn('textless-retry', '텍스트 없는 버전 다시 만들기') : '') +
         resultToolbarBtn('publish', '공개하기') +
         resultToolbarBtn('project', '프로젝트에 추가') +
         resultToolbarBtn('download', '다운로드') +
         resultToolbarBtn('gallery', 'Gallery에서 보기') +
       '</div>' +
       qaNote +
+      '<p class="yis-result-board__quality-hint">「더 고급스럽게」= 같은 콘셉트를 더 세련되게 · 「다른 시안」= 구도/연출만 다르게. '
+        + (creditHint ? ('예상 ' + esc(creditHint) + '. ') : '')
+        + '생성하기를 누를 때 크레딧이 사용됩니다.</p>' +
       (lowConfidence
-        ? '<p class="yis-result-board__quality-hint">「더 고급스럽게 재시도」는 고품질 모드로 요청을 다시 넣고 생성하기를 누를 때 크레딧이 사용됩니다.</p>'
+        ? '<p class="yis-result-board__quality-hint">품질 신호가 낮아 재시도를 권장합니다.</p>'
         : '') +
     '</div>';
+  }
+
+  function estimateCreditsHint() {
+    try {
+      if (global.YooYCreditsUI && typeof global.YooYCreditsUI.estimateLabel === 'function') {
+        return global.YooYCreditsUI.estimateLabel(state.credits && state.credits.estimate);
+      }
+    } catch (e) { /* ignore */ }
+    if (state.credits && state.credits.estimate != null) return String(state.credits.estimate) + ' Credits';
+    return '약 20 Credits';
   }
 
   function resultBoardHtml() {
@@ -2589,13 +2608,17 @@
     }
 
     if (action === 'variation') {
-      // Explicit user choice — refill composer; user still presses 생성하기 (no silent charge).
+      // Different composition/direction — same concept. User still presses 생성하기.
       reusePrompt(galleryId, 'result', root);
+      try {
+        global.sessionStorage.setItem('yoy_retry_mode', 'variation');
+        global.sessionStorage.removeItem('yoy_premium_retry');
+      } catch (e) { /* ignore */ }
       state.tab = 'generate';
       setTab(root);
       renderTab(root);
       if (typeof showStudioToast === 'function') {
-        showStudioToast('요청을 다시 불러왔습니다. 생성하기로 다른 시안을 만들 수 있습니다.');
+        showStudioToast('다른 시안 모드: 같은 콘셉트, 다른 구도. 생성하기를 누르면 크레딧이 사용됩니다 (' + estimateCreditsHint() + ').');
       }
       return;
     }
@@ -2609,15 +2632,32 @@
       if (premiumSize) {
         state.settings.size = premiumSize;
       }
-      // Soft premium nudge appended only as internal hint via session — user prompt stays clean.
       try {
         global.sessionStorage.setItem('yoy_premium_retry', '1');
+        global.sessionStorage.setItem('yoy_retry_mode', 'premium_retry');
       } catch (e) { /* ignore */ }
       state.tab = 'generate';
       setTab(root);
       renderTab(root);
       if (typeof showStudioToast === 'function') {
-        showStudioToast('고품질 모드로 준비했습니다. 생성하기를 누르면 새 시안이 만들어집니다.');
+        showStudioToast('더 고급스럽게 모드: 같은 콘셉트, 더 세련된 연출. 생성하기를 누르면 크레딧이 사용됩니다 (' + estimateCreditsHint() + ').');
+      }
+      return;
+    }
+
+    if (action === 'textless-retry') {
+      reusePrompt(galleryId, 'result', root);
+      state.generationMode = 'premium';
+      state.settings.generation_mode = 'premium';
+      state.settings.quality = 'hd';
+      try {
+        global.sessionStorage.setItem('yoy_retry_mode', 'textless_retry');
+      } catch (e) { /* ignore */ }
+      state.tab = 'generate';
+      setTab(root);
+      renderTab(root);
+      if (typeof showStudioToast === 'function') {
+        showStudioToast('텍스트 없는 버전 준비. 생성하기를 누르면 크레딧이 사용됩니다 (' + estimateCreditsHint() + ').');
       }
       return;
     }
@@ -3104,6 +3144,18 @@
     } else {
       payload.model = state.settings.default_model || state.settings.model || '';
     }
+
+    try {
+      var retryMode = global.sessionStorage.getItem('yoy_retry_mode') || '';
+      if (!retryMode && global.sessionStorage.getItem('yoy_premium_retry') === '1') {
+        retryMode = 'premium_retry';
+      }
+      if (retryMode) {
+        payload.retry_mode = retryMode;
+        global.sessionStorage.removeItem('yoy_retry_mode');
+        global.sessionStorage.removeItem('yoy_premium_retry');
+      }
+    } catch (e) { /* ignore */ }
 
     state.generateStep = 'generating';
     updateGenerateProgress(root);

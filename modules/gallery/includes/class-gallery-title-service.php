@@ -138,33 +138,43 @@ final class YooY_Gallery_Title_Service {
         // Summer beach cosmetics
         if (preg_match('/화장품|스킨케어|크림|세럼|cosmetic|skincare/u', $raw_lower)
             && preg_match('/여름|바다|해변|beach|summer|sea/u', $raw_lower)) {
-            return '바다빛을 담은 여름';
+            return '여름빛 스킨케어';
         }
         if (preg_match('/스킨케어|크림|skincare|cream/u', $raw_lower)
             && preg_match('/럭셔리|프리미엄|luxury|premium/u', $raw_lower)) {
-            return '빛을 담은 스킨케어';
+            return '럭셔리 스킨케어 제품컷';
         }
         if (preg_match('/화장품|스킨케어|크림|세럼|향수/u', $raw_lower)) {
-            return '순수함의 한 순간';
+            return '스킨케어 제품컷';
         }
 
         // Lifestyle couple (before architecture keywords like 아파트)
         if (preg_match('/부부|커플|couple/u', $raw_lower) && preg_match('/아파트|서울|단지/u', $raw_lower)) {
-            return '도시의 오후, 둘';
+            return '아파트 단지에서 이야기하는 부부';
         }
         if (preg_match('/부부|커플|couple/u', $raw_lower)) {
             return '자연스러운 하루의 대화';
         }
 
-        // Architecture / apartment — purpose words may already be stripped from $clean
+        // Architecture / apartment — prefer technical work titles over poetic fluff
         if ($domain === 'architecture' || preg_match('/아파트|조감|단지|건축/u', $raw_lower)) {
             if (preg_match('/조감/u', $raw_lower)) {
-                return '한강빛 주거단지 조감도';
+                return '한강변 프리미엄 주거단지 조감도';
             }
             if (preg_match('/분양|광고|캠페인|advert|campaign/u', $raw_lower)) {
-                return '빛이 머무는 프리미엄 라이프';
+                return '프리미엄 아파트 분양 조감도';
             }
-            return '도시와 만나는 하루';
+            return '현대 아파트 단지 외관';
+        }
+
+        // Portrait / 화보
+        if ($domain === 'portrait' || $domain === 'editorial'
+            || preg_match('/화보|초상|portrait/u', $raw_lower)
+            || (preg_match('/여성|여자|woman/u', $raw_lower) && preg_match('/세련|신뢰|브랜드|프리미엄/u', $raw_lower))) {
+            if (preg_match('/여성|여자|woman/u', $raw_lower)) {
+                return '세련된 한국 여성 화보';
+            }
+            return '프리미엄 브랜드 화보';
         }
 
         // Children dream without specific adventure nouns already handled
@@ -239,10 +249,14 @@ final class YooY_Gallery_Title_Service {
         if (preg_match('/\((\d+)\)$/u', $t)) {
             return true;
         }
-        if (preg_match('/이미지|광고 이미지|generated image|ai image/u', $t)) {
+        if (preg_match('/이미지|광고 이미지|generated image|ai image|생성 이미지|작품\s*\(/u', $t)) {
             return true;
         }
         if (preg_match('/^(한국|광고|이미지)(\s+(한국|광고|이미지))*$/u', $t)) {
+            return true;
+        }
+        // Orchestration meta leaked into titles
+        if (preg_match('/quality\s*escalator|premium\s*bias|core\s*scene|visual\s*direction|p1\s*core/u', $t)) {
             return true;
         }
         return false;

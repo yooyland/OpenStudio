@@ -71,7 +71,7 @@ final class YooY_Image_Art_Direction {
         if ($domain === 'lifestyle' || $domain === 'cinematic') {
             return self::CINEMATIC_LIFESTYLE_PREMIUM;
         }
-        if ($domain === 'portrait') {
+        if ($domain === 'portrait' || $domain === 'editorial') {
             return self::EDITORIAL_PORTRAIT_PREMIUM;
         }
         if ($domain === 'illustration') {
