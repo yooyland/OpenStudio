@@ -34,6 +34,7 @@ final class YooY_Studio_Creative_Brief_Builder {
             'confidence'         => (float) ($intent['confidence'] ?? 0),
             'wants_product'      => !empty($intent['wants_product']),
             'wants_political'    => !empty($intent['wants_political']),
+            'art_direction_preset' => (string) ($intent['art_direction_preset'] ?? ''),
         ];
     }
 }

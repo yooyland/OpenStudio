@@ -96,10 +96,13 @@ final class YooY_Image_Gallery {
                     'attachment_id'    => $attachment_id,
                     'optimized_prompt' => $result['optimized_prompt'] ?? '',
                     'user_prompt'      => $result['user_prompt'] ?? '',
+                    'intent_domain'    => sanitize_key((string) ($result['intent_domain'] ?? '')),
+                    'art_direction'    => sanitize_text_field((string) ($result['composer_meta']['prompt_intelligence']['preset'] ?? $result['preset'] ?? '')),
                     'reference_url'    => $result['reference_url'] ?? '',
                     'reference_assets' => $result['reference_assets'] ?? [],
                     'project_id'       => sanitize_text_field((string) ($result['project_id'] ?? '')),
                 ],
+                'intent_domain' => sanitize_key((string) ($result['intent_domain'] ?? '')),
                 'project_id'    => sanitize_text_field((string) ($result['project_id'] ?? '')),
             ]);
             if (!empty($saved['id'])) {

@@ -15,30 +15,59 @@ final class YooY_Image_Domain_Prompt_Composer {
     public function compose(array $brief, array $settings = []): array {
         $domain = (string) ($brief['content_domain'] ?? 'general');
         $raw = mb_strtolower((string) ($brief['raw_user_request'] ?? $brief['primary_subject'] ?? ''));
+        $preset = class_exists('YooY_Image_Art_Direction')
+            ? YooY_Image_Art_Direction::resolve_preset($brief)
+            : 'GENERAL_PHOTOREAL';
 
         if (!empty($brief['wants_political']) || $domain === 'politics') {
-            return $this->compose_politics($brief, $settings);
+            return $this->finalize($this->compose_politics($brief, $settings), $preset);
+        }
+        // Storybook / fantasy before lifestyle "가족" so adventure scenes stay literal.
+        if ($domain === 'storybook' || $domain === 'fantasy'
+            || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_storybook($raw))) {
+            return $this->finalize($this->compose_storybook($brief, $settings), $preset);
         }
         // People + apartment → lifestyle campaign (not empty architecture plate)
-        if ($domain === 'lifestyle' || $this->looks_lifestyle($raw)) {
-            return $this->compose_lifestyle($brief, $settings);
+        if ($domain === 'lifestyle' || $domain === 'cinematic' || $this->looks_lifestyle($raw)) {
+            return $this->finalize($this->compose_lifestyle($brief, $settings), $preset);
         }
         if ($domain === 'architecture' || $this->looks_architecture($raw)) {
-            return $this->compose_architecture($brief, $settings);
+            return $this->finalize($this->compose_architecture($brief, $settings), $preset);
+        }
+        if ($domain === 'beauty' || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_beauty($raw))) {
+            return $this->finalize($this->compose_product($brief, $settings), $preset);
         }
         if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'fashion', 'food'], true)) {
-            return $this->compose_product($brief, $settings);
+            return $this->finalize($this->compose_product($brief, $settings), $preset);
         }
         if ($domain === 'portrait' || $this->looks_portrait($raw)) {
-            return $this->compose_portrait($brief, $settings);
+            return $this->finalize($this->compose_portrait($brief, $settings), $preset);
         }
         if ($domain === 'travel') {
-            return $this->compose_travel($brief, $settings);
+            return $this->finalize($this->compose_travel($brief, $settings), $preset);
         }
         if ($domain === 'brand' || $this->looks_commercial($raw)) {
-            return $this->compose_brand($brief, $settings);
+            return $this->finalize($this->compose_brand($brief, $settings), $preset);
         }
-        return $this->compose_general($brief, $settings);
+        return $this->finalize($this->compose_general($brief, $settings), $preset);
+    }
+
+    /**
+     * @param array{prompt:string,negative_prompt:string,domain:string,preset:string} $composed
+     * @return array{prompt:string,negative_prompt:string,domain:string,preset:string,art_direction:string}
+     */
+    private function finalize(array $composed, string $art_preset): array {
+        $composed['art_direction'] = $art_preset;
+        if (class_exists('YooY_Image_Art_Direction')) {
+            $extra = YooY_Image_Art_Direction::quality_constraints($art_preset);
+            if ($extra) {
+                $composed['prompt'] = rtrim((string) $composed['prompt'], '. ')
+                    . '. Quality: ' . implode('; ', $extra);
+            }
+            // Prefer art-direction preset id for meta (domain preset remains for compatibility).
+            $composed['preset'] = $art_preset;
+        }
+        return $composed;
     }
 
     private function looks_architecture(string $raw): bool {
@@ -108,35 +137,70 @@ final class YooY_Image_Domain_Prompt_Composer {
 
         $env = 'controlled premium studio set with clean gradient backdrop';
         $light = 'soft dual softbox key + gentle rim, controlled specular highlights on packaging';
-        if ($is_beach) {
-            $env = 'aspirational summer coastal environment with product as clear hero in foreground';
+        $purpose = 'premium brand / ecommerce advertising key visual';
+        if ($is_beach && $is_beauty) {
+            $env = 'aspirational summer coastal environment with product as clear hero in foreground; sea light and soft horizon — no readable brand text';
             $light = 'bright natural daylight with soft fill, realistic reflections on glass/plastic';
+            $purpose = 'summer beauty campaign still — product hero, lifestyle atmosphere without invented labels';
         } elseif ($is_beauty) {
             $env = 'luxury beauty campaign set, minimal props, elegant negative space';
             $light = 'beauty-advertising soft key light, silky highlights on cream and glass';
+            $purpose = 'luxury skincare / cosmetics campaign still';
         }
 
         $parts = [
-            'Commercial product advertising photograph of ' . $subject,
-            'Subject: ' . $subject . ' as unmistakable hero object with readable silhouette',
-            'Purpose: premium brand / ecommerce advertising key visual for a beauty campaign',
-            'Composition: ' . ((string) ($brief['composition'] ?: 'rule-of-thirds hero placement, asymmetric negative space, not dead-center stock framing')),
-            'Camera: 85–100mm product lens feel, slight three-quarter angle to show form and depth',
-            'Lighting: ' . ((string) ($brief['lighting'] ?: $light)),
-            'Materials: accurate package geometry, premium glass/metal/plastic micro-reflections, soft contact shadow, no melted edges',
-            'Environment: ' . $env,
-            'Color: ' . ((string) ($brief['color_palette'] ?: 'refined brand palette, controlled accents, clean highlights')),
-            'Mood: ' . ((string) ($brief['tone'] ?: 'desirable, elevated, quiet luxury')),
-            'Art direction: Korean beauty brand campaign still — art director approved, magazine double-page quality',
-            'Avoid: plain unlabeled pharmacy bottle look, dead-center phone snapshot framing, harsh noon shadow only, glitter dust clichés, fake logos',
-            'Constraints: no random Hangul/English logos unless requested; keep packaging elegant and campaign-ready',
+            'CORE SCENE: ' . $subject . ' as unmistakable hero object with accurate silhouette and geometry',
+            'PURPOSE: ' . $purpose . ' (treat words like advertising/campaign as intent, not literal text in the image)',
+            'VISUAL DIRECTION: modern premium product photography, quiet luxury, commercially usable',
+            'COMPOSITION: ' . ((string) ($brief['composition'] ?: 'rule-of-thirds hero placement, asymmetric negative space, not dead-center stock framing')),
+            'LIGHTING: ' . ((string) ($brief['lighting'] ?: $light)),
+            'STYLING & MATERIALS: accurate package geometry; premium glass/metal/plastic micro-reflections; soft contact shadow; no melted edges',
+            'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette'] ?: 'refined brand palette, controlled accents')),
+            'ENVIRONMENT: ' . $env,
+            'QUALITY CONSTRAINTS: campaign-ready detail; no invented Hangul/English logos or random label text unless the user explicitly asked for text',
+            'AVOID: plain pharmacy bottle look, glitter dust clichés, fake logos, dead-center phone snapshot',
         ];
 
         return [
             'prompt'          => implode('. ', $parts),
-            'negative_prompt' => 'warped bottle geometry, melted packaging, unreadable fake logos, glitter overload, plastic skin, political poster, low detail mush, generic stock clutter',
-            'domain'          => 'product',
+            'negative_prompt' => 'warped bottle geometry, melted packaging, unreadable fake logos, invented Hangul text, glitter overload, plastic skin, political poster, low detail mush, generic stock clutter',
+            'domain'          => $is_beauty ? 'beauty' : 'product',
             'preset'          => 'product',
+        ];
+    }
+
+    /**
+     * Modern storybook / fantasy — literal adventure scene, not "child imagining".
+     *
+     * @param array<string, mixed> $brief
+     * @param array<string, mixed> $settings
+     * @return array{prompt:string,negative_prompt:string,domain:string,preset:string}
+     */
+    private function compose_storybook(array $brief, array $settings): array {
+        $subject = (string) ($brief['primary_subject'] ?? 'imaginative adventure scene');
+        $raw = (string) ($brief['raw_user_request'] ?? $subject);
+
+        $parts = [
+            'CORE SCENE: Depict exactly this adventure as the main visual — ' . $subject,
+            'PURPOSE: modern premium picture-book / editorial illustration for children\'s imagination',
+            'VISUAL DIRECTION: contemporary cinematic storybook, polished editorial illustration, sophisticated but child-friendly',
+            'COMPOSITION: cinematic storytelling frame with imaginative scale, layered atmospheric depth, clear narrative focal point',
+            'LIGHTING: magical but believable atmospheric light — moonlight, star glow, soft volumetric haze where appropriate',
+            'STYLING & MATERIALS: expressive character design with coherent anatomy for the requested creatures; rich environmental detail',
+            'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette'] ?: 'sophisticated luminous night / dream palette without neon overload')),
+            'QUALITY CONSTRAINTS: emotional visual narrative; respect literal subjects, actions, and relationships from the user request',
+            'AVOID: dated cheap storybook look; clip-art; flat mural decoration; inserting an unrelated child observer in a bedroom unless the user asked for that framing',
+            'IMPORTANT: do not rewrite the concept into a child looking at a picture — show the requested scene itself',
+        ];
+        if (preg_match('/밤|별|night|star/u', mb_strtolower($raw))) {
+            $parts[] = 'SETTING DETAIL: night sky with stars as the primary backdrop';
+        }
+
+        return [
+            'prompt'          => implode('. ', $parts),
+            'negative_prompt' => 'dated storybook cliché, clip-art, flat mural, unrelated bedroom child observer, generic stock photo, low detail mush, plastic CGI toys',
+            'domain'          => 'storybook',
+            'preset'          => 'storybook',
         ];
     }
 
@@ -155,19 +219,16 @@ final class YooY_Image_Domain_Prompt_Composer {
             : 'elevated establishing architectural viewpoint with readable massing';
 
         $parts = [
-            'Photorealistic architectural visualization of ' . $subject,
-            'Subject: premium Korean residential apartment complex as sales-gallery hero',
-            'Purpose: ' . ($is_ad ? 'high-end Korean real-estate brochure / digital sales campaign key visual' : 'architectural visualization'),
-            'Composition: ' . ((string) ($brief['composition'] ?: 'strong massing hierarchy, leading road/landscape lines, brochure-ready framing — not a flat orthographic plate')),
-            'Camera: ' . $viewpoint . ', corrected verticals, believable human scale cues',
-            'Lighting: ' . ((string) ($brief['lighting'] ?: 'believable late-afternoon daylight with soft long shadows; crisp glass speculars')),
-            'Materials: detailed façade cladding variation, balcony railings, window mullions, glass reflections, coherent floor rhythm',
-            'Environment: layered landscaping, realistic pavement, cars for scale, contextual Seoul-like urban surroundings',
-            'Color: ' . ((string) ($brief['color_palette'] ?: 'authentic façade materials with natural greens')),
-            'Mood: ' . ((string) ($brief['tone'] ?: 'aspirational, trustworthy, premium residential')),
-            'Art direction: top Korean developer CGI/photography hybrid used in sales galleries',
-            'Avoid: identical clone towers with plastic smooth façades, toy-like round trees only, empty lifeless plaza, warped perspective',
-            'Constraints: no bent windows, no floating slabs, no melted edges',
+            'CORE SCENE: Photorealistic architectural visualization of ' . $subject,
+            'PURPOSE: ' . ($is_ad ? 'high-end real-estate sales campaign key visual (purpose only — no literal advertising text)' : 'architectural visualization'),
+            'VISUAL DIRECTION: premium but believable architecture, professional real-estate imagery',
+            'COMPOSITION: ' . $viewpoint . '; ' . ((string) ($brief['composition'] ?: 'strong massing hierarchy, leading landscape lines, brochure-ready framing — not a flat orthographic plate')),
+            'LIGHTING: ' . ((string) ($brief['lighting'] ?: 'believable late-afternoon daylight with soft long shadows; crisp glass speculars')),
+            'STYLING & MATERIALS: detailed façade cladding variation, balcony railings, window mullions, glass reflections, coherent floor rhythm',
+            'ENVIRONMENT: layered landscaping, realistic pavement, cars for scale, contextual urban surroundings',
+            'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette'] ?: 'authentic façade materials with natural greens')),
+            'QUALITY CONSTRAINTS: coherent geometry, straight verticals, plausible perspective, realistic windows',
+            'AVOID: identical clone towers, warped geometry, bland AI cityscape, fake luxury glow everywhere',
         ];
         if (!empty($brief['core_message'])) {
             $parts[] = 'Narrative focus: ' . mb_substr((string) $brief['core_message'], 0, 180);
@@ -199,22 +260,18 @@ final class YooY_Image_Domain_Prompt_Composer {
         $with_apt = (bool) preg_match('/아파트|단지|residential|apartment/u', $raw);
 
         $parts = [
-            'Editorial lifestyle advertising photograph of ' . $subject,
-            'Subject: authentic Korean couple/people in their 30s with natural anatomy, realistic hands, natural micro-expressions',
-            'Purpose: premium residential / lifestyle brand campaign key visual',
-            'Composition: ' . ((string) ($brief['composition'] ?: 'off-center editorial framing, environmental storytelling, mobile-safe hierarchy — not centered stock stare')),
-            'Camera: 50–85mm editorial lens, slight environmental context, cinematic depth',
-            'Lighting: ' . ((string) ($brief['lighting'] ?: 'directional golden-hour key with soft fill; editorial beauty light without plastic skin')),
-            'Materials: visible natural skin texture, fabric weave, hair detail, believable props',
-            'Environment: ' . ($with_apt
+            'CORE SCENE: ' . $subject,
+            'PURPOSE: premium residential / lifestyle brand campaign key visual (advertising intent — do not paint the word advertising)',
+            'VISUAL DIRECTION: contemporary sophisticated editorial photography — refined, believable, not fashion-model forced',
+            'COMPOSITION: ' . ((string) ($brief['composition'] ?: 'off-center editorial framing, environmental storytelling, mobile-safe hierarchy — not centered stock stare')),
+            'LIGHTING: ' . ((string) ($brief['lighting'] ?: 'directional golden-hour key with soft fill; editorial light without plastic skin')),
+            'STYLING & MATERIALS: natural skin texture with subtle imperfections; contemporary wardrobe and grooming; fabric weave; realistic hair',
+            'ENVIRONMENT: ' . ($with_apt
                 ? 'Seoul premium apartment complex with readable architecture and landscaping behind subjects'
                 : ((string) ($brief['visual_style'] ?: 'contextual lived-in environment matching the request'))),
-            'Color: ' . ((string) ($brief['color_palette'] ?: 'warm refined lifestyle grading')),
-            'Mood: ' . ((string) ($brief['tone'] ?: 'quiet genuine warmth — candid, not forced')),
-            'Art direction: Korean premium lifestyle campaign like high-end residential brochure photography',
-            'Pose direction: candid interaction (shared glance / walking / soft conversation) — forbid generic arms-around-waist stock smile at camera',
-            'Avoid: plastic skin, over-smoothed faces, identical beige outfit cliché, stiff catalog pose, uncanny symmetry',
-            'Constraints: no extra fingers, no arbitrary text overlays',
+            'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette'] ?: 'warm refined lifestyle grading, restrained palette')),
+            'QUALITY CONSTRAINTS: authentic Korean adults with natural anatomy, plausible hands, natural micro-expressions; candid interaction',
+            'AVOID: generic AI stock people, stiff catalog pose, exaggerated smile, plastic skin, outdated hair/fashion, mannequin faces, tacky luxury glow',
         ];
 
         return [
@@ -233,17 +290,15 @@ final class YooY_Image_Domain_Prompt_Composer {
     private function compose_portrait(array $brief, array $settings): array {
         $subject = (string) ($brief['primary_subject'] ?? 'human subject');
         $parts = [
-            'Editorial commercial portrait of ' . $subject,
-            'Subject: ' . $subject . ' with natural anatomy and realistic skin',
-            'Purpose: portrait / talent campaign visual',
-            'Composition: ' . ((string) ($brief['composition'] ?: 'close to medium shot, eyes as primary focal point')),
-            'Camera: 85mm portrait lens feel, shallow but controlled depth of field',
-            'Lighting: ' . ((string) ($brief['lighting'] ?: 'soft Rembrandt or beauty key with gentle fill')),
-            'Materials: natural skin pores, realistic hair strands, wardrobe fabric detail',
-            'Environment: ' . ((string) ($brief['visual_style'] ?: 'clean studio or contextual background with separation')),
-            'Mood: ' . ((string) ($brief['tone'] ?: 'confident, authentic, editorial')),
-            'Art direction: magazine-cover portrait quality',
-            'Constraints: plausible hands if visible, consistent age/ethnicity/context, no plastic skin',
+            'CORE SCENE: ' . $subject . ' with natural anatomy and realistic skin',
+            'PURPOSE: editorial / commercial portrait',
+            'VISUAL DIRECTION: contemporary sophisticated portrait — refined and believable, not forced glamour',
+            'COMPOSITION: ' . ((string) ($brief['composition'] ?: 'close to medium shot, eyes as primary focal point')),
+            'LIGHTING: ' . ((string) ($brief['lighting'] ?: 'soft Rembrandt or beauty key with gentle fill')),
+            'STYLING & MATERIALS: natural skin pores, realistic hair, contemporary wardrobe appropriate to context',
+            'COLOR & ATMOSPHERE: ' . ((string) ($brief['tone'] ?: 'confident, authentic, editorial')),
+            'QUALITY CONSTRAINTS: plausible hands if visible; consistent age/context; subtle natural imperfections',
+            'AVOID: plastic skin, uncanny valley, distorted face, bad hands, cheap corporate-stock smile, outdated fashion',
         ];
         return [
             'prompt'          => implode('. ', $parts),

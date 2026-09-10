@@ -132,6 +132,15 @@ final class YooY_Image_Generator {
             $gallery_started = microtime(true);
             $gallery_ids = $this->gallery->save_from_result($user_id, $entry);
             $perf['gallery_save_ms'] = (int) round((microtime(true) - $gallery_started) * 1000);
+            $entry['gallery_ids'] = $gallery_ids;
+            if (!empty($gallery_ids[0]) && class_exists('YooY_Gallery_Store')) {
+                $gstore = new YooY_Gallery_Store();
+                $gitem = $gstore->get($user_id, (string) $gallery_ids[0]);
+                if (is_array($gitem) && !empty($gitem['title'])) {
+                    $entry['title'] = (string) $gitem['title'];
+                    $entry['display_title'] = (string) $gitem['title'];
+                }
+            }
             if (class_exists('YooY_OpenAI_B64_Asset') && !empty($gallery_ids) && current_user_can('manage_options')) {
                 $meta = is_array($entry['meta'] ?? null) ? $entry['meta'] : [];
                 $asset_debug = is_array($meta['openai_asset_debug'] ?? null) ? $meta['openai_asset_debug'] : [];

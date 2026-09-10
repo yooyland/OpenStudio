@@ -56,8 +56,15 @@ final class YooY_Studio_Intent_Analyzer {
             'project_context'    => is_array($hint['project_context'] ?? null) ? $hint['project_context'] : [],
             'confidence'         => $raw === '' ? 0.0 : ($domain !== 'general' ? 0.86 : 0.62),
             'raw_user_request'   => $raw,
-            'wants_product'      => $domain === 'product' || $domain === 'ecommerce' || $domain === 'fashion' || $domain === 'food',
+            'wants_product'      => in_array($domain, ['product', 'ecommerce', 'fashion', 'food', 'beauty'], true),
             'wants_political'    => $domain === 'politics',
+            'art_direction_preset' => class_exists('YooY_Image_Art_Direction')
+                ? YooY_Image_Art_Direction::resolve_preset([
+                    'content_domain'   => $domain,
+                    'raw_user_request' => $raw,
+                    'primary_subject'  => $primary,
+                ])
+                : '',
         ];
 
         return $intent;
@@ -74,19 +81,29 @@ final class YooY_Studio_Intent_Analyzer {
             return sanitize_key((string) $hint['content_domain']);
         }
 
+        // Storybook / fantasy adventure before lifestyle "가족" or travel "여행".
+        if ($this->looks_like_storybook($lower)) {
+            return 'storybook';
+        }
+        if ($this->looks_like_fantasy($lower)) {
+            return 'fantasy';
+        }
+
         $rules = [
             'politics'      => ['정치', '이재명', '대통령', '선거', '정책', '국회', '정당', '대선', '여야', 'political', 'president', 'election', 'policy'],
-            'lifestyle'     => ['부부', '가족', '커플', '라이프스타일', '일상', '행복한', '사람들', 'lifestyle', 'couple', 'family'],
+            'beauty'        => ['화장품', '스킨케어', '세럼', '향수', '뷰티', 'cosmetic', 'skincare', 'beauty', 'serum', 'perfume'],
+            'lifestyle'     => ['부부', '커플', '라이프스타일', '일상', '행복한', '사람들', 'lifestyle', 'couple'],
             'architecture'  => ['조감도', '아파트', '건축', '단지', '외관', '건물', '빌딩', '타워', '주거단지', '분양', 'architectural', 'architecture', 'aerial view', "bird's eye", 'facade', 'residential complex', 'real estate visualization'],
-            'product'       => ['제품', '상품', '향수', '화장품', '스킨케어', '크림', '세럼', '병', '패키지', 'perfume', 'cosmetic', 'skincare', 'bottle', 'product', 'cream', 'serum'],
+            'product'       => ['제품', '상품', '크림', '병', '패키지', 'bottle', 'product', 'cream', 'packshot', '제품컷'],
             'ecommerce'     => ['스마트스토어', '쿠팡', '이커머스', '상세페이지', 'ecommerce', 'coupang'],
+            'cinematic'     => ['시네마틱', '영화적', 'cinematic', 'film still'],
             'travel'        => ['여행', '관광', '제주', '휴가', 'tour', 'travel'],
             'corporate'     => ['회사 소개', '기업', '채용', 'corporate', 'recruit'],
             'education'     => ['교육', '학교', '강의', 'education'],
             'entertainment' => ['영화', '엔터', '드라마', 'entertainment', 'movie'],
             'food'          => ['음식', '맛집', '요리', 'food', 'restaurant'],
             'fashion'       => ['패션', '의류', 'fashion', 'apparel'],
-            'portrait'      => ['인물 사진', '초상', 'portrait'],
+            'portrait'      => ['인물 사진', '초상', 'portrait', '인물'],
             'editorial'     => ['매거진', 'editorial', '화보'],
             'social'        => ['사회 캠페인', '공익', 'social campaign', 'psa'],
             'brand'         => ['브랜드', 'brand identity', '로고'],
@@ -95,6 +112,10 @@ final class YooY_Studio_Intent_Analyzer {
         foreach ($rules as $domain => $needles) {
             foreach ($needles as $n) {
                 if ($n !== '' && mb_strpos($lower, mb_strtolower($n)) !== false) {
+                    // Human family in apartment → lifestyle, not architecture-only.
+                    if ($domain === 'architecture' && preg_match('/부부|커플|사람들|이야기하는|couple|family/u', $lower)) {
+                        return 'lifestyle';
+                    }
                     return $domain;
                 }
             }
@@ -118,6 +139,24 @@ final class YooY_Studio_Intent_Analyzer {
 
     private function looks_like_product(string $lower): bool {
         return (bool) preg_match('/제품|화장품|스킨케어|크림|향수|상품|cosmetic|skincare|product|cream|perfume/u', $lower);
+    }
+
+    private function looks_like_storybook(string $lower): bool {
+        if (preg_match('/어린이|동화|그림책|아동|키즈|storybook|fairy.?tale|picture.?book/u', $lower)) {
+            return true;
+        }
+        // Dream + imaginative adventure animals (literal scene, not "child imagining").
+        if (preg_match('/꿈|상상/u', $lower) && preg_match('/펭귄|고래|용|요정|마법|날아|하늘을|세계\s*여행/u', $lower)) {
+            return true;
+        }
+        if (preg_match('/펭귄/u', $lower) && preg_match('/고래|하늘|날/u', $lower)) {
+            return true;
+        }
+        return false;
+    }
+
+    private function looks_like_fantasy(string $lower): bool {
+        return (bool) preg_match('/판타지|드래곤|유니콘|마법사|fantasy|dragon|unicorn|wizard/u', $lower);
     }
 
     private function classify_ad_subtype(string $domain, string $lower): string {
@@ -148,8 +187,8 @@ final class YooY_Studio_Intent_Analyzer {
             return sanitize_text_field((string) $hint['primary_subject']);
         }
         $cut = mb_substr(trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw), 0, 160);
-        if (in_array($domain, ['lifestyle', 'architecture', 'product', 'brand'], true) && $cut !== '') {
-            // Prefer the full user request as subject for commercial domains —
+        if (in_array($domain, ['lifestyle', 'architecture', 'product', 'brand', 'storybook', 'fantasy', 'beauty', 'cinematic'], true) && $cut !== '') {
+            // Prefer the full user request as subject for commercial / narrative domains —
             // place-only entity extraction (e.g. "Seoul") is too thin for art direction.
             return $cut;
         }
@@ -190,8 +229,14 @@ final class YooY_Studio_Intent_Analyzer {
         if ($ad_subtype === 'tourism_advertisement' || $domain === 'travel') {
             return 'tourism campaign visual';
         }
-        if ($ad_subtype === 'product_advertisement' || $domain === 'product' || $domain === 'ecommerce') {
+        if ($ad_subtype === 'product_advertisement' || $domain === 'product' || $domain === 'ecommerce' || $domain === 'beauty') {
             return 'premium product advertising photograph';
+        }
+        if ($domain === 'storybook') {
+            return 'modern premium picture-book illustration';
+        }
+        if ($domain === 'fantasy') {
+            return 'polished fantasy editorial illustration';
         }
         if ($domain === 'architecture') {
             if (preg_match('/조감|aerial|bird.?s.?eye|birdseye/u', $lower)) {
@@ -256,13 +301,19 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'travel') {
             return 'cinematic tourism campaign';
         }
-        if ($domain === 'product' || $domain === 'ecommerce') {
+        if ($domain === 'product' || $domain === 'ecommerce' || $domain === 'beauty') {
             return 'premium product photography';
+        }
+        if ($domain === 'storybook') {
+            return 'modern cinematic storybook illustration';
+        }
+        if ($domain === 'fantasy') {
+            return 'polished fantasy editorial illustration';
         }
         if ($domain === 'architecture') {
             return 'photorealistic architectural visualization, real-estate marketing grade';
         }
-        if ($domain === 'lifestyle') {
+        if ($domain === 'lifestyle' || $domain === 'cinematic') {
             return 'editorial lifestyle campaign photography';
         }
         if ($domain === 'portrait') {
@@ -278,13 +329,16 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'politics') {
             return 'magazine-cover hierarchy with headline space and message zones';
         }
-        if ($domain === 'product') {
+        if ($domain === 'product' || $domain === 'beauty') {
             return 'hero product centered composition with elegant negative space';
+        }
+        if ($domain === 'storybook' || $domain === 'fantasy') {
+            return 'cinematic storytelling wide frame with imaginative scale and atmospheric depth';
         }
         if ($domain === 'architecture') {
             return 'wide establishing aerial or elevated viewpoint with accurate building proportions';
         }
-        if ($domain === 'lifestyle') {
+        if ($domain === 'lifestyle' || $domain === 'cinematic') {
             return 'editorial lifestyle framing with strong human focal point';
         }
         if ($domain === 'portrait') {
@@ -303,10 +357,13 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'architecture') {
             return 'natural daylight materials, realistic façade colors';
         }
-        if ($domain === 'product') {
+        if ($domain === 'product' || $domain === 'beauty') {
             return 'clean brand neutrals with controlled accent color';
         }
-        if ($domain === 'lifestyle') {
+        if ($domain === 'storybook' || $domain === 'fantasy') {
+            return 'sophisticated child-friendly cinematic palette with luminous night accents';
+        }
+        if ($domain === 'lifestyle' || $domain === 'cinematic') {
             return 'warm natural lifestyle grading';
         }
         return 'refined professional color grading';
@@ -336,8 +393,17 @@ final class YooY_Studio_Intent_Analyzer {
 
     /** @return string[] */
     private function forbidden_for_domain(string $domain): array {
-        if (in_array($domain, ['product', 'ecommerce', 'fashion', 'food'], true)) {
-            return ['political poster unrelated to product', 'random celebrity unless requested'];
+        if (in_array($domain, ['product', 'ecommerce', 'fashion', 'food', 'beauty'], true)) {
+            return ['political poster unrelated to product', 'random celebrity unless requested', 'invented logos', 'random Hangul product text'];
+        }
+        if ($domain === 'storybook' || $domain === 'fantasy') {
+            return [
+                'dated cheap storybook look',
+                'clip-art aesthetics',
+                'flat mural decoration',
+                'unrelated child observer in bedroom unless requested',
+                'generic stock photo humans unless requested',
+            ];
         }
         if ($domain === 'architecture') {
             return [

@@ -240,6 +240,7 @@ final class YooY_Gallery_Store {
                     'prompt'          => $updated['prompt'] ?? '',
                     'filename'        => $meta['filename'] ?? '',
                     'type'            => $updated['type'] ?? 'image',
+                    'intent_domain'   => $meta['intent_domain'] ?? '',
                     'existing_titles' => $used_titles,
                 ]);
                 $changed = true;
@@ -341,6 +342,9 @@ final class YooY_Gallery_Store {
         if (!empty($item['project_id'])) {
             $meta['project_id'] = sanitize_text_field($item['project_id']);
         }
+        if (!empty($item['intent_domain'])) {
+            $meta['intent_domain'] = sanitize_key((string) $item['intent_domain']);
+        }
         if (!empty($item['filename'])) {
             $meta['filename'] = sanitize_text_field($item['filename']);
         }
@@ -376,10 +380,13 @@ final class YooY_Gallery_Store {
 
         $title = YooY_Gallery_Title_Service::resolve([
             'title'           => $item['title'] ?? '',
-            'user_prompt'     => $meta['user_prompt'] ?? '',
+            'user_prompt'     => $meta['user_prompt'] ?? $item['user_prompt'] ?? '',
+            'raw_user_request'=> $meta['user_prompt'] ?? $item['user_prompt'] ?? '',
             'prompt'          => $prompt,
             'filename'        => $meta['filename'] ?? '',
             'type'            => $type,
+            'intent_domain'   => $meta['intent_domain'] ?? $item['intent_domain'] ?? '',
+            'content_domain'  => $meta['intent_domain'] ?? $item['intent_domain'] ?? '',
             'existing_titles' => $existing_titles,
         ]);
 

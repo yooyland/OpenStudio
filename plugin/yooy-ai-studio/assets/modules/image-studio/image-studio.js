@@ -2303,8 +2303,11 @@
   }
 
   function resultTitle(data) {
+    if (data && (data.display_title || data.title)) {
+      return String(data.display_title || data.title);
+    }
     var prompt = (data && (data.user_prompt || data.prompt)) || state.lastUserPrompt || state.settings.last_prompt || '';
-    if (!prompt) return 'Untitled Work';
+    if (!prompt) return '새로운 시각 작품';
     return prompt.length > 56 ? prompt.slice(0, 56) + '…' : prompt;
   }
 
@@ -2387,14 +2390,21 @@
 
   function resultBoardToolbarHtml() {
     if (!state.lastResult || !state.lastResult.job_id) return '';
+    var qi = (state.lastResult.composer_meta && state.lastResult.composer_meta.prompt_intelligence) || {};
+    var lowConfidence = qi.quality_score != null && Number(qi.quality_score) < 72;
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
         resultToolbarBtn('reuse', '이어서 만들기') +
+        (lowConfidence ? resultToolbarBtn('variation', '다른 시안 만들기') : '') +
         resultToolbarBtn('publish', '공개하기') +
         resultToolbarBtn('project', '프로젝트에 추가') +
         resultToolbarBtn('download', '다운로드') +
         resultToolbarBtn('gallery', 'Gallery에서 보기') +
-      '</div></div>';
+      '</div>' +
+      (lowConfidence
+        ? '<p class="yis-result-board__quality-hint">결과가 아쉽다면 「다른 시안 만들기」로 요청을 다시 불러온 뒤, 생성하기로 새 시안을 만들 수 있습니다.</p>'
+        : '') +
+    '</div>';
   }
 
   function resultBoardHtml() {
@@ -2498,17 +2508,13 @@
     }
 
     if (action === 'variation') {
-      if (Core && Core.gallery && Core.gallery.regenerate) {
-        Core.gallery.regenerate(galleryId).then(function () {
-          state.settings.last_prompt = (state.settings.last_prompt || '') + ' — creative variation';
-          state.tab = 'generate';
-          setTab(root);
-          renderTab(root);
-        }).catch(function (err) { alert(err.message || 'Variation failed.'); });
-      } else {
-        reusePrompt(galleryId, 'result', root);
-        state.settings.last_prompt = (state.settings.last_prompt || '') + ' — creative variation';
-        renderTab(root);
+      // Explicit user choice — refill composer; user still presses 생성하기 (no silent charge).
+      reusePrompt(galleryId, 'result', root);
+      state.tab = 'generate';
+      setTab(root);
+      renderTab(root);
+      if (typeof showStudioToast === 'function') {
+        showStudioToast('요청을 다시 불러왔습니다. 생성하기로 다른 시안을 만들 수 있습니다.');
       }
       return;
     }

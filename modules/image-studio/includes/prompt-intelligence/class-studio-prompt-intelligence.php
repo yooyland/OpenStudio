@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) exit;
 
 require_once __DIR__ . '/class-studio-intent-analyzer.php';
 require_once __DIR__ . '/class-studio-creative-brief-builder.php';
+require_once __DIR__ . '/class-image-art-direction.php';
 require_once __DIR__ . '/class-image-domain-prompt-composer.php';
 require_once __DIR__ . '/class-studio-prompt-validator.php';
 
@@ -89,10 +90,11 @@ final class YooY_Studio_Prompt_Intelligence {
             'negative_prompt'  => $composed['negative_prompt'],
             'intent_domain'    => $composed['domain'],
             'preset'           => $composed['preset'] ?? 'photoreal',
+            'art_direction'    => $composed['art_direction'] ?? ($composed['preset'] ?? ''),
             'validation'       => $validation,
             'quality'          => $quality,
             'rewrite_count'    => $rewrite_count,
-            'prompt_version'   => 'spi-image-1',
+            'prompt_version'   => 'spi-image-2',
             'blocked'          => empty($validation['ok']) || (($quality['score'] ?? 0) < 60),
         ];
     }

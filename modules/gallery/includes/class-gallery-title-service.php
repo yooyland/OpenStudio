@@ -2,78 +2,61 @@
 if (!defined('ABSPATH')) exit;
 
 /**
- * Generates human-friendly gallery/work titles from prompts and filenames.
+ * Generates human-friendly gallery/work titles from user intent.
+ * Display titles must feel like creative work names — never "광고 이미지 (9)".
  */
 final class YooY_Gallery_Title_Service {
 
     private const PLACEHOLDERS = ['untitled', 'work', 'generated', ''];
 
+    /** UI / purpose words that must not become title content. */
+    private const PURPOSE_NOISE = [
+        '이미지', '광고 이미지', '생성 이미지', 'ai 이미지', 'ai image', 'generated image',
+        '만들어줘', '만들어주세요', '해주세요', '해줘', '생성해줘', '그려줘', '그려주세요',
+        '광고', '캠페인', '브랜드', '분양', '포스터', '썸네일', '제품컷', '제품 사진',
+        'image', 'advert', 'advertising', 'campaign', 'please', 'create', 'generate', 'draw',
+    ];
+
     public static function resolve(array $context): string {
         $explicit = trim((string) ($context['title'] ?? ''));
-        if ($explicit !== '' && !self::is_placeholder($explicit)) {
-            $title = self::clamp($explicit, 35);
-            return self::ensure_unique($title, self::existing_titles_from_context($context));
+        if ($explicit !== '' && !self::is_placeholder($explicit) && !self::looks_mechanical($explicit)) {
+            return self::clamp($explicit, 28);
         }
 
-        $user_prompt = trim((string) ($context['user_prompt'] ?? ''));
+        $user_prompt = trim((string) ($context['user_prompt'] ?? $context['raw_user_request'] ?? ''));
         $prompt      = trim((string) ($context['prompt'] ?? ''));
         $source      = $user_prompt !== '' ? $user_prompt : $prompt;
+        $domain      = sanitize_key((string) ($context['intent_domain'] ?? $context['content_domain'] ?? ''));
+        $type        = (string) ($context['type'] ?? 'image');
 
         if ($source !== '') {
-            $from_prompt = self::from_prompt($source, (string) ($context['type'] ?? 'image'));
-            if ($from_prompt !== '') {
-                return self::ensure_unique($from_prompt, self::existing_titles_from_context($context));
+            $creative = self::creative_title($source, $domain, $type, $context);
+            if ($creative !== '') {
+                // Display titles may duplicate; gallery_id is the unique key.
+                return $creative;
             }
         }
 
         $filename = trim((string) ($context['filename'] ?? ''));
         if ($filename !== '') {
             $title = self::from_filename($filename);
-            return self::ensure_unique($title, self::existing_titles_from_context($context));
+            if ($title !== '' && !self::looks_mechanical($title)) {
+                return $title;
+            }
         }
 
-        $title = self::fallback((string) ($context['type'] ?? 'image'));
-        return self::ensure_unique($title, self::existing_titles_from_context($context));
+        return self::fallback($type);
     }
 
     /**
-     * Append (2), (3)... when the same title already exists.
+     * Kept for Store callers — display titles no longer get (2)/(9) counters.
      *
      * @param string   $title
      * @param string[] $existing_titles
      */
     public static function ensure_unique(string $title, array $existing_titles = []): string {
-        $title = self::cleanup_spaces($title);
-        if ($title === '' || empty($existing_titles)) {
-            return $title;
-        }
-
-        $existing = [];
-        foreach ($existing_titles as $existing_title) {
-            $existing_title = self::cleanup_spaces((string) $existing_title);
-            if ($existing_title !== '') {
-                $existing[] = $existing_title;
-            }
-        }
-        if (empty($existing)) {
-            return $title;
-        }
-
-        if (!in_array($title, $existing, true)) {
-            return $title;
-        }
-
-        $base = self::base_title($title);
-        $n = 2;
-        while ($n < 1000) {
-            $candidate = self::with_numeric_suffix($base, $n);
-            if (!in_array($candidate, $existing, true)) {
-                return $candidate;
-            }
-            $n++;
-        }
-
-        return self::with_numeric_suffix($base, $n);
+        unset($existing_titles);
+        return self::cleanup_spaces($title);
     }
 
     public static function base_title(string $title): string {
@@ -82,18 +65,6 @@ final class YooY_Gallery_Title_Service {
             return self::cleanup_spaces((string) ($matches[1] ?? $title));
         }
         return $title;
-    }
-
-    private static function with_numeric_suffix(string $base, int $n, int $max = 35): string {
-        $suffix = ' (' . $n . ')';
-        $max_base = max(5, $max - mb_strlen($suffix));
-        $base = self::clamp($base, $max_base);
-        return $base . $suffix;
-    }
-
-    private static function existing_titles_from_context(array $context): array {
-        $existing = $context['existing_titles'] ?? [];
-        return is_array($existing) ? $existing : [];
     }
 
     public static function is_placeholder(string $title): bool {
@@ -106,184 +77,193 @@ final class YooY_Gallery_Title_Service {
                 return true;
             }
         }
-        return (bool) preg_match('/^(untitled|generated|work)(\s|$)/iu', $normalized);
+        return (bool) preg_match('/^(untitled|generated|work|ai\s*이미지|ai\s*image)(\s|$)/iu', $normalized);
     }
 
-    private static function from_prompt(string $prompt, string $type): string {
-        $parts = preg_split('/[—–\-]\s*/u', $prompt, 2);
-        $lead  = trim((string) ($parts[0] ?? $prompt));
-        $tail  = trim((string) ($parts[1] ?? ''));
+    /**
+     * @param array<string, mixed> $context
+     */
+    private static function creative_title(string $source, string $domain, string $type, array $context): string {
+        $clean = self::strip_purpose_language($source);
+        $lower = mb_strtolower($clean);
 
-        $lead = self::strip_request_suffix($lead);
-        $combined = $lead;
-        if ($tail !== '') {
-            $combined = self::merge_prompt_parts($lead, $tail, $type);
+        // Domain / scene-specific creative titles (deterministic, concept-faithful).
+        $special = self::scene_title($clean, $lower, $domain);
+        if ($special !== '') {
+            return self::clamp($special, 22);
         }
 
-        if ($combined === '') {
-            $combined = self::strip_request_suffix($prompt);
+        $subject = self::extract_visual_subject($clean, $domain);
+        if ($subject === '') {
+            $subject = self::first_meaningful_chunk($clean);
         }
-
-        if (mb_strlen($combined) > 35) {
-            $combined = self::keyword_title($combined, $type);
-        }
-
-        $combined = self::cleanup_spaces($combined);
-        if ($combined === '') {
+        if ($subject === '') {
             return '';
         }
 
-        return self::clamp($combined, 35);
+        // Prefer short natural subject phrase; avoid appending type/purpose words.
+        if (mb_strlen($subject) <= 22 && !self::looks_mechanical($subject)) {
+            return self::clamp($subject, 22);
+        }
+
+        return self::clamp($subject, 22);
     }
 
-    private static function merge_prompt_parts(string $lead, string $tail, string $type): string {
-        $modifiers = [];
-        if (preg_match('/한국|korea|k-?culture/iu', $lead . ' ' . $tail)) {
-            $modifiers[] = '한국';
+    private static function scene_title(string $clean, string $lower, string $domain): string {
+        // Penguin family whale adventure
+        if (preg_match('/펭귄/u', $clean) && preg_match('/고래/u', $clean)) {
+            if (preg_match('/밤|별|night|star/u', $lower)) {
+                return '별을 건너는 펭귄 가족';
+            }
+            return '고래 등에 올라탄 세계여행';
         }
-        if (preg_match('/\bTV\b|티비|television/iu', $tail)) {
-            $modifiers[] = 'TV';
+        if (preg_match('/펭귄/u', $clean) && preg_match('/가족|family/u', $lower)) {
+            return '하늘을 나는 펭귄 가족';
         }
-        if (preg_match('/디지털|digital/iu', $tail)) {
-            $modifiers[] = '디지털';
-        }
-
-        $subject = self::extract_subject($lead);
-        $theme   = '';
-        if (preg_match('/광고|advertis|commercial|campaign/iu', $lead . ' ' . $tail)) {
-            $theme = '광고';
-        } elseif (preg_match('/포스터|poster/iu', $lead . ' ' . $tail)) {
-            $theme = '포스터';
-        } elseif (preg_match('/썸네일|thumbnail/iu', $lead . ' ' . $tail)) {
-            $theme = '썸네일';
+        if (preg_match('/고래/u', $clean) && preg_match('/여행|하늘|날/u', $clean)) {
+            return '달빛 아래 고래여행';
         }
 
-        $suffix = self::type_suffix($type);
-        $chunks = array_filter(array_merge($modifiers, [$subject, $theme, $suffix]));
-        if (count($chunks) >= 2) {
-            return implode(' ', $chunks);
+        // Summer beach cosmetics
+        if (preg_match('/화장품|스킨케어|크림|세럼|cosmetic|skincare/u', $lower)
+            && preg_match('/여름|바다|해변|beach|summer|sea/u', $lower)) {
+            return '바다빛을 담은 여름';
+        }
+        if (preg_match('/스킨케어|크림|skincare|cream/u', $lower)
+            && preg_match('/럭셔리|프리미엄|luxury|premium/u', $lower)) {
+            return '빛을 담은 스킨케어';
+        }
+        if (preg_match('/화장품|스킨케어|크림|세럼|향수/u', $lower)) {
+            return '순수함의 한 순간';
         }
 
-        if (mb_strlen($lead) <= 35) {
-            return $lead;
+        // Lifestyle couple (before architecture keywords like 아파트)
+        if (preg_match('/부부|커플|couple/u', $clean) && preg_match('/아파트|서울|단지/u', $clean)) {
+            return '도시의 오후, 둘';
+        }
+        if (preg_match('/부부|커플|couple/u', $clean)) {
+            return '자연스러운 하루의 대화';
         }
 
-        return self::keyword_title($lead, $type);
+        // Architecture / apartment
+        if ($domain === 'architecture' || preg_match('/아파트|조감|분양|단지|건축/u', $clean)) {
+            if (preg_match('/조감/u', $clean)) {
+                return '한강빛 주거단지 조감도';
+            }
+            if (preg_match('/분양|광고|캠페인/u', $lower)) {
+                return '빛이 머무는 프리미엄 라이프';
+            }
+            return '도시와 만나는 하루';
+        }
+
+        // Children dream without specific adventure nouns already handled
+        if (preg_match('/어린이|꿈|동화|storybook/u', $lower) && preg_match('/여행|하늘|바다/u', $clean)) {
+            return '꿈속의 세계여행';
+        }
+
+        return '';
     }
 
-    private static function extract_subject(string $text): string {
-        $text = self::strip_request_suffix($text);
-        $text = preg_replace('/\b(여성|남성|male|female)\b/iu', '', $text);
-        $text = self::cleanup_spaces($text);
+    private static function extract_visual_subject(string $text, string $domain): string {
+        $text = self::strip_purpose_language($text);
+        // Keep Korean phrase up to first filler verb leftovers
+        $text = preg_replace('/\s*(을|를|이|가|은|는)?\s*$/u', '', $text);
 
-        if (preg_match('/(수영복|스마트스토어|제품|product|brand|브랜드|고래|펭귄|여행|travel|movie|영화|mv|뮤직비디오)/iu', $text, $m)) {
-            $keyword = trim($m[1]);
-            if (preg_match('/수영복/iu', $keyword)) {
-                return '수영복';
-            }
-            if (preg_match('/고래/iu', $text) && preg_match('/여행|travel/iu', $text)) {
-                return '고래 타고 세계여행';
-            }
-            if (preg_match('/펭귄/iu', $text) && preg_match('/가족|family/iu', $text)) {
-                return '펭귄 가족';
+        if (preg_match('/(.{2,18}?)(을|를)\s/u', $text, $m)) {
+            $cand = self::cleanup_spaces((string) $m[1]);
+            if ($cand !== '' && !self::looks_mechanical($cand)) {
+                return $cand;
             }
         }
 
         $words = preg_split('/\s+/u', $text);
         $words = is_array($words) ? array_values(array_filter($words)) : [];
-        if (count($words) > 6) {
-            return implode(' ', array_slice($words, 0, 5));
-        }
-
-        return $text;
-    }
-
-    private static function keyword_title(string $text, string $type): string {
-        $text = self::strip_request_suffix($text);
-        $keywords = [];
-
-        $map = [
-            '한국' => '한국', 'korea' => '한국', 'tv' => 'TV', '티비' => 'TV',
-            '수영복' => '수영복', '광고' => '광고', 'advert' => '광고',
-            '고래' => '고래', '여행' => '여행', 'travel' => '여행',
-            '펭귄' => '펭귄', '가족' => '가족', 'family' => '가족',
-            '포스터' => '포스터', 'poster' => '포스터', '제품' => '제품',
-            'product' => '제품', '영상' => '영상', 'video' => '영상',
-            '음악' => '음악', 'music' => '음악', '음성' => '음성', 'voice' => '음성',
-        ];
-
-        $lower = mb_strtolower($text);
-        foreach ($map as $needle => $label) {
-            if (mb_strpos($lower, mb_strtolower($needle)) !== false) {
-                $keywords[] = $label;
+        $keep = [];
+        foreach ($words as $w) {
+            $wl = mb_strtolower($w);
+            if (self::is_noise_token($wl)) {
+                continue;
+            }
+            $keep[] = $w;
+            if (count($keep) >= 5) {
+                break;
             }
         }
-        $keywords = array_values(array_unique($keywords));
-
-        if (!empty($keywords)) {
-            $title = implode(' ', array_slice($keywords, 0, 4));
-            $suffix = self::type_suffix($type);
-            if ($suffix !== '' && mb_strpos($title, $suffix) === false && mb_strlen($title) < 28) {
-                $title .= ' ' . $suffix;
-            }
-            return self::clamp(self::cleanup_spaces($title), 35);
-        }
-
-        $sentence = preg_split('/[.!?\n]/u', $text, 2)[0];
-        $sentence = self::cleanup_spaces((string) $sentence);
-        if (mb_strlen($sentence) > 35) {
-            $sentence = mb_substr($sentence, 0, 35);
-            $sentence = preg_replace('/\s+\S*$/u', '', $sentence);
-        }
-        return self::clamp($sentence, 35);
+        return self::cleanup_spaces(implode(' ', $keep));
     }
 
-    private static function strip_request_suffix(string $text): string {
+    private static function first_meaningful_chunk(string $text): string {
+        $text = self::strip_purpose_language($text);
+        $parts = preg_split('/[.!?\n,]/u', $text);
+        $chunk = self::cleanup_spaces((string) ($parts[0] ?? $text));
+        return self::clamp($chunk, 22);
+    }
+
+    private static function strip_purpose_language(string $text): string {
         $text = trim($text);
-        $text = preg_replace('/\s*(해\s*줘|해주세요|만들어\s*줘|만들어주세요|생성해\s*줘|제작해\s*줘|please|create|generate)\s*$/iu', '', $text);
-        $text = preg_replace('/\s{2,}/u', ' ', $text);
-        return trim($text);
+        $text = preg_replace('/\s*(해\s*줘|해주세요|만들어\s*줘|만들어주세요|생성해\s*줘|그려\s*줘|그려주세요|please|create|generate|draw)\s*$/iu', '', $text);
+        foreach (self::PURPOSE_NOISE as $noise) {
+            if ($noise === '') {
+                continue;
+            }
+            $text = preg_replace('/\b' . preg_quote($noise, '/') . '\b/iu', ' ', $text);
+            // Korean phrases without word boundaries
+            $text = str_replace($noise, ' ', $text);
+        }
+        $text = preg_replace('/\s*(을|를|이|가)?\s*$/u', '', $text);
+        return self::cleanup_spaces((string) $text);
+    }
+
+    private static function is_noise_token(string $token): bool {
+        foreach (self::PURPOSE_NOISE as $noise) {
+            if ($noise !== '' && mb_strtolower($noise) === $token) {
+                return true;
+            }
+        }
+        return in_array($token, ['위한', '있는', '하는', '그릴', '것이다', '배경으로'], true);
+    }
+
+    private static function looks_mechanical(string $title): bool {
+        $t = mb_strtolower(trim($title));
+        if (preg_match('/\((\d+)\)$/u', $t)) {
+            return true;
+        }
+        if (preg_match('/이미지|광고 이미지|generated image|ai image/u', $t)) {
+            return true;
+        }
+        if (preg_match('/^(한국|광고|이미지)(\s+(한국|광고|이미지))*$/u', $t)) {
+            return true;
+        }
+        return false;
     }
 
     private static function from_filename(string $filename): string {
         $name = pathinfo($filename, PATHINFO_FILENAME);
         $name = preg_replace('/[_\-]+/', ' ', (string) $name);
         $name = self::cleanup_spaces((string) $name);
-        if ($name === '') {
+        if ($name === '' || self::looks_mechanical($name)) {
             return '';
         }
-        return self::clamp($name, 35);
-    }
-
-    private static function type_suffix(string $type): string {
-        switch ($type) {
-            case 'image':
-                return '이미지';
-            case 'video':
-                return '영상';
-            case 'music':
-                return '음악';
-            case 'voice':
-                return '음성';
-            case 'writing':
-                return '글';
-            case 'translation':
-                return '번역';
-            case 'avatar':
-                return '아바타';
-            default:
-                return '';
-        }
+        return self::clamp($name, 22);
     }
 
     private static function fallback(string $type): string {
-        $label = self::type_suffix($type);
-        if ($label === '') {
-            $label = 'AI 작품';
-        } else {
-            $label = 'AI ' . $label;
+        switch ($type) {
+            case 'video':
+                return '새로운 영상 작품';
+            case 'music':
+                return '새로운 음악 작품';
+            case 'voice':
+                return '새로운 음성 작품';
+            case 'writing':
+                return '새로운 글 작품';
+            case 'translation':
+                return '새로운 번역 작품';
+            case 'avatar':
+                return '새로운 아바타 작품';
+            default:
+                return '새로운 시각 작품';
         }
-        return $label . ' ' . date_i18n('Y-m-d H:i');
     }
 
     private static function cleanup_spaces(string $text): string {
