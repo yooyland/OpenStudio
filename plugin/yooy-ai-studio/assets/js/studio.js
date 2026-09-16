@@ -3206,6 +3206,9 @@
 
       workspaceCache = { project: project, works: works };
       setActiveProjectFromRecord(project);
+      try {
+        window.YooYStudioWorkspace = { project: project, works: works, projectId: project.id || currentProjectId || '' };
+      } catch (wsExp) { /* ignore */ }
 
       if (titleEl) titleEl.textContent = project.title || '프로젝트';
       if (descEl) {
@@ -4873,9 +4876,13 @@
     }
     var pid = projectId
       || currentProjectId
+      || (function () {
+        try { return sessionStorage.getItem('yoy_pending_canvas_add_project') || ''; } catch (e0) { return ''; }
+      })()
       || (window.YooYActiveProject && window.YooYActiveProject.getId && window.YooYActiveProject.getId())
       || '';
     function addTo(pid2) {
+      try { sessionStorage.removeItem('yoy_pending_canvas_add_project'); } catch (eClr) { /* ignore */ }
       if (!Core.projects || typeof Core.projects.addCanvasNode !== 'function') {
         showToast('Canvas API를 불러오지 못했습니다.', true);
         return Promise.reject(new Error('canvas api'));

@@ -1,11 +1,13 @@
 /**
  * YooY Creative Canvas v1 — visual AI workflow board (Project-scoped).
  * Gallery SoT: nodes store gallery_id only.
+ *
+ * Canonical Projects client: window.YooYProjectsAPI === YooYCore.projects
+ * (never a page-local stub; resolve at call time).
  */
 (function (global) {
   'use strict';
 
-  var Core = global.YooYAIStudioCore;
   var saveTimer = null;
   var state = {
     projectId: '',
@@ -18,7 +20,8 @@
     zoom: 1,
     lastX: 0,
     lastY: 0,
-    dirty: false
+    dirty: false,
+    mountRoot: null
   };
 
   function esc(s) {
@@ -34,8 +37,70 @@
     else if (console && console.log) console.log(msg);
   }
 
+  /** Resolve Projects API at call time — do not freeze a wrong/missing global at parse. */
+  function projectsApi() {
+    if (global.YooYProjectsAPI && typeof global.YooYProjectsAPI.getCanvas === 'function') {
+      return global.YooYProjectsAPI;
+    }
+    var core = global.YooYCore || null;
+    if (core && core.projects && typeof core.projects.getCanvas === 'function') {
+      try { global.YooYProjectsAPI = core.projects; } catch (e) { /* ignore */ }
+      return core.projects;
+    }
+    return null;
+  }
+
   function api() {
-    return Core && Core.projects ? Core.projects : null;
+    return projectsApi();
+  }
+
+  function emptyCanvas(projectId) {
+    return {
+      canvas_id: 'canvas_' + String(projectId || ''),
+      project_id: String(projectId || ''),
+      nodes: [],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      updated_at: ''
+    };
+  }
+
+  function classifyCanvasError(err) {
+    if (!projectsApi()) {
+      return {
+        kind: 'client',
+        message: 'Canvas 연결 모듈을 불러오지 못했습니다.'
+      };
+    }
+    var status = 0;
+    if (err) {
+      status = Number(err.status || 0) || 0;
+      if (!status && err.details) {
+        status = Number(err.details.status || (err.details.data && err.details.data.status) || 0) || 0;
+      }
+    }
+    var code = String((err && err.code) || '');
+    var msg = String((err && err.message) || '');
+    if (status === 401 || status === 403
+      || code === 'rest_forbidden' || code === 'rest_cookie_invalid_nonce'
+      || /권한|forbidden|unauthorized|not logged|로그인/i.test(msg)) {
+      return { kind: 'auth', message: 'Canvas에 접근할 권한이 없습니다.' };
+    }
+    if (status === 404 || /찾을 수 없|not found/i.test(msg)) {
+      return { kind: 'not_found', message: '프로젝트를 찾을 수 없습니다.' };
+    }
+    return {
+      kind: 'network',
+      message: 'Canvas를 불러오는 중 문제가 발생했습니다.'
+    };
+  }
+
+  function errorHtml(classified, detail) {
+    return '<div class="yai-empty ycc-error">' +
+      '<h3>' + esc(classified.message) + '</h3>' +
+      (detail ? '<p class="yai-muted">' + esc(detail) + '</p>' : '') +
+      '<button type="button" class="yai-btn yai-btn--gold" data-ycc-retry>다시 시도</button>' +
+    '</div>';
   }
 
   function pickThumb(meta, item) {
@@ -49,6 +114,13 @@
     return meta.thumbnail_url || meta.large_url || meta.full_url || '';
   }
 
+  function workspaceWorks() {
+    if (global.YooYStudioWorkspace && Array.isArray(global.YooYStudioWorkspace.works)) {
+      return global.YooYStudioWorkspace.works;
+    }
+    return [];
+  }
+
   function scheduleSave(root) {
     state.dirty = true;
     if (saveTimer) clearTimeout(saveTimer);
@@ -56,28 +128,35 @@
   }
 
   function persist(root) {
-    var projects = api();
+    var projects = projectsApi();
     if (!projects || !state.projectId || !state.canvas) return Promise.resolve();
     state.canvas.viewport = { x: state.panX, y: state.panY, zoom: state.zoom };
-    var status = root && root.querySelector('[data-ycc-status]');
-    if (status) status.textContent = '저장 중…';
+    var statusEl = root && root.querySelector('[data-ycc-status]');
+    if (statusEl) statusEl.textContent = '저장 중…';
     return projects.saveCanvas(state.projectId, state.canvas).then(function (res) {
       state.canvas = (res.data && res.data.canvas) || state.canvas;
       state.dirty = false;
-      if (status) status.textContent = '저장됨';
+      if (statusEl) statusEl.textContent = '저장됨';
     }).catch(function (err) {
-      if (status) status.textContent = '저장 실패';
+      if (statusEl) statusEl.textContent = '저장 실패';
       toast((err && err.message) || 'Canvas 저장에 실패했습니다.', true);
     });
   }
 
   function load(projectId) {
-    var projects = api();
-    if (!projects) return Promise.reject(new Error('Projects API 없음'));
-    state.projectId = projectId;
-    return projects.getCanvas(projectId).then(function (res) {
-      state.canvas = (res.data && res.data.canvas) || null;
-      if (state.canvas && state.canvas.viewport) {
+    var projects = projectsApi();
+    if (!projects) {
+      return Promise.reject(Object.assign(new Error('Canvas 연결 모듈을 불러오지 못했습니다.'), { code: 'client_missing' }));
+    }
+    state.projectId = String(projectId || '');
+    if (!state.projectId) {
+      return Promise.reject(Object.assign(new Error('프로젝트를 찾을 수 없습니다.'), { status: 404 }));
+    }
+    return projects.getCanvas(state.projectId).then(function (res) {
+      state.canvas = (res.data && res.data.canvas) || emptyCanvas(state.projectId);
+      if (!state.canvas.nodes) state.canvas.nodes = [];
+      if (!state.canvas.edges) state.canvas.edges = [];
+      if (state.canvas.viewport) {
         state.panX = state.canvas.viewport.x || 0;
         state.panY = state.canvas.viewport.y || 0;
         state.zoom = state.canvas.viewport.zoom || 1;
@@ -118,21 +197,12 @@
     }
     var sel = state.selectedId === n.node_id ? ' is-selected' : '';
     return '<article class="ycc-node ycc-node--' + esc(n.node_type) + sel + '" data-node-id="' + esc(n.node_id) + '" ' +
-      'style="left:' + n.x + 'px;top:' + n.y + 'px;width:' + n.width + 'px;z-index:' + (n.z_index || 1) + '">' +
-      '<header class="ycc-node__head"><span>' + esc(typeLabel) + '</span></header>' +
+      'style="left:' + Number(n.x || 0) + 'px;top:' + Number(n.y || 0) + 'px;width:' + Number(n.width || 220) + 'px;min-height:' + Number(n.height || 120) + 'px">' +
+      '<div class="ycc-node__head"><span>' + esc(typeLabel) + '</span></div>' +
       media +
       '<h4 class="ycc-node__title">' + title + '</h4>' +
       body +
-      '</article>';
-  }
-
-  function edgePath(from, to) {
-    var x1 = from.x + from.width / 2;
-    var y1 = from.y + Math.min(from.height || 160, 120);
-    var x2 = to.x + to.width / 2;
-    var y2 = to.y;
-    var mid = (y1 + y2) / 2;
-    return 'M' + x1 + ',' + y1 + ' C' + x1 + ',' + mid + ' ' + x2 + ',' + mid + ' ' + x2 + ',' + y2;
+    '</article>';
   }
 
   function renderEdges() {
@@ -143,39 +213,64 @@
       var a = map[e.from_node_id];
       var b = map[e.to_node_id];
       if (!a || !b) return '';
-      return '<path class="ycc-edge" d="' + edgePath(a, b) + '" data-rel="' + esc(e.relation_type || '') + '"></path>';
+      var x1 = Number(a.x || 0) + Number(a.width || 220) / 2;
+      var y1 = Number(a.y || 0) + Number(a.height || 120);
+      var x2 = Number(b.x || 0) + Number(b.width || 220) / 2;
+      var y2 = Number(b.y || 0);
+      var mid = (y1 + y2) / 2;
+      return '<path class="ycc-edge" d="M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + mid + ' ' + x2 + ' ' + mid + ' ' + x2 + ' ' + y2 + '" />';
     }).join('');
     return '<svg class="ycc-edges" aria-hidden="true">' + paths + '</svg>';
   }
 
+  function emptyOnboardHtml() {
+    return '<div class="ycc-onboard" data-ycc-onboard>' +
+      '<div class="ycc-onboard__card">' +
+        '<h3>Canvas를 시작해보세요</h3>' +
+        '<p>프롬프트, 참고 이미지, 메모를 한 공간에서 연결할 수 있습니다.</p>' +
+        '<div class="ycc-onboard__actions">' +
+          '<button type="button" class="yai-btn yai-btn--gold" data-ycc-add="prompt">프롬프트 추가</button>' +
+          '<button type="button" class="yai-btn yai-btn--outline" data-ycc-add="gallery">Gallery에서 추가</button>' +
+          '<button type="button" class="yai-btn yai-btn--outline" data-ycc-add="note">메모 추가</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   function paintBoard(root) {
-    var board = root.querySelector('[data-ycc-board]');
-    if (!board || !state.canvas) return;
+    if (!root || !state.canvas) return;
     var world = root.querySelector('[data-ycc-world]');
+    var stage = root.querySelector('[data-ycc-stage]');
+    var zoomLabel = root.querySelector('[data-ycc-zoom-label]');
     if (!world) return;
     world.style.transform = 'translate(' + state.panX + 'px,' + state.panY + 'px) scale(' + state.zoom + ')';
     world.innerHTML = renderEdges() + (state.canvas.nodes || []).map(renderNode).join('');
-    var zoomLabel = root.querySelector('[data-ycc-zoom-label]');
     if (zoomLabel) zoomLabel.textContent = Math.round(state.zoom * 100) + '%';
+    var existing = stage && stage.querySelector('[data-ycc-onboard]');
+    var isEmpty = !(state.canvas.nodes && state.canvas.nodes.length);
+    if (stage) {
+      if (isEmpty && !existing) {
+        stage.insertAdjacentHTML('beforeend', emptyOnboardHtml());
+      } else if (!isEmpty && existing) {
+        existing.parentNode.removeChild(existing);
+      }
+    }
   }
 
   function openInspector(root) {
-    var panel = root.querySelector('[data-ycc-inspector]');
+    var panel = root && root.querySelector('[data-ycc-inspector]');
     if (!panel) return;
+    if (!state.selectedId || !state.canvas) {
+      panel.innerHTML = '<p class="ycc-muted">노드를 선택하세요.</p>';
+      return;
+    }
     var n = (state.canvas.nodes || []).find(function (x) { return x.node_id === state.selectedId; });
     if (!n) {
       panel.innerHTML = '<p class="ycc-muted">노드를 선택하세요.</p>';
       return;
     }
     var actions = '';
-    if (n.node_type === 'generated_image' || n.node_type === 'reference_image') {
-      actions +=
-        '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ycc-act="view-original">원본 보기</button>' +
-        '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="studio">Studio에서 이어 만들기</button>' +
-        '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="gallery">Gallery에서 보기</button>' +
-        '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="publish">공개하기</button>';
-    }
-    if (n.node_type === 'prompt') {
+    if (n.node_type === 'prompt' || n.node_type === 'studio_handoff') {
       actions +=
         '<button type="button" class="yai-btn yai-btn--gold yai-btn--sm" data-ycc-act="studio-prompt">Image Studio로 생성</button>' +
         '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="edit-prompt">편집</button>';
@@ -183,6 +278,11 @@
     if (n.node_type === 'note') {
       actions += '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="edit-note">편집</button>' +
         '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="to-prompt">Prompt로 변환</button>';
+    }
+    if (n.linked_gallery_id) {
+      actions += '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="view-original">원본 보기</button>' +
+        '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="gallery">Gallery에서 보기</button>' +
+        '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="publish">공개하기</button>';
     }
     actions += '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-act="delete-node">노드 삭제</button>';
     panel.innerHTML =
@@ -194,8 +294,11 @@
 
   function addNode(type, extras) {
     extras = extras || {};
-    var projects = api();
-    if (!projects || !state.projectId) return;
+    var projects = projectsApi();
+    if (!projects || !state.projectId) {
+      toast('Canvas 연결 모듈을 불러오지 못했습니다.', true);
+      return Promise.reject(new Error('client_missing'));
+    }
     var payload = Object.assign({
       node_type: type,
       x: 120 + Math.random() * 80 - state.panX / state.zoom,
@@ -217,8 +320,13 @@
   function runAction(act, root) {
     var n = (state.canvas.nodes || []).find(function (x) { return x.node_id === state.selectedId; });
     if (!n) return;
+    var projects = projectsApi();
+    if (!projects) {
+      toast('Canvas 연결 모듈을 불러오지 못했습니다.', true);
+      return;
+    }
     if (act === 'delete-node') {
-      api().removeCanvasNode(state.projectId, n.node_id).then(function (res) {
+      projects.removeCanvasNode(state.projectId, n.node_id).then(function (res) {
         state.canvas = (res.data && res.data.canvas) || state.canvas;
         state.selectedId = '';
         paintBoard(root);
@@ -231,7 +339,7 @@
       var next = global.prompt(act === 'edit-prompt' ? 'Prompt 편집' : 'Note 편집', cur);
       if (next == null) return;
       var patch = act === 'edit-prompt' ? { prompt_text: next } : { note_text: next };
-      api().updateCanvasNode(state.projectId, n.node_id, patch).then(function (res) {
+      projects.updateCanvasNode(state.projectId, n.node_id, patch).then(function (res) {
         state.canvas = (res.data && res.data.canvas) || state.canvas;
         paintBoard(root);
         openInspector(root);
@@ -239,7 +347,7 @@
       return;
     }
     if (act === 'to-prompt') {
-      api().addCanvasNode(state.projectId, {
+      projects.addCanvasNode(state.projectId, {
         node_type: 'prompt',
         prompt_text: n.note_text || '',
         x: n.x + 40,
@@ -257,25 +365,23 @@
           sessionStorage.setItem('yoy_home_original_prompt', n.prompt_text);
         }
         if (n.linked_gallery_id) {
-          sessionStorage.setItem('yoy_reference_asset', JSON.stringify({
+          sessionStorage.setItem('yoy_home_remix', JSON.stringify({
             gallery_id: n.linked_gallery_id,
-            title: (n.metadata_json && n.metadata_json.title) || '',
-            thumbnail_url: (n.metadata_json && n.metadata_json.thumbnail_url) || '',
             source: 'canvas'
           }));
         }
-        sessionStorage.setItem('yoy_assistant_project_id', state.projectId);
         sessionStorage.setItem('yoy_canvas_return', JSON.stringify({
           project_id: state.projectId,
-          from_node_id: n.node_id
+          from_node_id: n.node_id,
+          studio: 'image'
         }));
       } catch (e) { /* ignore */ }
       if (global.YooYStudioRoute) global.YooYStudioRoute('image', { source_context: 'canvas' });
-      else if (global.YooYAIStudio && global.YooYAIStudio.route) global.YooYAIStudio.route('image');
       return;
     }
     if (act === 'view-original' && n.linked_gallery_id && global.YooYOriginalImageViewer) {
-      if (Core && Core.gallery && Core.gallery.item) {
+      var Core = global.YooYCore;
+      if (Core && Core.gallery && typeof Core.gallery.item === 'function') {
         Core.gallery.item(n.linked_gallery_id).then(function (res) {
           var item = (res.data && res.data.item) || { id: n.linked_gallery_id, full_url: (n.metadata_json || {}).thumbnail_url };
           global.YooYOriginalImageViewer.openFromItem(item);
@@ -303,11 +409,15 @@
         if (t === 'prompt') {
           var p = global.prompt('Prompt 텍스트', '');
           if (p == null) return;
-          addNode('prompt', { prompt_text: p }).then(function () { paintBoard(root); });
+          addNode('prompt', { prompt_text: p }).then(function () { paintBoard(root); openInspector(root); });
         } else if (t === 'note') {
           var note = global.prompt('Note', '');
           if (note == null) return;
-          addNode('note', { note_text: note }).then(function () { paintBoard(root); });
+          addNode('note', { note_text: note }).then(function () { paintBoard(root); openInspector(root); });
+        } else if (t === 'gallery') {
+          try { sessionStorage.setItem('yoy_pending_canvas_add_project', state.projectId); } catch (e2) { /* ignore */ }
+          if (global.YooYStudioRoute) global.YooYStudioRoute('works');
+          toast('Gallery에서 「Canvas에 추가」를 선택하세요.');
         } else if (t === 'fit') {
           state.panX = 0; state.panY = 0; state.zoom = 1;
           paintBoard(root);
@@ -340,6 +450,7 @@
     if (!stage) return;
 
     stage.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('[data-ycc-onboard]')) return;
       var node = e.target.closest('[data-node-id]');
       if (node && e.button === 0) {
         state.dragging = {
@@ -384,7 +495,19 @@
     });
     function endDrag() {
       if (state.dragging) {
-        scheduleSave(root);
+        var moved = (state.canvas.nodes || []).find(function (x) { return x.node_id === state.dragging.id; });
+        var projects = projectsApi();
+        if (moved && projects && typeof projects.updateCanvasNode === 'function') {
+          projects.updateCanvasNode(state.projectId, moved.node_id, { x: moved.x, y: moved.y })
+            .then(function (res) {
+              state.canvas = (res.data && res.data.canvas) || state.canvas;
+            })
+            .catch(function () {
+              scheduleSave(root);
+            });
+        } else {
+          scheduleSave(root);
+        }
       } else if (state.panning) {
         scheduleSave(root);
       }
@@ -414,10 +537,11 @@
       '<div class="ycc-toolbar">' +
         '<div class="ycc-toolbar__left">' +
           '<strong>Creative Canvas</strong>' +
-          '<span class="ycc-muted" data-ycc-status>준비됨</span>' +
+          '<span class="ycc-muted" data-ycc-status>불러오는 중…</span>' +
         '</div>' +
         '<div class="ycc-toolbar__right">' +
           '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-add="prompt">+ Prompt</button>' +
+          '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-add="gallery">Gallery에서 추가</button>' +
           '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-add="note">+ Note</button>' +
           '<button type="button" class="yai-btn yai-btn--outline yai-btn--sm" data-ycc-add="zoom-out">−</button>' +
           '<span data-ycc-zoom-label>100%</span>' +
@@ -435,38 +559,67 @@
     '</div>';
   }
 
+  function enrichFromWorks() {
+    var works = workspaceWorks();
+    if (!state.canvas || !works.length) return;
+    state.canvas.nodes.forEach(function (n) {
+      if (!n.linked_gallery_id) return;
+      var w = works.find(function (x) {
+        return String(x.id) === String(n.linked_gallery_id) || String(x.gallery_id || '') === String(n.linked_gallery_id);
+      });
+      if (w) {
+        n.metadata_json = n.metadata_json || {};
+        n.metadata_json.title = w.title || n.metadata_json.title;
+        n.metadata_json.thumbnail_url = pickThumb(n.metadata_json, w) || n.metadata_json.thumbnail_url;
+      }
+    });
+  }
+
   function mount(container, projectId) {
-    if (!container || !projectId) return;
+    if (!container) return;
+    var pid = String(projectId || container.getAttribute('data-project-id') || '');
+    state.mountRoot = container;
+    if (!pid) {
+      container.innerHTML = errorHtml(
+        { kind: 'not_found', message: '프로젝트를 찾을 수 없습니다.' },
+        ''
+      );
+      return;
+    }
+    if (!projectsApi()) {
+      container.innerHTML = errorHtml(
+        { kind: 'client', message: 'Canvas 연결 모듈을 불러오지 못했습니다.' },
+        'YooYCore.projects / YooYProjectsAPI'
+      );
+      var earlyRetry = container.querySelector('[data-ycc-retry]');
+      if (earlyRetry) {
+        earlyRetry.addEventListener('click', function () { mount(container, pid); });
+      }
+      return;
+    }
     container.innerHTML = shellHtml();
     var root = container.querySelector('.ycc-root');
     bind(root);
-    load(projectId).then(function () {
-      // Enrich thumbs from workspace works if available
-      var works = (global.YooYAIStudio && global.YooYAIStudio._workspaceWorks) || [];
-      if (state.canvas && works.length) {
-        state.canvas.nodes.forEach(function (n) {
-          if (!n.linked_gallery_id) return;
-          var w = works.find(function (x) {
-            return String(x.id) === String(n.linked_gallery_id) || String(x.gallery_id || '') === String(n.linked_gallery_id);
-          });
-          if (w) {
-            n.metadata_json = n.metadata_json || {};
-            n.metadata_json.title = w.title || n.metadata_json.title;
-            n.metadata_json.thumbnail_url = pickThumb(n.metadata_json, w) || n.metadata_json.thumbnail_url;
-          }
-        });
-      }
+    load(pid).then(function () {
+      enrichFromWorks();
+      var statusEl = root.querySelector('[data-ycc-status]');
+      if (statusEl) statusEl.textContent = '준비됨';
       paintBoard(root);
       openInspector(root);
     }).catch(function (err) {
-      container.innerHTML = '<div class="yai-empty"><h3>Canvas를 불러오지 못했습니다</h3><p>' +
-        esc((err && err.message) || '') + '</p></div>';
+      var classified = classifyCanvasError(err);
+      var detail = (err && err.message && err.message !== classified.message) ? err.message : '';
+      container.innerHTML = errorHtml(classified, detail);
+      var retry = container.querySelector('[data-ycc-retry]');
+      if (retry) {
+        retry.addEventListener('click', function () { mount(container, pid); });
+      }
     });
   }
 
   function addGalleryToCanvas(projectId, galleryId, opts) {
     opts = opts || {};
-    var projects = api();
+    var projects = projectsApi();
     if (!projects || !projectId || !galleryId) {
       return Promise.reject(new Error('프로젝트 또는 작품 정보가 없습니다.'));
     }
@@ -482,6 +635,7 @@
   global.YooYCreativeCanvas = {
     mount: mount,
     addGalleryToCanvas: addGalleryToCanvas,
-    load: load
+    load: load,
+    projectsApi: projectsApi
   };
 })(window);

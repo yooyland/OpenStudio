@@ -115,6 +115,9 @@
       err.details = json || {};
       err.stage = json && json.stage;
       err.code = json && json.code;
+      if (res && res.status) {
+        err.status = res.status;
+      }
       return err;
     }
 
@@ -612,6 +615,8 @@
     };
 
     global.YooYCore = Core;
+    // Stable Projects API surface for Canvas / Workspace consumers.
+    global.YooYProjectsAPI = Core.projects;
     debugLog('core initialized');
   } catch (err) {
     if (global.console && global.console.error) {
@@ -619,6 +624,9 @@
     }
     if (!global.YooYCore) {
       global.YooYCore = { config: global.YooYStudio || {}, debug: function () { return false; }, debugLog: function () {} };
+    }
+    if (!global.YooYProjectsAPI && global.YooYCore && global.YooYCore.projects) {
+      global.YooYProjectsAPI = global.YooYCore.projects;
     }
   }
 })(window);
