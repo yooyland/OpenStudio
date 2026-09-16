@@ -34,6 +34,16 @@ final class YooY_Image_Domain_Prompt_Composer {
             $preset = YooY_Image_Art_Direction::MODERN_STORYBOOK;
             return $this->finalize($this->compose_storybook($brief, $settings, $preset), $preset);
         }
+        // Beauty campaign/poster before lifestyle (keyword "모델" must not steal beauty ads).
+        if (in_array($domain, ['beauty_model_campaign', 'beauty_poster_editorial'], true)
+            || (($domain === 'beauty' || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_beauty($raw)))
+                && !preg_match('/제품만|누끼|상세페이지|제품\s*사진만|packshot|product\s*only/u', $raw))) {
+            return $this->finalize($this->compose_beauty_campaign($brief, $settings, $domain), $preset);
+        }
+        if ($domain === 'beauty_product_packshot'
+            || ($domain === 'beauty' && preg_match('/제품만|누끼|상세페이지|제품\s*사진만|packshot|product\s*only/u', $raw))) {
+            return $this->finalize($this->compose_product($brief, $settings), $preset);
+        }
         // People + apartment → lifestyle campaign (not empty architecture plate)
         if ($domain === 'lifestyle' || $domain === 'cinematic' || $this->looks_lifestyle($raw)) {
             return $this->finalize($this->compose_lifestyle($brief, $settings), $preset);
@@ -45,16 +55,6 @@ final class YooY_Image_Domain_Prompt_Composer {
         }
         if ($domain === 'architecture' || $this->looks_architecture($raw)) {
             return $this->finalize($this->compose_architecture($brief, $settings), $preset);
-        }
-        if (in_array($domain, ['beauty_model_campaign', 'beauty_poster_editorial'], true)
-            || (($domain === 'beauty' || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_beauty($raw)))
-                && !preg_match('/제품만|누끼|상세페이지|제품\s*사진만|packshot|product\s*only/u', $raw))) {
-            return $this->finalize($this->compose_beauty_campaign($brief, $settings, $domain), $preset);
-        }
-        if ($domain === 'beauty_product_packshot'
-            || $domain === 'beauty'
-            || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_beauty($raw))) {
-            return $this->finalize($this->compose_product($brief, $settings), $preset);
         }
         if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'fashion', 'food'], true)) {
             return $this->finalize($this->compose_product($brief, $settings), $preset);
@@ -105,7 +105,7 @@ final class YooY_Image_Domain_Prompt_Composer {
     }
 
     private function looks_lifestyle(string $raw): bool {
-        return (bool) preg_match('/부부|가족|커플|라이프|lifestyle|일상|행복한|사람들|모델|couple|family/u', $raw);
+        return (bool) preg_match('/부부|가족|커플|라이프|lifestyle|일상|행복한|사람들|couple|family/u', $raw);
     }
 
     private function looks_portrait(string $raw): bool {
