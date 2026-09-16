@@ -345,7 +345,6 @@ final class YooY_Image_Art_Direction {
                     'product-only empty tabletop when campaign/poster was requested',
                     'invented long packaging paragraphs',
                     'kitschy beauty styling',
-                ];
                     'invented Hangul text',
                     'fake logos',
                     'glitter overload',
