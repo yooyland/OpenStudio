@@ -138,48 +138,56 @@ final class YooY_Gallery_Title_Service {
         // Summer beach cosmetics
         if (preg_match('/화장품|스킨케어|크림|세럼|cosmetic|skincare/u', $raw_lower)
             && preg_match('/여름|바다|해변|beach|summer|sea/u', $raw_lower)) {
-            return '여름빛 스킨케어';
+            return '바다빛을 담은 여름';
         }
         if (preg_match('/스킨케어|크림|skincare|cream/u', $raw_lower)
             && preg_match('/럭셔리|프리미엄|luxury|premium/u', $raw_lower)) {
-            return '럭셔리 스킨케어 제품컷';
+            return '빛을 담은 스킨케어';
         }
         if (preg_match('/화장품|스킨케어|크림|세럼|향수/u', $raw_lower)) {
-            return '스킨케어 제품컷';
+            return '빛을 머금은 뷰티';
         }
 
         // Lifestyle couple (before architecture keywords like 아파트)
         if (preg_match('/부부|커플|couple/u', $raw_lower) && preg_match('/아파트|서울|단지/u', $raw_lower)) {
-            return '아파트 단지에서 이야기하는 부부';
+            return '도시의 오후, 둘';
         }
         if (preg_match('/부부|커플|couple/u', $raw_lower)) {
-            return '자연스러운 하루의 대화';
+            return '나란히 걷는 하루';
         }
 
-        // Architecture / apartment — prefer technical work titles over poetic fluff
+        // Architecture / apartment — premium brochure tone
         if ($domain === 'architecture' || preg_match('/아파트|조감|단지|건축/u', $raw_lower)) {
             if (preg_match('/조감/u', $raw_lower)) {
-                return '한강변 프리미엄 주거단지 조감도';
+                return '빛이 머무는 프리미엄 라이프';
             }
             if (preg_match('/분양|광고|캠페인|advert|campaign/u', $raw_lower)) {
-                return '프리미엄 아파트 분양 조감도';
+                return '하늘이 열린 주거단지';
             }
-            return '현대 아파트 단지 외관';
+            return '고요한 라인의 건축';
         }
 
         // Portrait / 화보
         if ($domain === 'portrait' || $domain === 'editorial'
-            || preg_match('/화보|초상|portrait/u', $raw_lower)
-            || (preg_match('/여성|여자|woman/u', $raw_lower) && preg_match('/세련|신뢰|브랜드|프리미엄/u', $raw_lower))) {
+            || preg_match('/화보|초상|portrait|프로필/u', $raw_lower)
+            || (preg_match('/여성|여자|woman/u', $raw_lower) && preg_match('/세련|신뢰|브랜드|프리미엄|고급/u', $raw_lower))) {
             if (preg_match('/여성|여자|woman/u', $raw_lower)) {
-                return '세련된 한국 여성 화보';
+                return '고요한 빛의 초상';
             }
-            return '프리미엄 브랜드 화보';
+            return '에디토리얼 초상';
         }
 
         // Children dream without specific adventure nouns already handled
-        if (preg_match('/어린이|꿈|동화|storybook/u', $raw_lower) && preg_match('/여행|하늘|바다/u', $raw_lower)) {
-            return '꿈속의 세계여행';
+        if (preg_match('/어린이|꿈|동화|storybook|아이를\s*위한/u', $raw_lower)) {
+            if (preg_match('/여행|하늘|바다|꿈/u', $raw_lower)) {
+                return '꿈이 피어나는 하늘';
+            }
+            return '따뜻한 상상 한 장';
+        }
+
+        // Product short prompts
+        if ($domain === 'product' || preg_match('/제품|히어로|hero\s*shot|제품컷/u', $raw_lower)) {
+            return '정제된 제품의 순간';
         }
 
         return '';

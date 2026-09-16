@@ -96,6 +96,9 @@ final class YooY_Project_Store {
                 $items[$idx]['notes'] = sanitize_textarea_field((string) $data['notes']);
                 $items[$idx]['notes_updated_at'] = gmdate('c');
             }
+            if (isset($data['canvas']) && is_array($data['canvas'])) {
+                $items[$idx]['canvas'] = $data['canvas'];
+            }
             $items[$idx]['updated_at'] = gmdate('c');
             update_user_meta($user_id, self::META_KEY, $items);
             return $this->normalize($items[$idx], $user_id);
@@ -371,6 +374,7 @@ final class YooY_Project_Store {
             'reference_assets' => is_array($item['reference_assets'] ?? null) ? $item['reference_assets'] : [],
             'thumbnail_url'    => esc_url_raw($item['thumbnail_url'] ?? ''),
             'cover_asset_id'   => sanitize_text_field($item['cover_asset_id'] ?? ''),
+            'canvas'           => is_array($item['canvas'] ?? null) ? $item['canvas'] : null,
             'created_at'       => $item['created_at'] ?? gmdate('c'),
             'updated_at'       => $item['updated_at'] ?? gmdate('c'),
         ];

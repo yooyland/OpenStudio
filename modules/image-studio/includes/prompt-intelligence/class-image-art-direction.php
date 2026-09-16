@@ -18,10 +18,21 @@ final class YooY_Image_Art_Direction {
     public const PREMIUM_COMMERCIAL = 'PREMIUM_COMMERCIAL';
     public const CLEAN_EDITORIAL = 'CLEAN_EDITORIAL';
     public const FOOD_EDITORIAL = 'FOOD_EDITORIAL';
+    // v2 expanded presets (aliases map into canonical behavior)
+    public const LUXURY_EDITORIAL = 'LUXURY_EDITORIAL';
+    public const BEAUTY_CAMPAIGN_PREMIUM = 'BEAUTY_CAMPAIGN_PREMIUM';
+    public const HIGH_END_ARCHVIZ = 'HIGH_END_ARCHVIZ';
+    public const ELEVATED_PRODUCT_HERO = 'ELEVATED_PRODUCT_HERO';
+    public const FASHION_EDITORIAL_PREMIUM = 'FASHION_EDITORIAL_PREMIUM';
+    public const CLEAN_MINIMAL_LUXURY = 'CLEAN_MINIMAL_LUXURY';
+    public const SOCIAL_AD_PREMIUM = 'SOCIAL_AD_PREMIUM';
+    public const KOREAN_PREMIUM_BRAND_VISUAL = 'KOREAN_PREMIUM_BRAND_VISUAL';
+    public const PREMIUM_FAMILY_LIFESTYLE = 'PREMIUM_FAMILY_LIFESTYLE';
+    public const HIGH_END_REAL_ESTATE_CAMPAIGN = 'HIGH_END_REAL_ESTATE_CAMPAIGN';
 
     // Legacy aliases
     public const MODERN_STORYBOOK = 'MODERN_STORYBOOK_PREMIUM';
-    public const BEAUTY_CAMPAIGN = 'BEAUTY_EDITORIAL_PREMIUM';
+    public const BEAUTY_CAMPAIGN = 'BEAUTY_CAMPAIGN_PREMIUM';
     public const LUXURY_PRODUCT = 'LUXURY_PRODUCT_CAMPAIGN';
     public const ARCHITECTURAL_VISUALIZATION = 'ARCHITECTURAL_VISUALIZATION_PREMIUM';
     public const CINEMATIC_LIFESTYLE = 'CINEMATIC_LIFESTYLE_PREMIUM';
@@ -56,31 +67,90 @@ final class YooY_Image_Art_Direction {
         if (self::looks_fantasy($raw)) {
             return self::PREMIUM_FANTASY_ILLUSTRATION;
         }
-        if ($domain === 'architecture') {
-            return self::ARCHITECTURAL_VISUALIZATION_PREMIUM;
+        if ($domain === 'architecture' || preg_match('/조감|분양|archviz|real.?estate/u', $raw)) {
+            if (preg_match('/분양|캠페인|advert|campaign|조감/u', $raw)) {
+                return self::HIGH_END_REAL_ESTATE_CAMPAIGN;
+            }
+            return self::HIGH_END_ARCHVIZ;
         }
         if ($domain === 'product' || $domain === 'ecommerce') {
-            return self::looks_beauty($raw) ? self::BEAUTY_EDITORIAL_PREMIUM : self::LUXURY_PRODUCT_CAMPAIGN;
+            if (self::looks_beauty($raw)) {
+                return self::BEAUTY_CAMPAIGN_PREMIUM;
+            }
+            return self::ELEVATED_PRODUCT_HERO;
         }
-        if ($domain === 'fashion' || $domain === 'beauty') {
-            return self::BEAUTY_EDITORIAL_PREMIUM;
+        if ($domain === 'beauty') {
+            return self::BEAUTY_CAMPAIGN_PREMIUM;
+        }
+        if ($domain === 'fashion') {
+            return self::FASHION_EDITORIAL_PREMIUM;
         }
         if ($domain === 'food') {
             return self::FOOD_EDITORIAL;
         }
         if ($domain === 'lifestyle' || $domain === 'cinematic') {
+            if (preg_match('/가족|family|아이|어린이/u', $raw)) {
+                return self::PREMIUM_FAMILY_LIFESTYLE;
+            }
             return self::CINEMATIC_LIFESTYLE_PREMIUM;
         }
         if ($domain === 'portrait' || $domain === 'editorial') {
-            return self::EDITORIAL_PORTRAIT_PREMIUM;
+            return preg_match('/화보|fashion|패션/u', $raw)
+                ? self::FASHION_EDITORIAL_PREMIUM
+                : self::EDITORIAL_PORTRAIT_PREMIUM;
         }
         if ($domain === 'illustration') {
             return $premium ? self::PREMIUM_FANTASY_ILLUSTRATION : self::MODERN_STORYBOOK_PREMIUM;
         }
-        if ($domain === 'brand' || $domain === 'corporate' || $domain === 'social' || self::looks_commercial($raw)) {
+        if ($domain === 'brand' || $domain === 'corporate' || preg_match('/한국\s*프리미엄|k-?brand|korean\s*premium/u', $raw)) {
+            return self::KOREAN_PREMIUM_BRAND_VISUAL;
+        }
+        if ($domain === 'social' || preg_match('/sns|인스타|social\s*ad/u', $raw)) {
+            return self::SOCIAL_AD_PREMIUM;
+        }
+        if (self::looks_commercial($raw)) {
             return self::PREMIUM_COMMERCIAL;
         }
+        if (preg_match('/미니멀|minimal|클린\s*럭셔리/u', $raw)) {
+            return self::CLEAN_MINIMAL_LUXURY;
+        }
+        if ($premium) {
+            return self::LUXURY_EDITORIAL;
+        }
         return self::GENERAL_PHOTOREAL_PREMIUM;
+    }
+
+    /** Map expanded preset ids to quality/negative buckets. */
+    public static function canonical_bucket(string $preset): string {
+        switch ($preset) {
+            case self::BEAUTY_CAMPAIGN_PREMIUM:
+            case self::BEAUTY_EDITORIAL_PREMIUM:
+                return self::BEAUTY_EDITORIAL_PREMIUM;
+            case self::ELEVATED_PRODUCT_HERO:
+            case self::LUXURY_PRODUCT_CAMPAIGN:
+                return self::LUXURY_PRODUCT_CAMPAIGN;
+            case self::HIGH_END_ARCHVIZ:
+            case self::HIGH_END_REAL_ESTATE_CAMPAIGN:
+            case self::ARCHITECTURAL_VISUALIZATION_PREMIUM:
+                return self::ARCHITECTURAL_VISUALIZATION_PREMIUM;
+            case self::FASHION_EDITORIAL_PREMIUM:
+            case self::EDITORIAL_PORTRAIT_PREMIUM:
+            case self::LUXURY_EDITORIAL:
+                return self::EDITORIAL_PORTRAIT_PREMIUM;
+            case self::PREMIUM_FAMILY_LIFESTYLE:
+            case self::CINEMATIC_LIFESTYLE_PREMIUM:
+                return self::CINEMATIC_LIFESTYLE_PREMIUM;
+            case self::SOCIAL_AD_PREMIUM:
+            case self::KOREAN_PREMIUM_BRAND_VISUAL:
+            case self::CLEAN_MINIMAL_LUXURY:
+            case self::PREMIUM_COMMERCIAL:
+                return self::PREMIUM_COMMERCIAL;
+            case self::MODERN_STORYBOOK_PREMIUM:
+            case self::PREMIUM_FANTASY_ILLUSTRATION:
+                return $preset;
+            default:
+                return self::GENERAL_PHOTOREAL_PREMIUM;
+        }
     }
 
     public static function looks_storybook(string $raw): bool {
@@ -124,23 +194,40 @@ final class YooY_Image_Art_Direction {
             'sophisticated refined premium editorial-quality finish',
             'elegant polished composition with rich depth and tasteful color harmony',
             'cinematic lighting, beautifully composed, high-detail, non-kitschy',
+            'looks expensive — commercially usable contemporary taste',
         ];
-        switch ($preset) {
+        $bucket = self::canonical_bucket($preset);
+        switch ($bucket) {
             case self::MODERN_STORYBOOK_PREMIUM:
             case self::PREMIUM_FANTASY_ILLUSTRATION:
                 return array_merge($common, [
                     'modern premium picture-book cover illustration aesthetic',
                     'grand outdoor adventure scale — not an indoor mural or flat wall decoration',
                     'Disney-theme-park kitsch avoided; refined premium picture-book cover mood',
+                    'strong focal hierarchy, luminous atmosphere, layered landmarks',
                 ]);
             case self::EDITORIAL_PORTRAIT_PREMIUM:
             case self::CINEMATIC_LIFESTYLE_PREMIUM:
-                return array_merge($common, ['contemporary editorial portrait / lifestyle photography']);
+                return array_merge($common, [
+                    'contemporary editorial portrait / lifestyle photography',
+                    'natural styling, believable people, non-stock composition',
+                ]);
             case self::BEAUTY_EDITORIAL_PREMIUM:
             case self::LUXURY_PRODUCT_CAMPAIGN:
-                return array_merge($common, ['quiet luxury product / beauty still, magazine double-page quality']);
+                return array_merge($common, [
+                    'quiet luxury product / beauty still, magazine double-page quality',
+                    'refined packaging presentation, elegant lighting, no invented labels',
+                ]);
             case self::ARCHITECTURAL_VISUALIZATION_PREMIUM:
-                return array_merge($common, ['premium real-estate campaign architectural visualization']);
+                return array_merge($common, [
+                    'premium real-estate campaign architectural visualization',
+                    'brochure-worthy lighting, straight perspective, refined landscaping',
+                ]);
+            case self::PREMIUM_COMMERCIAL:
+                return array_merge($common, [
+                    'Korean premium brand visual language — restrained, modern, campaign-ready',
+                    'clean social-ad crop with clear hero subject',
+                ]);
             default:
                 return $common;
         }
@@ -148,6 +235,7 @@ final class YooY_Image_Art_Direction {
 
     /** @return string[] */
     public static function quality_constraints(string $preset): array {
+        $preset = self::canonical_bucket($preset);
         switch ($preset) {
             case self::EDITORIAL_PORTRAIT_PREMIUM:
             case self::CINEMATIC_LIFESTYLE_PREMIUM:
@@ -212,6 +300,7 @@ final class YooY_Image_Art_Direction {
      * @return string[]
      */
     public static function genre_negatives(string $preset): array {
+        $preset = self::canonical_bucket($preset);
         switch ($preset) {
             case self::MODERN_STORYBOOK_PREMIUM:
             case self::PREMIUM_FANTASY_ILLUSTRATION:
@@ -250,5 +339,29 @@ final class YooY_Image_Art_Direction {
             default:
                 return [];
         }
+    }
+
+    /**
+     * Internal anti-cheap / anti-kitsch negatives (not shown to end users).
+     *
+     * @return string[]
+     */
+    public static function anti_cheap_negatives(): array {
+        return [
+            'tacky cartoonish simplification',
+            'clumsy symmetry',
+            'awkward empty background',
+            'muddy desaturated colors',
+            'plastic skin',
+            'generic stock pose',
+            'bad fashion styling',
+            'unintentional product text',
+            'simplistic mural illustration',
+            'low-detail landmarks',
+            'weak focal composition',
+            'amateur poster look',
+            'outdated clipart aesthetic',
+            'cheap stock-photo lighting',
+        ];
     }
 }

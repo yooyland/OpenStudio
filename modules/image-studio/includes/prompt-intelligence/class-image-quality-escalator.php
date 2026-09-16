@@ -39,12 +39,18 @@ final class YooY_Image_Quality_Escalator {
             $escalate = true;
             $reasons[] = 'cover_or_cinematic';
         }
-        if (in_array((string) ($brief['content_domain'] ?? ''), ['storybook', 'fantasy', 'beauty', 'architecture', 'product', 'portrait', 'lifestyle'], true)) {
-            if ($tier !== 'premium') {
-                $tier = 'refined';
-            }
+        if (in_array((string) ($brief['content_domain'] ?? ''), ['storybook', 'fantasy', 'beauty', 'architecture', 'product', 'portrait', 'lifestyle', 'fashion', 'ecommerce'], true)) {
+            $tier = 'premium';
             $escalate = true;
-            $reasons[] = 'domain_default_escalate';
+            $reasons[] = 'domain_premium_default';
+        }
+        // Short prompts: always escalate to at least premium-biased refined floor.
+        if (!empty($normalized['is_short'])) {
+            $escalate = true;
+            if ($tier !== 'premium') {
+                $tier = 'premium';
+            }
+            $reasons[] = 'short_prompt_premium_rescue';
         }
         if ($escalate && $tier === 'refined' && empty($reasons)) {
             $reasons[] = 'short_prompt_floor';
@@ -54,12 +60,14 @@ final class YooY_Image_Quality_Escalator {
             'refined, polished, tasteful color harmony',
             'beautifully composed with rich depth and intentional lighting',
             'non-kitschy commercial-usable finish',
+            'looks expensive — contemporary premium taste',
         ];
         if ($tier === 'premium') {
             $bias = array_merge($bias, [
                 'sophisticated elegant premium editorial-quality',
                 'high-detail materials and atmospheric depth',
                 'modern premium visual language suitable for campaign or picture-book cover',
+                'strong focal hierarchy — not flat centered amateur layout',
             ]);
         }
 

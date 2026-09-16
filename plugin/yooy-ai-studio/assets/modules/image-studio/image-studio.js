@@ -181,6 +181,15 @@
         state.promptVersion = pver;
         sessionStorage.removeItem('yoy_assistant_prompt_version');
       }
+      var projectId = sessionStorage.getItem('yoy_assistant_project_id');
+      if (projectId) {
+        state.settings.project_id = projectId;
+        if (global.YooYActiveProject && typeof global.YooYActiveProject.set === 'function') {
+          try { global.YooYActiveProject.set({ id: projectId, name: 'Project' }); } catch (e3) { /* ignore */ }
+        }
+        sessionStorage.removeItem('yoy_assistant_project_id');
+      }
+      // Keep canvas return marker until after successful generate.
     } catch (e) { /* ignore */ }
   }
 
@@ -2478,6 +2487,7 @@
     return '<div class="yis-result-board__toolbar">' +
       '<div class="yis-result-board__toolbar-actions yis-result-board__toolbar-actions--phase5">' +
         resultToolbarBtn('view-original', '원본 보기') +
+        resultToolbarBtn('canvas', 'Canvas로 보내기') +
         resultToolbarBtn('reuse', '이어서 만들기') +
         resultToolbarBtn('premium-retry', '더 고급스럽게 다시 만들기') +
         resultToolbarBtn('variation', '다른 시안 만들기') +
@@ -2559,6 +2569,28 @@
       }];
     }
     return [];
+  }
+
+  function maybeReturnResultToCanvas(galleryId) {
+    if (!galleryId) return;
+    var raw = '';
+    try { raw = sessionStorage.getItem('yoy_canvas_return') || ''; } catch (e) { return; }
+    if (!raw) return;
+    var info = null;
+    try { info = JSON.parse(raw); } catch (e2) { info = null; }
+    try { sessionStorage.removeItem('yoy_canvas_return'); } catch (e3) { /* ignore */ }
+    if (!info || !info.project_id) return;
+    var projects = Core && Core.projects;
+    if (!projects || typeof projects.addCanvasResult !== 'function') return;
+    projects.addCanvasResult(info.project_id, {
+      gallery_id: galleryId,
+      from_node_ids: info.from_node_id ? [info.from_node_id] : [],
+      layout: { x: 420, y: 180 }
+    }).then(function () {
+      if (typeof showStudioToast === 'function') {
+        showStudioToast('결과를 Creative Canvas에 연결했습니다.');
+      }
+    }).catch(function () { /* silent */ });
   }
 
   function openOriginalViewerFromResult() {
@@ -2651,6 +2683,20 @@
   function handleResultAction(action, root) {
     if (action === 'view-original') {
       openOriginalViewerFromResult();
+      return;
+    }
+
+    if (action === 'canvas') {
+      var canvasGid = state.activeGalleryId || (state.lastResult && (state.lastResult.job_id + '_0'));
+      if (!canvasGid) {
+        showStudioToast('작품 정보를 찾지 못했습니다.', true);
+        return;
+      }
+      if (typeof global.YooYStudioAddToCanvas === 'function') {
+        global.YooYStudioAddToCanvas(canvasGid);
+      } else {
+        showStudioToast('Canvas 연동을 불러오지 못했습니다.', true);
+      }
       return;
     }
 
@@ -3374,6 +3420,9 @@
       showGenerateInfo(root, '');
     }
     notifyGalleryUpdated();
+    try {
+      maybeReturnResultToCanvas(state.activeGalleryId);
+    } catch (canvasErr) { /* ignore */ }
     try {
       if (global.YooYOnboarding && typeof global.YooYOnboarding.notifyFirstSuccess === 'function') {
         global.YooYOnboarding.notifyFirstSuccess({

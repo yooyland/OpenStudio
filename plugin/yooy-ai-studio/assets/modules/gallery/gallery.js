@@ -350,6 +350,7 @@
       publicationStateHtml(item) +
       '<div class="ygl-action-group"><div class="ygl-actions">' +
         (item.type === 'image' ? actionBtn('원본 보기', 'view-original', 'ygl-btn-primary') : '') +
+        (item.type === 'image' ? actionBtn('Canvas에 추가', 'add-canvas') : '') +
         actionBtn('프로젝트에 추가', 'project') +
         actionBtn('다운로드', 'download') +
         actionBtn('복제', 'duplicate') +
@@ -765,6 +766,13 @@
           });
         } else {
           toast('원본 이미지를 열 수 없습니다.');
+        }
+        break;
+      case 'add-canvas':
+        if (global.YooYStudioAddToCanvas) {
+          global.YooYStudioAddToCanvas(item.id);
+        } else {
+          toast('Canvas 연동을 불러오지 못했습니다.');
         }
         break;
       case 'download':

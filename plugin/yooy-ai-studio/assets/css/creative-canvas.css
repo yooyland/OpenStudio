@@ -1,0 +1,166 @@
+/* YooY Creative Canvas v1 — premium dark workflow board */
+.ycc-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: min(72vh, 820px);
+  outline: none;
+}
+.ycc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(220, 170, 45, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(24, 24, 24, 0.95), rgba(12, 12, 12, 0.92));
+}
+.ycc-toolbar__left,
+.ycc-toolbar__right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ycc-toolbar strong {
+  color: #f5d78a;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.ycc-muted { color: #9a9a9a; font-size: 12px; }
+.ycc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(280px, 32vw);
+  gap: 12px;
+  min-height: min(64vh, 720px);
+}
+.ycc-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(220, 170, 45, 0.18);
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(220, 170, 45, 0.06), transparent 45%),
+    radial-gradient(ellipse at 80% 90%, rgba(80, 120, 180, 0.05), transparent 40%),
+    #070707;
+  cursor: grab;
+  touch-action: none;
+}
+.ycc-stage:active { cursor: grabbing; }
+.ycc-board,
+.ycc-world {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+}
+.ycc-world { width: 4000px; height: 3000px; }
+.ycc-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.ycc-edge {
+  fill: none;
+  stroke: rgba(220, 170, 45, 0.35);
+  stroke-width: 1.5;
+}
+.ycc-node {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(16, 16, 16, 0.96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  color: #eee;
+  cursor: grab;
+  user-select: none;
+}
+.ycc-node.is-selected {
+  border-color: rgba(220, 170, 45, 0.7);
+  box-shadow: 0 0 0 1px rgba(220, 170, 45, 0.35), 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.ycc-node__head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: #c9a227;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ycc-node__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f3f3f3;
+  line-height: 1.35;
+}
+.ycc-node__body {
+  margin: 8px 0 0;
+  color: #a8a8a8;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.ycc-node__media {
+  margin: 0 0 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #0a0a0a;
+  aspect-ratio: 4 / 3;
+}
+.ycc-node__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: none !important;
+}
+.ycc-node__media--empty {
+  display: grid;
+  place-items: center;
+  color: #666;
+  font-size: 12px;
+}
+.ycc-node--prompt { border-color: rgba(120, 170, 255, 0.25); }
+.ycc-node--note { border-color: rgba(160, 160, 160, 0.2); }
+.ycc-node--generated_image { border-color: rgba(220, 170, 45, 0.28); }
+.ycc-inspector {
+  border: 1px solid rgba(220, 170, 45, 0.18);
+  border-radius: 16px;
+  background: #0d0d0d;
+  padding: 14px;
+  overflow: auto;
+}
+.ycc-inspector h3 {
+  margin: 6px 0 10px;
+  color: #f5d78a;
+  font-size: 15px;
+}
+.ycc-inspector__type {
+  color: #888;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ycc-inspector__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.ycc-hint {
+  margin: 0;
+  color: #777;
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .ycc-layout { grid-template-columns: 1fr; }
+  .ycc-inspector { min-height: 160px; }
+}

@@ -4,6 +4,7 @@ if (!defined('ABSPATH')) exit;
 require_once __DIR__ . '/class-image-input-normalizer.php';
 require_once __DIR__ . '/class-image-subject-scene-extractor.php';
 require_once __DIR__ . '/class-image-quality-escalator.php';
+require_once __DIR__ . '/class-image-composition-planner.php';
 require_once __DIR__ . '/class-image-prompt-fidelity.php';
 require_once __DIR__ . '/class-studio-intent-analyzer.php';
 require_once __DIR__ . '/class-studio-creative-brief-builder.php';
@@ -59,10 +60,11 @@ final class YooY_Image_Prompt_Orchestrator {
                 'title_preview'     => '',
                 'provider_quality'  => ['generation_mode' => 'premium', 'quality' => 'hd', 'prefer_large_size' => true],
                 'rewrite_count'     => 0,
-                'prompt_version'    => 'spi-image-orch-2',
+                'prompt_version'    => 'spi-image-orch-3',
                 'pipeline'          => ['failsafe'],
                 'blocked'           => false,
                 'orchestration_error' => $e->getMessage(),
+                'composition_plan'  => [],
             ];
         }
     }
@@ -107,6 +109,12 @@ final class YooY_Image_Prompt_Orchestrator {
         $escalated = YooY_Image_Quality_Escalator::escalate($brief, $normalized, $scene);
         $brief = $escalated['brief'];
 
+        $composition = YooY_Image_Composition_Planner::plan($brief, $scene, $normalized);
+        $brief['composition_plan'] = $composition;
+        if (!empty($composition['primary_subject']) && empty($brief['primary_subject'])) {
+            $brief['primary_subject'] = $composition['primary_subject'];
+        }
+
         $preset = YooY_Image_Art_Direction::resolve_preset($brief);
         $brief['art_direction_preset'] = $preset;
 
@@ -114,6 +122,12 @@ final class YooY_Image_Prompt_Orchestrator {
         $composed = $this->composer->compose($brief, $params);
         $composed['preset'] = $preset;
         $composed['art_direction'] = $preset;
+
+        // Composition Planner injection (premium framing / anti-cheap).
+        $composed['prompt'] = YooY_Image_Composition_Planner::inject_into_prompt(
+            (string) $composed['prompt'],
+            $composition
+        );
 
         // P1 fidelity lock first — art direction may enhance but not replace.
         $lock = YooY_Image_Prompt_Fidelity::lock_block($scene, $brief, $raw_user_request);
@@ -136,10 +150,12 @@ final class YooY_Image_Prompt_Orchestrator {
         }
 
         $genre_neg = YooY_Image_Art_Direction::genre_negatives($preset);
-        if ($genre_neg) {
+        $anti_cheap = YooY_Image_Art_Direction::anti_cheap_negatives();
+        $neg_extra = array_merge($genre_neg, $anti_cheap);
+        if ($neg_extra) {
             $neg = (string) ($composed['negative_prompt'] ?? '');
-            $extra = implode(', ', $genre_neg);
-            if ($extra !== '' && strpos($neg, $genre_neg[0]) === false) {
+            $extra = implode(', ', array_slice($neg_extra, 0, 18));
+            if ($extra !== '') {
                 $composed['negative_prompt'] = $neg !== '' ? ($neg . ', ' . $extra) : $extra;
             }
         }
@@ -215,6 +231,7 @@ final class YooY_Image_Prompt_Orchestrator {
                 'reasons'  => $escalated['reasons'],
             ],
             'creative_brief'    => $brief,
+            'composition_plan'  => $composition,
             'composed_prompt'   => $composed['prompt'],
             'negative_prompt'   => $composed['negative_prompt'],
             'intent_domain'     => $composed['domain'],
@@ -227,16 +244,18 @@ final class YooY_Image_Prompt_Orchestrator {
             'provider_quality'  => $provider_quality,
             'rewrite_count'     => $rewrite_count,
             'retry_mode'        => $retry_mode,
-            'prompt_version'    => 'spi-image-orch-2',
+            'prompt_version'    => 'spi-image-orch-3',
             'pipeline'          => [
                 'input_normalizer',
                 'intent_analyzer',
                 'subject_scene_extractor',
                 'quality_escalator',
+                'composition_planner',
                 'art_direction_preset_selector',
                 'domain_prompt_composer',
                 'prompt_fidelity_lock',
                 'negative_guidance_injector',
+                'anti_cheap_guardrails',
                 'prompt_bloat_compressor',
                 'final_prompt_builder',
                 'provider_quality_selector',

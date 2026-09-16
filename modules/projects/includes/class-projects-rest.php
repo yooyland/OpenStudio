@@ -87,6 +87,178 @@ final class YooY_Projects_REST {
                 'permission_callback' => $auth,
             ],
         ]);
+
+        register_rest_route('yoy-ai-studio/v1', '/projects/(?P<id>[a-zA-Z0-9_-]+)/canvas', [
+            [
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => [$self, 'get_canvas'],
+                'permission_callback' => $auth,
+            ],
+            [
+                'methods'             => WP_REST_Server::EDITABLE,
+                'callback'            => [$self, 'save_canvas'],
+                'permission_callback' => $auth,
+            ],
+        ]);
+
+        register_rest_route('yoy-ai-studio/v1', '/projects/(?P<id>[a-zA-Z0-9_-]+)/canvas/nodes', [
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [$self, 'add_canvas_node'],
+                'permission_callback' => $auth,
+            ],
+        ]);
+
+        register_rest_route('yoy-ai-studio/v1', '/projects/(?P<id>[a-zA-Z0-9_-]+)/canvas/nodes/(?P<node_id>[a-zA-Z0-9_-]+)', [
+            [
+                'methods'             => WP_REST_Server::EDITABLE,
+                'callback'            => [$self, 'update_canvas_node'],
+                'permission_callback' => $auth,
+            ],
+            [
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => [$self, 'remove_canvas_node'],
+                'permission_callback' => $auth,
+            ],
+        ]);
+
+        register_rest_route('yoy-ai-studio/v1', '/projects/(?P<id>[a-zA-Z0-9_-]+)/canvas/results', [
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [$self, 'add_canvas_result'],
+                'permission_callback' => $auth,
+            ],
+        ]);
+    }
+
+    /** @return YooY_Project_Canvas_Store */
+    private function canvas_store() {
+        if (!class_exists('YooY_Project_Canvas_Store')) {
+            $file = defined('YOY_AI_STUDIO_MODULES_DIR')
+                ? YOY_AI_STUDIO_MODULES_DIR . 'projects/includes/class-project-canvas-store.php'
+                : dirname(__FILE__) . '/class-project-canvas-store.php';
+            if (is_readable($file)) {
+                require_once $file;
+            }
+        }
+        return new YooY_Project_Canvas_Store($this->store);
+    }
+
+    public function get_canvas(WP_REST_Request $request): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) {
+            return $user_id;
+        }
+        $id = sanitize_text_field((string) $request->get_param('id'));
+        $canvas = $this->canvas_store()->get($user_id, $id);
+        if (!$canvas) {
+            return $this->fail('프로젝트를 찾을 수 없습니다.', 404);
+        }
+        return $this->ok(['canvas' => $canvas]);
+    }
+
+    public function save_canvas(WP_REST_Request $request): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) {
+            return $user_id;
+        }
+        $id = sanitize_text_field((string) $request->get_param('id'));
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        if (isset($body['canvas']) && is_array($body['canvas'])) {
+            $body = $body['canvas'];
+        }
+        $canvas = $this->canvas_store()->save($user_id, $id, $body);
+        if (!$canvas) {
+            return $this->fail('Canvas를 저장하지 못했습니다.', 404);
+        }
+        return $this->ok(['canvas' => $canvas]);
+    }
+
+    public function add_canvas_node(WP_REST_Request $request): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) {
+            return $user_id;
+        }
+        $id = sanitize_text_field((string) $request->get_param('id'));
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $gallery_id = sanitize_text_field((string) ($body['linked_gallery_id'] ?? $body['gallery_id'] ?? ''));
+        if ($gallery_id !== '') {
+            $item = $this->get_own_gallery_item($user_id, $gallery_id);
+            if (!$item) {
+                return $this->fail('Gallery 작품을 찾을 수 없거나 권한이 없습니다.', 403);
+            }
+            $body['linked_gallery_id'] = $gallery_id;
+            if (empty($body['metadata_json']) || !is_array($body['metadata_json'])) {
+                $body['metadata_json'] = [];
+            }
+            $body['metadata_json']['title'] = $item['title'] ?? ($body['metadata_json']['title'] ?? '');
+            $body['metadata_json']['thumbnail_url'] = $item['thumbnail_url'] ?? $item['full_url'] ?? '';
+            if (empty($body['node_type'])) {
+                $body['node_type'] = 'generated_image';
+            }
+        }
+        $canvas = $this->canvas_store()->add_node($user_id, $id, $body);
+        if (!$canvas) {
+            return $this->fail('노드를 추가하지 못했습니다.', 400);
+        }
+        return $this->ok(['canvas' => $canvas], 201);
+    }
+
+    public function update_canvas_node(WP_REST_Request $request): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) {
+            return $user_id;
+        }
+        $id = sanitize_text_field((string) $request->get_param('id'));
+        $node_id = sanitize_text_field((string) $request->get_param('node_id'));
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $canvas = $this->canvas_store()->update_node($user_id, $id, $node_id, $body);
+        if (!$canvas) {
+            return $this->fail('노드를 수정하지 못했습니다.', 404);
+        }
+        return $this->ok(['canvas' => $canvas]);
+    }
+
+    public function remove_canvas_node(WP_REST_Request $request): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) {
+            return $user_id;
+        }
+        $id = sanitize_text_field((string) $request->get_param('id'));
+        $node_id = sanitize_text_field((string) $request->get_param('node_id'));
+        $canvas = $this->canvas_store()->remove_node($user_id, $id, $node_id);
+        if (!$canvas) {
+            return $this->fail('노드를 삭제하지 못했습니다.', 404);
+        }
+        return $this->ok(['canvas' => $canvas]);
+    }
+
+    public function add_canvas_result(WP_REST_Request $request): WP_REST_Response {
+        $user_id = $this->require_user();
+        if ($user_id instanceof WP_REST_Response) {
+            return $user_id;
+        }
+        $id = sanitize_text_field((string) $request->get_param('id'));
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $gallery_id = sanitize_text_field((string) ($body['gallery_id'] ?? $body['linked_gallery_id'] ?? ''));
+        if ($gallery_id === '') {
+            return $this->fail('gallery_id가 필요합니다.', 400);
+        }
+        $item = $this->get_own_gallery_item($user_id, $gallery_id);
+        if (!$item) {
+            return $this->fail('Gallery 작품을 찾을 수 없거나 권한이 없습니다.', 403);
+        }
+        $from = isset($body['from_node_ids']) && is_array($body['from_node_ids']) ? $body['from_node_ids'] : [];
+        $layout = isset($body['layout']) && is_array($body['layout']) ? $body['layout'] : [];
+        $canvas = $this->canvas_store()->add_generated_result($user_id, $id, $gallery_id, $from, $layout);
+        if (!$canvas) {
+            return $this->fail('결과를 Canvas에 추가하지 못했습니다.', 400);
+        }
+        return $this->ok(['canvas' => $canvas], 201);
     }
 
     public function list_projects(WP_REST_Request $request): WP_REST_Response {

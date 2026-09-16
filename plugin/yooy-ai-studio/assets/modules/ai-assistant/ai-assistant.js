@@ -343,8 +343,18 @@
     track('assistant_route', { studio: route, auto_generate: false });
     var ok = routeTo(route, { source_context: 'assistant', skipDirtyCheck: true });
     if (!ok) {
-      toast('Studio를 열지 못했습니다.');
+      // Retry once after a short tick — route registry may still be booting.
+      setTimeout(function () {
+        var ok2 = routeTo(route, { source_context: 'assistant', skipDirtyCheck: true });
+        if (!ok2) {
+          toast('Studio를 열지 못했습니다. 왼쪽 메뉴에서 Studio를 직접 열어 주세요.');
+        } else {
+          toast('Studio로 이동했습니다. 생성하기를 눌러 주세요.');
+        }
+      }, 120);
+      return false;
     }
+    toast('Studio로 이동했습니다. 프롬프트를 확인하고 생성하기를 눌러 주세요.');
     return ok;
   }
 
@@ -640,6 +650,7 @@
       '<p class="yai-assistant-draft__text">' + esc(state.draft.draft) + '</p>' +
       '<div class="yai-assistant-message__actions">' +
         '<button type="button" class="yai-assistant-action-btn yai-assistant-action-btn--primary" data-approve-prompt>승인하고 Studio로</button>' +
+        '<button type="button" class="yai-assistant-action-btn" data-canvas-continue>Canvas에서 이어가기</button>' +
         '<button type="button" class="yai-assistant-action-btn" data-dismiss-draft>닫기</button>' +
       '</div>';
   }
@@ -1246,11 +1257,33 @@
       if (e.target.closest('[data-approve-prompt]')) {
         e.preventDefault();
         if (!state.draft || !state.draft.draft) {
-          toast('Studio를 열지 못했습니다.');
+          toast('전달할 프롬프트가 없습니다. 먼저 초안을 만들어 주세요.');
           return;
         }
         state.draft.requires_approval = false;
         handoffToStudio(state.draft.studio || (state.brief && state.brief.primary_studio) || 'image');
+        return;
+      }
+
+      if (e.target.closest('[data-canvas-continue]')) {
+        e.preventDefault();
+        var pid = activeProjectId();
+        if (!pid) {
+          toast('먼저 Project를 선택한 뒤 Canvas에서 이어가세요.');
+          return;
+        }
+        if (state.draft && state.draft.draft) {
+          try {
+            sessionStorage.setItem('yoy_home_prompt', state.draft.draft);
+            sessionStorage.setItem('yoy_assistant_project_id', pid);
+          } catch (errC) { /* ignore */ }
+        }
+        if (global.YooYStudioOpenProject) {
+          global.YooYStudioOpenProject(pid, 'canvas');
+        } else if (global.YooYStudioRoute) {
+          global.YooYStudioRoute('project-detail');
+        }
+        toast('Canvas로 이동합니다.');
         return;
       }
 

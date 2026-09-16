@@ -295,6 +295,7 @@
   var WORKSPACE_TABS = [
     { id: 'overview', label: 'Overview', reserved: false },
     { id: 'assets', label: 'Assets', reserved: false },
+    { id: 'canvas', label: 'Canvas', reserved: false },
     { id: 'history', label: 'History', reserved: false },
     { id: 'notes', label: 'Notes', reserved: false },
     { id: 'assistant', label: 'AI Assistant', reserved: false },
@@ -2882,6 +2883,11 @@
     return '<div class="yai-workspace-assistant" id="yai-workspace-assistant-root"></div>';
   }
 
+  function renderWorkspaceCanvas(project) {
+    return '<div class="yai-workspace-canvas" id="yai-workspace-canvas-root" data-project-id="' +
+      esc(project.id || currentProjectId || '') + '"></div>';
+  }
+
   function paintWorkspacePanel() {
     var panel = document.getElementById('yai-workspace-panel');
     if (!panel) return;
@@ -2891,12 +2897,24 @@
 
     if (workspaceTab === 'overview') panel.innerHTML = renderWorkspaceOverview(project, works);
     else if (workspaceTab === 'assets') panel.innerHTML = renderWorkspaceAssets(works);
+    else if (workspaceTab === 'canvas') panel.innerHTML = renderWorkspaceCanvas(project);
     else if (workspaceTab === 'history') panel.innerHTML = renderWorkspaceHistory(works);
     else if (workspaceTab === 'notes') panel.innerHTML = renderWorkspaceNotes(project);
     else if (workspaceTab === 'assistant') panel.innerHTML = renderWorkspaceAssistant();
     else if (workspaceTab === 'launcher') panel.innerHTML = renderWorkspaceLauncher();
     else if (workspaceTab === 'settings') panel.innerHTML = renderWorkspaceSettings(project);
     else panel.innerHTML = renderWorkspaceOverview(project, works);
+
+    if (workspaceTab === 'canvas') {
+      var canvasRoot = document.getElementById('yai-workspace-canvas-root');
+      var pid = (project && project.id) || currentProjectId || '';
+      try { window.YooYAIStudio = window.YooYAIStudio || {}; window.YooYAIStudio._workspaceWorks = works; } catch (e) { /* ignore */ }
+      if (canvasRoot && window.YooYCreativeCanvas && typeof window.YooYCreativeCanvas.mount === 'function') {
+        window.YooYCreativeCanvas.mount(canvasRoot, pid);
+      } else if (canvasRoot) {
+        canvasRoot.innerHTML = '<div class="yai-empty"><h3>Creative Canvas</h3><p>Canvas 모듈을 불러오는 중… 새로고침 후 다시 시도하세요.</p></div>';
+      }
+    }
 
     if (workspaceTab === 'assistant') {
       var root = document.getElementById('yai-workspace-assistant-root');
@@ -3194,6 +3212,24 @@
 
     linkGalleryAssetToProject(projectId, workId).then(function () {
       closeProjectPicker();
+      var pendingCanvas = '';
+      try {
+        pendingCanvas = sessionStorage.getItem('yoy_pending_canvas_add') || '';
+        if (pendingCanvas) sessionStorage.removeItem('yoy_pending_canvas_add');
+      } catch (e) { pendingCanvas = ''; }
+      if (pendingCanvas && String(pendingCanvas) === String(workId) && Core.projects && Core.projects.addCanvasNode) {
+        return Core.projects.addCanvasNode(projectId, {
+          node_type: 'generated_image',
+          linked_gallery_id: workId,
+          x: 280,
+          y: 160
+        }).then(function () {
+          showToast('프로젝트 · Canvas에 추가했습니다.');
+          openProjectDetail(projectId, 'canvas');
+          refreshWorkViews();
+          refreshHomeProjects();
+        });
+      }
       showToast('프로젝트에 추가했습니다.');
       refreshWorkViews();
       refreshHomeProjects();
@@ -4721,6 +4757,40 @@
   window.YooYStudioContinueProject = continueProjectWork;
   window.YooYStudioPickProject = openProjectPicker;
   window.YooYStudioSaveToProject = saveGalleryItemToProject;
+  window.YooYStudioAddToCanvas = function (galleryId, projectId) {
+    galleryId = galleryId ? String(galleryId) : '';
+    if (!galleryId) {
+      showToast('작품 정보가 없습니다.', true);
+      return Promise.reject(new Error('gallery_id required'));
+    }
+    var pid = projectId
+      || currentProjectId
+      || (window.YooYActiveProject && window.YooYActiveProject.getId && window.YooYActiveProject.getId())
+      || '';
+    function addTo(pid2) {
+      if (!Core.projects || typeof Core.projects.addCanvasNode !== 'function') {
+        showToast('Canvas API를 불러오지 못했습니다.', true);
+        return Promise.reject(new Error('canvas api'));
+      }
+      return Core.projects.addCanvasNode(pid2, {
+        node_type: 'generated_image',
+        linked_gallery_id: galleryId,
+        x: 280,
+        y: 160
+      }).then(function () {
+        showToast('Canvas에 추가했습니다.');
+        openProjectDetail(pid2, 'canvas');
+      }).catch(function (err) {
+        showToast((err && err.message) || 'Canvas 추가에 실패했습니다.', true);
+        throw err;
+      });
+    }
+    if (pid) return addTo(pid);
+    try { sessionStorage.setItem('yoy_pending_canvas_add', galleryId); } catch (e) { /* ignore */ }
+    openProjectPicker(galleryId);
+    showToast('프로젝트를 선택하면 Canvas에 추가됩니다.');
+    return Promise.resolve({ pending: true });
+  };
   window.YooYStudioOpenProjectModal = window.YooYOpenProjectCreateDialog;
   } // end bootYooYStudio
 

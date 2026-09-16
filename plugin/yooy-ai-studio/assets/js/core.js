@@ -371,6 +371,22 @@
         addAsset: function (id, data) { return Core.post('projects', '/' + encodeURIComponent(id) + '/assets', data || {}); },
         removeAsset: function (id, assetId) {
           return Core.del('projects', '/' + encodeURIComponent(id) + '/assets/' + encodeURIComponent(assetId));
+        },
+        getCanvas: function (id) { return Core.get('projects', '/' + encodeURIComponent(id) + '/canvas'); },
+        saveCanvas: function (id, canvas) {
+          return Core.put('projects', '/' + encodeURIComponent(id) + '/canvas', { canvas: canvas || {} });
+        },
+        addCanvasNode: function (id, data) {
+          return Core.post('projects', '/' + encodeURIComponent(id) + '/canvas/nodes', data || {});
+        },
+        updateCanvasNode: function (id, nodeId, data) {
+          return Core.put('projects', '/' + encodeURIComponent(id) + '/canvas/nodes/' + encodeURIComponent(nodeId), data || {});
+        },
+        removeCanvasNode: function (id, nodeId) {
+          return Core.del('projects', '/' + encodeURIComponent(id) + '/canvas/nodes/' + encodeURIComponent(nodeId));
+        },
+        addCanvasResult: function (id, data) {
+          return Core.post('projects', '/' + encodeURIComponent(id) + '/canvas/results', data || {});
         }
       },
 
