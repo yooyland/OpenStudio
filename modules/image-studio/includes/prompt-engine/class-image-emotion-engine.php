@@ -57,12 +57,21 @@ final class YooY_Image_Emotion_Engine {
             'genre'    => 'emotional fine-art photography',
         ],
         'anger' => [
-            'keywords' => ['분노', '화', 'anger', 'rage', 'fury'],
+            // Never use bare "화" — it false-matches inside 화장품 (cosmetics).
+            'keywords' => ['분노', '화남', '화난', '화가 난', '화를 내', 'anger', 'rage', 'fury', 'hostile'],
             'emotions' => ['controlled intensity', 'inner turmoil'],
             'visuals'  => ['tight facial tension', 'dramatic contrast', 'sharp shadows', 'compressed framing'],
             'lighting' => 'hard dramatic side light',
             'mood'     => 'intense',
             'genre'    => 'dramatic portrait',
+        ],
+        'refined_beauty' => [
+            'keywords' => ['우아', '세련', '고급', 'elegant', 'radiant', 'refined', 'premium beauty'],
+            'emotions' => ['elegant confidence', 'freshness', 'quiet radiance'],
+            'visuals'  => ['luminous healthy skin', 'soft flattering beauty light', 'refined posture', 'clean luxurious set'],
+            'lighting' => 'soft flattering beauty key light',
+            'mood'     => 'refined',
+            'genre'    => 'luxury beauty campaign photography',
         ],
         'peace' => [
             'keywords' => ['평화', '고요', '평온', 'peace', 'calm', 'serene', 'tranquil'],
@@ -95,13 +104,31 @@ final class YooY_Image_Emotion_Engine {
      */
     public function analyze(string $prompt): array {
         $hay = mb_strtolower($prompt);
+        $is_beauty = (bool) preg_match('/화장품|스킨케어|세럼|크림|향수|뷰티|cosmetic|skincare|beauty|serum|perfume|anti.?aging|안티에이징/u', $hay);
+
+        // Beauty / skincare: never map to anger/hostile — prefer refined premium mood.
+        if ($is_beauty) {
+            return [
+                'primary'   => 'refined_beauty',
+                'emotions'  => ['elegant confidence', 'freshness', 'radiant calm'],
+                'visuals'   => ['luminous healthy skin', 'soft flattering beauty light', 'premium campaign set', 'clean luxurious negative space'],
+                'lighting'  => 'soft flattering beauty key light with gentle fill',
+                'mood'      => 'refined',
+                'genre'     => 'luxury beauty campaign photography',
+                'abstract'  => false,
+            ];
+        }
+
         $best = null;
         $best_score = 0;
 
         foreach (self::$lexicon as $id => $entry) {
+            if ($id === 'refined_beauty') {
+                continue;
+            }
             $score = 0;
             foreach ($entry['keywords'] as $kw) {
-                if (mb_strpos($hay, mb_strtolower($kw)) !== false) {
+                if ($this->keyword_hit($hay, (string) $kw)) {
                     $score += 2;
                 }
             }
@@ -135,6 +162,18 @@ final class YooY_Image_Emotion_Engine {
         ];
     }
 
+    private function keyword_hit(string $hay, string $kw): bool {
+        $kw = mb_strtolower(trim($kw));
+        if ($kw === '') {
+            return false;
+        }
+        // ASCII tokens: word-ish boundary.
+        if (preg_match('/^[a-z0-9][a-z0-9\s-]{0,40}$/i', $kw)) {
+            return (bool) preg_match('/\b' . preg_quote($kw, '/') . '\b/iu', $hay);
+        }
+        return mb_strpos($hay, $kw) !== false;
+    }
+
     public function is_abstract_emotional(string $prompt): bool {
         $trim = trim($prompt);
         if ($trim === '') {
@@ -151,7 +190,7 @@ final class YooY_Image_Emotion_Engine {
         $hay = mb_strtolower($trim);
         foreach (self::$lexicon as $entry) {
             foreach ($entry['keywords'] as $kw) {
-                if (mb_strpos($hay, mb_strtolower((string) $kw)) !== false) {
+                if ($this->keyword_hit($hay, (string) $kw)) {
                     return true;
                 }
             }

@@ -56,9 +56,12 @@ final class YooY_Image_Composition_Planner {
                 $plan = self::plan_storybook($plan, $raw);
                 break;
             case 'beauty':
+            case 'beauty_model_campaign':
+            case 'beauty_poster_editorial':
             case 'fashion':
-                $plan = self::plan_beauty($plan, $raw);
+                $plan = self::plan_beauty($plan, $raw, $domain);
                 break;
+            case 'beauty_product_packshot':
             case 'product':
             case 'ecommerce':
                 $plan = self::plan_product($plan, $raw);
@@ -165,16 +168,48 @@ final class YooY_Image_Composition_Planner {
     }
 
     /** @param array<string, mixed> $plan @return array<string, mixed> */
-    private static function plan_beauty(array $plan, string $raw): array {
-        $plan['framing'] = 'clean premium product/beauty hero framing with breathing negative space';
-        $plan['camera'] = 'studio beauty camera, controlled depth of field';
-        $plan['depth'] = 'soft background falloff; product/face remains razor-clear';
-        $plan['lighting'] = 'elegant soft key + gentle rim; quiet luxury speculars';
-        $plan['mood'] = 'clean premium Korean/global beauty campaign mood';
-        $plan['material_emphasis'] = 'glass, serum viscosity, skin micro-texture, packaging edges';
-        $plan['richness'] = 'minimal but expensive — one hero, refined props only';
-        $plan['realism_balance'] = 'ad-grade beauty still / editorial campaign';
-        unset($raw);
+    private static function plan_beauty(array $plan, string $raw, string $domain = 'beauty_model_campaign'): array {
+        $is_poster = ($domain === 'beauty_poster_editorial') || (bool) preg_match('/포스터|poster/u', $raw);
+        $is_packshot = ($domain === 'beauty_product_packshot')
+            || (bool) preg_match('/제품만|누끼|상세페이지|packshot|product\s*only/u', $raw);
+
+        if ($is_packshot) {
+            $plan['framing'] = 'elevated beauty product hero — deliberate commercial still-life angle';
+            $plan['camera'] = 'studio beauty still camera, controlled depth of field';
+            $plan['depth'] = 'soft background falloff; packaging remains razor-clear';
+            $plan['lighting'] = 'elegant soft key + gentle rim; quiet luxury speculars';
+            $plan['mood'] = 'clean premium Korean/global beauty product mood — refined, radiant, calm';
+            $plan['material_emphasis'] = 'glass, serum viscosity, packaging edges';
+            $plan['richness'] = 'minimal but expensive — one hero, refined props only';
+            $plan['realism_balance'] = 'ad-grade beauty product still';
+            $plan['anti_cheap_lines'] = array_merge($plan['anti_cheap_lines'], [
+                'no pharmacy bottle aesthetic',
+                'no cheap e-commerce snapshot',
+                'no flat dead-center catalog look',
+            ]);
+            return $plan;
+        }
+
+        $plan['framing'] = $is_poster
+            ? 'premium vertical beauty advertising poster — model + product hierarchy with headline negative space'
+            : 'model-led luxury beauty campaign framing; product legible in hand or near model';
+        $plan['camera'] = '85mm-equivalent beauty campaign camera, soft subject separation';
+        $plan['depth'] = 'layered campaign set; face and product both readable';
+        $plan['lighting'] = 'soft flattering beauty key + gentle fill; luminous skin; quiet luxury product highlights';
+        $plan['mood'] = 'refined elegant radiant premium calm clean confident — never anger or hostile intensity';
+        $plan['material_emphasis'] = 'luminous skin micro-texture, glass/cream packaging, contemporary wardrobe';
+        $plan['richness'] = 'campaign-ready polish with usable copy space; no cluttered props';
+        $plan['realism_balance'] = 'premium K-beauty advertising campaign / editorial poster';
+        $plan['supporting'] = ['skincare product hero', 'clean luxurious set', 'copy-ready negative space'];
+        $plan['anti_cheap_lines'] = array_merge($plan['anti_cheap_lines'], [
+            'no product-only empty tabletop unless requested',
+            'no pharmacy bottle aesthetic',
+            'no cheap home-shopping mood',
+            'no plastic skin or mannequin face',
+            'no generic stock-cosmetic look',
+            'no kitschy or tacky styling',
+            'no flat dead-center catalog look',
+        ]);
         return $plan;
     }
 

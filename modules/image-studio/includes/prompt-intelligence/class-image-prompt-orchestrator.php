@@ -60,7 +60,7 @@ final class YooY_Image_Prompt_Orchestrator {
                 'title_preview'     => '',
                 'provider_quality'  => ['generation_mode' => 'premium', 'quality' => 'hd', 'prefer_large_size' => true],
                 'rewrite_count'     => 0,
-                'prompt_version'    => 'spi-image-orch-3',
+                'prompt_version'    => 'spi-image-orch-4',
                 'pipeline'          => ['failsafe'],
                 'blocked'           => false,
                 'orchestration_error' => $e->getMessage(),
@@ -160,13 +160,30 @@ final class YooY_Image_Prompt_Orchestrator {
             }
         }
 
-        // Product/beauty: blank packaging when user did not ask for typography.
+        // Product/beauty packaging: preserve short user brand tokens; otherwise avoid invented copy.
         $raw_l = mb_strtolower($raw_user_request);
-        if (in_array($composed['domain'] ?? '', ['product', 'beauty', 'ecommerce'], true)
-            && !preg_match('/텍스트|로고|타이포|글자|label|logo|typography|text\s*on/u', $raw_l)) {
-            $composed['prompt'] = rtrim((string) $composed['prompt'], '. ')
-                . '. PACKAGING: blank unbranded packaging — no invented logos, no invented Korean/English label text, no random typography';
-            $composed['negative_prompt'] = trim((string) ($composed['negative_prompt'] ?? '') . ', invented logos, invented brand names, Korean characters on packaging, English label text, random typography', ' ,');
+        $domain = (string) ($composed['domain'] ?? '');
+        $is_beauty_family = in_array($domain, [
+            'beauty', 'beauty_product_packshot', 'beauty_model_campaign', 'beauty_poster_editorial',
+            'product', 'ecommerce',
+        ], true);
+        $brand = trim((string) ($brief['brand_token'] ?? ''));
+        if ($brand === '' && preg_match('/[\'"“‘]([A-Za-z0-9][A-Za-z0-9.&-]{1,11})[\'"”’]/u', $raw_user_request, $bm)) {
+            $brand = $bm[1];
+        }
+        if ($is_beauty_family) {
+            if ($brand !== '') {
+                $composed['prompt'] = rtrim((string) $composed['prompt'], '. ')
+                    . '. BRAND MARK: preserve short user brand token "' . $brand . '" elegantly when feasible — simple refined packaging mark only; no invented long marketing paragraphs';
+                $composed['negative_prompt'] = trim((string) ($composed['negative_prompt'] ?? '')
+                    . ', invented long packaging paragraphs, random Hangul spam, noisy fake marketing copy', ' ,');
+            } elseif (!preg_match('/텍스트|로고|타이포|글자|label|logo|typography|text\s*on/u', $raw_l)
+                && in_array($domain, ['product', 'ecommerce', 'beauty_product_packshot'], true)) {
+                $composed['prompt'] = rtrim((string) $composed['prompt'], '. ')
+                    . '. PACKAGING: blank unbranded packaging — no invented logos, no invented Korean/English label text, no random typography';
+                $composed['negative_prompt'] = trim((string) ($composed['negative_prompt'] ?? '')
+                    . ', invented logos, invented brand names, Korean characters on packaging, English label text, random typography', ' ,');
+            }
         }
 
         $validation = $this->validator->validate($brief, $composed['prompt'], $composed['domain']);
@@ -244,7 +261,7 @@ final class YooY_Image_Prompt_Orchestrator {
             'provider_quality'  => $provider_quality,
             'rewrite_count'     => $rewrite_count,
             'retry_mode'        => $retry_mode,
-            'prompt_version'    => 'spi-image-orch-3',
+            'prompt_version'    => 'spi-image-orch-4',
             'pipeline'          => [
                 'input_normalizer',
                 'intent_analyzer',

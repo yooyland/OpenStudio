@@ -140,11 +140,41 @@ final class YooY_Gallery_Title_Service {
             && preg_match('/여름|바다|해변|beach|summer|sea/u', $raw_lower)) {
             return '바다빛을 담은 여름';
         }
-        if (preg_match('/스킨케어|크림|skincare|cream/u', $raw_lower)
-            && preg_match('/럭셔리|프리미엄|luxury|premium/u', $raw_lower)) {
-            return '빛을 담은 스킨케어';
-        }
-        if (preg_match('/화장품|스킨케어|크림|세럼|향수/u', $raw_lower)) {
+        // Beauty campaign / poster with optional brand
+        if (preg_match('/화장품|스킨케어|크림|세럼|안티에이징|향수|cosmetic|skincare|beauty/u', $raw_lower)
+            || in_array($domain, ['beauty', 'beauty_model_campaign', 'beauty_poster_editorial', 'beauty_product_packshot'], true)) {
+            $brand = '';
+            if (preg_match('/[\'"“‘]([A-Za-z0-9][A-Za-z0-9.&-]{1,11})[\'"”’]/u', $clean . ' ' . $raw_lower, $bm)
+                || preg_match('/\b([A-Z]{2,8})\b/u', $clean, $bm)) {
+                $cand = isset($bm[1]) ? $bm[1] : '';
+                if ($cand !== '' && !in_array(strtoupper($cand), ['AI', 'UI', 'UX', 'HD', 'SNS', 'TV', 'AD'], true)) {
+                    $brand = $cand;
+                }
+            }
+            if (preg_match('/제품만|누끼|packshot|product\s*only/u', $raw_lower)
+                || $domain === 'beauty_product_packshot') {
+                return $brand !== '' ? ($brand . '의 고요한 결') : '빛을 담은 스킨케어';
+            }
+            if (preg_match('/포스터|광고|캠페인|poster|campaign|advert/u', $raw_lower)
+                || in_array($domain, ['beauty_model_campaign', 'beauty_poster_editorial'], true)) {
+                $pool = [
+                    '시간을 품은 피부',
+                    '빛을 머금은 탄력',
+                    '피부에 남는 우아함',
+                    '시간을 거스르는 빛',
+                    '고요한 광채의 순간',
+                ];
+                if ($brand !== '') {
+                    $pool[] = $brand . ', 빛나는 시간의 순간';
+                    $pool[] = $brand . '의 우아한 광채';
+                }
+                $idx = abs(crc32($raw_lower . '|' . $brand)) % count($pool);
+                return $pool[$idx];
+            }
+            if (preg_match('/스킨케어|크림|skincare|cream/u', $raw_lower)
+                && preg_match('/럭셔리|프리미엄|luxury|premium/u', $raw_lower)) {
+                return '빛을 담은 스킨케어';
+            }
             return '빛을 머금은 뷰티';
         }
 

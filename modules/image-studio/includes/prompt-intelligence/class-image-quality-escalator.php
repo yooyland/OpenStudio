@@ -39,7 +39,7 @@ final class YooY_Image_Quality_Escalator {
             $escalate = true;
             $reasons[] = 'cover_or_cinematic';
         }
-        if (in_array((string) ($brief['content_domain'] ?? ''), ['storybook', 'fantasy', 'beauty', 'architecture', 'product', 'portrait', 'lifestyle', 'fashion', 'ecommerce'], true)) {
+        if (in_array((string) ($brief['content_domain'] ?? ''), ['storybook', 'fantasy', 'beauty', 'beauty_model_campaign', 'beauty_poster_editorial', 'beauty_product_packshot', 'architecture', 'product', 'portrait', 'lifestyle', 'fashion', 'ecommerce'], true)) {
             $tier = 'premium';
             $escalate = true;
             $reasons[] = 'domain_premium_default';
@@ -110,6 +110,9 @@ final class YooY_Image_Quality_Escalator {
             'storybook'    => 'modern premium picture-book cover illustration',
             'fantasy'      => 'premium fantasy editorial illustration',
             'beauty'       => 'premium beauty editorial campaign still',
+            'beauty_model_campaign' => 'premium beauty model campaign still',
+            'beauty_poster_editorial' => 'premium beauty advertising poster still',
+            'beauty_product_packshot' => 'premium beauty product packshot still',
             'architecture' => 'premium architectural visualization',
             'product'      => 'luxury product campaign photography',
             'portrait'     => 'editorial premium portrait photography',

@@ -34,6 +34,11 @@ final class YooY_Studio_Creative_Brief_Builder {
             'confidence'         => (float) ($intent['confidence'] ?? 0),
             'wants_product'      => !empty($intent['wants_product']),
             'wants_political'    => !empty($intent['wants_political']),
+            'wants_model'        => !empty($intent['wants_model']),
+            'brand_token'        => (string) ($intent['brand_token'] ?? ''),
+            'beauty_mode'        => (string) ($intent['beauty_mode'] ?? ''),
+            'k_culture'          => (string) ($intent['k_culture'] ?? ''),
+            'meaning'            => (string) ($intent['meaning'] ?? ''),
             'art_direction_preset' => (string) ($intent['art_direction_preset'] ?? ''),
         ];
     }

@@ -46,7 +46,14 @@ final class YooY_Image_Domain_Prompt_Composer {
         if ($domain === 'architecture' || $this->looks_architecture($raw)) {
             return $this->finalize($this->compose_architecture($brief, $settings), $preset);
         }
-        if ($domain === 'beauty' || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_beauty($raw))) {
+        if (in_array($domain, ['beauty_model_campaign', 'beauty_poster_editorial'], true)
+            || (($domain === 'beauty' || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_beauty($raw)))
+                && !preg_match('/제품만|누끼|상세페이지|제품\s*사진만|packshot|product\s*only/u', $raw))) {
+            return $this->finalize($this->compose_beauty_campaign($brief, $settings, $domain), $preset);
+        }
+        if ($domain === 'beauty_product_packshot'
+            || $domain === 'beauty'
+            || (class_exists('YooY_Image_Art_Direction') && YooY_Image_Art_Direction::looks_beauty($raw))) {
             return $this->finalize($this->compose_product($brief, $settings), $preset);
         }
         if (!empty($brief['wants_product']) || in_array($domain, ['product', 'ecommerce', 'fashion', 'food'], true)) {
@@ -148,6 +155,62 @@ final class YooY_Image_Domain_Prompt_Composer {
     }
 
     /**
+     * Model / poster beauty campaign — not a product-only packshot.
+     *
+     * @param array<string, mixed> $brief
+     * @param array<string, mixed> $settings
+     * @return array{prompt:string,negative_prompt:string,domain:string,preset:string}
+     */
+    private function compose_beauty_campaign(array $brief, array $settings, string $domain = 'beauty_model_campaign'): array {
+        $subject = (string) ($brief['primary_subject'] ?? 'premium beauty campaign');
+        $raw = (string) ($brief['raw_user_request'] ?? $subject);
+        $raw_l = mb_strtolower($raw);
+        $brand = trim((string) ($brief['brand_token'] ?? ''));
+        if ($brand === '' && preg_match('/[\'"“‘]([A-Za-z0-9][A-Za-z0-9.&-]{1,11})[\'"”’]/u', $raw, $m)) {
+            $brand = $m[1];
+        }
+        if ($brand === '' && preg_match('/\b([A-Z]{2,8})\b/u', $raw, $m)
+            && !in_array(strtoupper($m[1]), ['AI', 'UI', 'UX', 'HD', 'SNS', 'TV', 'AD'], true)) {
+            $brand = $m[1];
+        }
+
+        $is_poster = ($domain === 'beauty_poster_editorial')
+            || (bool) preg_match('/포스터|poster|광고\s*포스터/u', $raw_l);
+        $layout = $is_poster
+            ? 'premium vertical advertising poster layout with clear headline / copy negative space; strong visual hierarchy'
+            : 'balanced luxury beauty campaign key visual — model-led with product clearly present';
+
+        $brand_line = $brand !== ''
+            ? 'PACKAGING / BRAND: preserve the short user brand token "' . $brand . '" elegantly on packaging when feasible — simple refined mark only; no invented paragraphs, no noisy fake marketing copy'
+            : 'PACKAGING: keep labels minimal and elegant; do not invent long fake brand stories or random Hangul/English paragraphs';
+
+        $parts = [
+            'CORE SCENE: healthy attractive model with luminous refined skin as campaign hero, holding or presented with the skincare / anti-aging product so the product remains clearly legible',
+            'PURPOSE: modern premium K-beauty ' . ($is_poster ? 'advertising poster' : 'brand campaign') . ' — aspirational lifestyle + product efficacy (treat advertising/poster as intent, not literal on-image text)',
+            'VISUAL DIRECTION: polished commercial beauty finish; elegant K-beauty language; soft flattering beauty lighting; natural refined styling; clean luxurious set; sophisticated campaign-ready composition',
+            'COMPOSITION: ' . ((string) ($brief['composition'] ?: $layout)),
+            'LIGHTING: soft flattering beauty key + gentle fill; luminous skin speculars; quiet luxury product highlights',
+            'MOOD: refined, elegant, radiant, premium, calm, clean, confident — never angry, hostile, or aggressive',
+            'STYLING & MATERIALS: healthy skin micro-texture, premium glass/cream packaging, contemporary wardrobe, polished commercial grade',
+            'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette'] ?: 'clean luminous beauty neutrals with soft champagne accents')),
+            'ENVIRONMENT: clean luxurious beauty campaign set with usable negative space for poster copy',
+            $brand_line,
+            'K-CULTURE: kbeauty campaign sensibility — modern Seoul premium beauty advertising',
+            'MEANING: product efficacy + aspirational lifestyle',
+            'QUALITY CONSTRAINTS: campaign-ready poster look; product must stay readable; model inclusion by default; no pharmacy bottle aesthetic; no cheap e-commerce snapshot; no flat dead-center catalog; no kitschy styling',
+            'AVOID: product-only empty tabletop unless requested; amateur still life; harsh awkward reflections; plastic skin; lifeless mannequin face; home-shopping mood; generic stock-cosmetic look; fake random typography walls; anger or intense hostile expression',
+        ];
+        unset($settings);
+
+        return [
+            'prompt'          => implode('. ', $parts) . '. USER REQUEST ANCHOR: ' . mb_substr($subject, 0, 220),
+            'negative_prompt' => 'anger, rage, hostile face, aggressive expression, product-only packshot, empty tabletop, pharmacy bottle, cheap home-shopping, plastic skin, mannequin face, generic stock cosmetic, invented long packaging paragraphs, random Hangul spam, dead-center catalog, amateur snapshot, glitter dust cliché',
+            'domain'          => $is_poster ? 'beauty_poster_editorial' : 'beauty_model_campaign',
+            'preset'          => 'beauty_campaign',
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $brief
      * @param array<string, mixed> $settings
      * @return array{prompt:string,negative_prompt:string,domain:string,preset:string}
@@ -155,21 +218,26 @@ final class YooY_Image_Domain_Prompt_Composer {
     private function compose_product(array $brief, array $settings): array {
         $subject = (string) ($brief['primary_subject'] ?? 'hero product');
         $raw = mb_strtolower((string) ($brief['raw_user_request'] ?? $subject));
-        $is_beauty = (bool) preg_match('/화장품|스킨케어|크림|세럼|향수|cosmetic|skincare|cream|serum|perfume|beauty/u', $raw);
+        $is_beauty = (bool) preg_match('/화장품|스킨케어|크림|세럼|향수|cosmetic|skincare|cream|serum|perfume|beauty|안티에이징/u', $raw);
         $is_beach = (bool) preg_match('/바다|해변|여름|beach|summer|sea|ocean/u', $raw);
+        $brand = trim((string) ($brief['brand_token'] ?? ''));
 
         $env = 'controlled premium studio set with clean gradient backdrop';
         $light = 'soft dual softbox key + gentle rim, controlled specular highlights on packaging';
         $purpose = 'premium brand / ecommerce advertising key visual';
         if ($is_beach && $is_beauty) {
-            $env = 'aspirational summer coastal environment with product as clear hero in foreground; sea light and soft horizon — no readable brand text';
+            $env = 'aspirational summer coastal environment with product as clear hero in foreground; sea light and soft horizon';
             $light = 'bright natural daylight with soft fill, realistic reflections on glass/plastic';
-            $purpose = 'summer beauty campaign still — product hero, lifestyle atmosphere without invented labels';
+            $purpose = 'summer beauty product hero still — lifestyle atmosphere';
         } elseif ($is_beauty) {
-            $env = 'luxury beauty campaign set, minimal props, elegant negative space';
+            $env = 'luxury beauty still-life set, minimal props, elegant negative space';
             $light = 'beauty-advertising soft key light, silky highlights on cream and glass';
-            $purpose = 'luxury skincare / cosmetics campaign still';
+            $purpose = 'luxury skincare product packshot / hero still';
         }
+
+        $packaging = $brand !== ''
+            ? 'PACKAGING: allow a simple elegant short brand mark "' . $brand . '" when feasible; no invented long copy blocks'
+            : 'PACKAGING: blank/unbranded surfaces preferred when no brand was given — do not invent brand names or noisy typography';
 
         $parts = [
             'CORE SCENE: ' . $subject . ' as unmistakable hero object with accurate silhouette and geometry',
@@ -180,15 +248,16 @@ final class YooY_Image_Domain_Prompt_Composer {
             'STYLING & MATERIALS: accurate package geometry; premium glass/metal/plastic micro-reflections; soft contact shadow; no melted edges',
             'COLOR & ATMOSPHERE: ' . ((string) ($brief['color_palette'] ?: 'refined brand palette, controlled accents')),
             'ENVIRONMENT: ' . $env,
-            'QUALITY CONSTRAINTS: campaign-ready detail; blank unbranded packaging when text not requested; no invented Hangul/English logos or random label text',
-            'PACKAGING: blank/unbranded surfaces preferred — do not invent brand names or typography',
-            'AVOID: plain pharmacy bottle look, glitter dust clichés, fake logos, dead-center phone snapshot, random Korean/English characters on pack',
+            'QUALITY CONSTRAINTS: campaign-ready detail; no invented Hangul/English paragraphs or random label spam',
+            $packaging,
+            'AVOID: plain pharmacy bottle look, glitter dust clichés, fake logos, dead-center phone snapshot, random Korean/English character spam on pack',
         ];
+        unset($settings);
 
         return [
             'prompt'          => implode('. ', $parts),
-            'negative_prompt' => 'warped bottle geometry, melted packaging, unreadable fake logos, invented Hangul text, invented English label text, random typography, glitter overload, plastic skin, political poster, low detail mush, generic stock clutter',
-            'domain'          => $is_beauty ? 'beauty' : 'product',
+            'negative_prompt' => 'warped bottle geometry, melted packaging, unreadable fake logos, invented Hangul text spam, invented English label paragraphs, random typography, glitter overload, plastic skin, political poster, low detail mush, generic stock clutter',
+            'domain'          => $is_beauty ? 'beauty_product_packshot' : 'product',
             'preset'          => 'product',
         ];
     }

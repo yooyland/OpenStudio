@@ -56,18 +56,95 @@ final class YooY_Studio_Intent_Analyzer {
             'project_context'    => is_array($hint['project_context'] ?? null) ? $hint['project_context'] : [],
             'confidence'         => $raw === '' ? 0.0 : ($domain !== 'general' ? 0.86 : 0.62),
             'raw_user_request'   => $raw,
-            'wants_product'      => in_array($domain, ['product', 'ecommerce', 'fashion', 'food', 'beauty'], true),
+            'brand_token'        => $this->extract_brand_token($raw),
+            'beauty_mode'        => $this->beauty_mode_for($domain, $lower),
+            'wants_product'      => $this->wants_product_for($domain),
+            'wants_model'        => $this->wants_model_for($domain, $lower),
             'wants_political'    => $domain === 'politics',
             'art_direction_preset' => class_exists('YooY_Image_Art_Direction')
                 ? YooY_Image_Art_Direction::resolve_preset([
                     'content_domain'   => $domain,
                     'raw_user_request' => $raw,
                     'primary_subject'  => $primary,
+                    'brand_token'      => $this->extract_brand_token($raw),
                 ])
                 : '',
         ];
 
+        if ($this->is_beauty_family($domain)) {
+            $intent['tone'] = $this->beauty_tone($lower, $hint);
+            $intent['k_culture'] = 'kbeauty';
+            $intent['meaning'] = 'product efficacy + aspirational lifestyle';
+        }
+
         return $intent;
+    }
+
+    public static function is_beauty_family(string $domain): bool {
+        return in_array($domain, [
+            'beauty',
+            'beauty_product_packshot',
+            'beauty_model_campaign',
+            'beauty_poster_editorial',
+        ], true);
+    }
+
+    private function wants_product_for(string $domain): bool {
+        return in_array($domain, [
+            'product', 'ecommerce', 'fashion', 'food', 'beauty',
+            'beauty_product_packshot', 'beauty_model_campaign', 'beauty_poster_editorial',
+        ], true);
+    }
+
+    private function wants_model_for(string $domain, string $lower): bool {
+        if (in_array($domain, ['beauty_model_campaign', 'beauty_poster_editorial'], true)) {
+            return true;
+        }
+        if ($domain === 'beauty_product_packshot') {
+            return false;
+        }
+        return (bool) preg_match('/모델|인물|여성|여자|남자|model|woman|man/u', $lower);
+    }
+
+    private function beauty_mode_for(string $domain, string $lower): string {
+        if ($domain === 'beauty_product_packshot') {
+            return 'product_only';
+        }
+        if ($domain === 'beauty_poster_editorial') {
+            return 'poster_editorial';
+        }
+        if ($domain === 'beauty_model_campaign' || $domain === 'beauty') {
+            return 'model_campaign';
+        }
+        unset($lower);
+        return '';
+    }
+
+    private function beauty_tone(string $lower, array $hint): string {
+        if (!empty($hint['tone'])) {
+            return sanitize_text_field((string) $hint['tone']);
+        }
+        if (preg_match('/프레시|fresh|상쾌/u', $lower)) {
+            return 'fresh, radiant, premium, clean';
+        }
+        return 'refined, elegant, radiant, premium, calm, clean';
+    }
+
+    /**
+     * Short explicit brand token (e.g. VVR) — never invent brands.
+     */
+    private function extract_brand_token(string $raw): string {
+        if (preg_match('/[\'"“‘]([A-Za-z0-9][A-Za-z0-9.&-]{1,11})[\'"”’]/u', $raw, $m)) {
+            return sanitize_text_field($m[1]);
+        }
+        if (preg_match('/브랜드\s*[\'"“‘]?([A-Za-z0-9][A-Za-z0-9.&-]{1,11})[\'"”’]?/u', $raw, $m)) {
+            return sanitize_text_field($m[1]);
+        }
+        if (preg_match('/\b([A-Z]{2,8})\b/u', $raw, $m)
+            && !in_array(strtoupper($m[1]), ['AI', 'UI', 'UX', 'HD', 'SNS', 'TV', 'AD'], true)) {
+            return sanitize_text_field($m[1]);
+        }
+        return '';
     }
 
     /**
@@ -104,10 +181,10 @@ final class YooY_Studio_Intent_Analyzer {
 
         $rules = [
             'politics'      => ['정치', '이재명', '대통령', '선거', '정책', '국회', '정당', '대선', '여야', 'political', 'president', 'election', 'policy'],
-            'beauty'        => ['화장품', '스킨케어', '세럼', '향수', '뷰티', 'cosmetic', 'skincare', 'beauty', 'serum', 'perfume'],
+            'beauty'        => ['화장품', '스킨케어', '세럼', '향수', '뷰티', '안티에이징', 'cosmetic', 'skincare', 'beauty', 'serum', 'perfume', 'anti-aging', 'anti aging'],
             'lifestyle'     => ['부부', '커플', '라이프스타일', '일상', '행복한', '사람들', 'lifestyle', 'couple'],
             'architecture'  => ['조감도', '아파트', '건축', '단지', '외관', '건물', '빌딩', '타워', '주거단지', '분양', 'architectural', 'architecture', 'aerial view', "bird's eye", 'facade', 'residential complex', 'real estate visualization'],
-            'product'       => ['제품', '상품', '크림', '병', '패키지', 'bottle', 'product', 'cream', 'packshot', '제품컷'],
+            'product'       => ['제품', '상품', '병', '패키지', 'bottle', 'product', 'packshot', '제품컷'],
             'ecommerce'     => ['스마트스토어', '쿠팡', '이커머스', '상세페이지', 'ecommerce', 'coupang'],
             'cinematic'     => ['시네마틱', '영화적', 'cinematic', 'film still'],
             'illustration'  => ['일러스트', '삽화', 'illustration', 'illustrated'],
@@ -130,14 +207,26 @@ final class YooY_Studio_Intent_Analyzer {
                     if ($domain === 'architecture' && preg_match('/부부|커플|사람들|이야기하는|couple|family/u', $lower)) {
                         return 'lifestyle';
                     }
+                    // Flat "beauty" expands into campaign / packshot / poster subtypes.
+                    if ($domain === 'beauty') {
+                        return $this->classify_beauty_subtype($lower);
+                    }
+                    // "크림" alone without beauty words stays product; with beauty+ad → beauty.
+                    if ($domain === 'product' && preg_match('/크림|cream/u', $lower)
+                        && preg_match('/화장품|스킨케어|안티에이징|뷰티|cosmetic|skincare|beauty/u', $lower)) {
+                        return $this->classify_beauty_subtype($lower);
+                    }
                     return $domain;
                 }
             }
         }
 
-        if (preg_match('/광고|advert|campaign|캠페인/u', $lower)) {
+        if (preg_match('/광고|advert|campaign|캠페인|포스터|poster/u', $lower)) {
             if ($this->looks_like_architecture($lower)) {
                 return 'architecture';
+            }
+            if (preg_match('/화장품|스킨케어|안티에이징|세럼|크림|뷰티|cosmetic|skincare|beauty|cream|serum/u', $lower)) {
+                return $this->classify_beauty_subtype($lower);
             }
             if ($this->looks_like_product($lower)) {
                 return 'product';
@@ -145,6 +234,29 @@ final class YooY_Studio_Intent_Analyzer {
             return 'brand';
         }
         return 'general';
+    }
+
+    /**
+     * Beauty taxonomy:
+     * - beauty_product_packshot — explicit product-only
+     * - beauty_model_campaign — default for brand/ad/skincare campaign
+     * - beauty_poster_editorial — advertising poster / editorial poster
+     */
+    private function classify_beauty_subtype(string $lower): string {
+        if (preg_match('/제품만|누끼|상세페이지|제품\s*사진만|제품컷만|packshot|product\s*only|product-only|제품\s*단독/u', $lower)) {
+            return 'beauty_product_packshot';
+        }
+        if (preg_match('/포스터|poster|에디토리얼|editorial|광고\s*포스터/u', $lower)) {
+            return 'beauty_poster_editorial';
+        }
+        if (preg_match('/광고|캠페인|브랜드|advert|campaign|brand|모델|인물|피부|model|woman|여성/u', $lower)) {
+            return 'beauty_model_campaign';
+        }
+        // Skincare / cosmetics without packshot-only language → campaign default.
+        if (preg_match('/안티에이징|스킨케어|화장품|세럼|cosmetic|skincare|beauty|serum/u', $lower)) {
+            return 'beauty_model_campaign';
+        }
+        return 'beauty_product_packshot';
     }
 
     private function looks_like_architecture(string $lower): bool {
@@ -187,6 +299,10 @@ final class YooY_Studio_Intent_Analyzer {
             'politics'  => 'political_advertisement',
             'product'   => 'product_advertisement',
             'ecommerce' => 'product_advertisement',
+            'beauty_product_packshot' => 'product_advertisement',
+            'beauty_model_campaign'   => 'beauty_campaign_advertisement',
+            'beauty_poster_editorial' => 'beauty_poster_advertisement',
+            'beauty'    => 'beauty_campaign_advertisement',
             'travel'    => 'tourism_advertisement',
             'corporate' => 'corporate_advertisement',
             'social'    => 'social_campaign',
@@ -206,7 +322,7 @@ final class YooY_Studio_Intent_Analyzer {
             return sanitize_text_field((string) $hint['primary_subject']);
         }
         $cut = mb_substr(trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw), 0, 160);
-        if (in_array($domain, ['lifestyle', 'architecture', 'product', 'brand', 'storybook', 'fantasy', 'beauty', 'cinematic'], true) && $cut !== '') {
+        if (in_array($domain, ['lifestyle', 'architecture', 'product', 'brand', 'storybook', 'fantasy', 'beauty', 'beauty_product_packshot', 'beauty_model_campaign', 'beauty_poster_editorial', 'cinematic'], true) && $cut !== '') {
             // Prefer the full user request as subject for commercial / narrative domains —
             // place-only entity extraction (e.g. "Seoul") is too thin for art direction.
             return $cut;
@@ -248,7 +364,13 @@ final class YooY_Studio_Intent_Analyzer {
         if ($ad_subtype === 'tourism_advertisement' || $domain === 'travel') {
             return 'tourism campaign visual';
         }
-        if ($ad_subtype === 'product_advertisement' || $domain === 'product' || $domain === 'ecommerce' || $domain === 'beauty') {
+        if ($domain === 'beauty_poster_editorial' || $ad_subtype === 'beauty_poster_advertisement') {
+            return 'premium vertical beauty advertising poster';
+        }
+        if ($domain === 'beauty_model_campaign' || $ad_subtype === 'beauty_campaign_advertisement') {
+            return 'luxury beauty model campaign key visual';
+        }
+        if ($ad_subtype === 'product_advertisement' || $domain === 'product' || $domain === 'ecommerce' || $domain === 'beauty_product_packshot' || $domain === 'beauty') {
             return 'premium product advertising photograph';
         }
         if ($domain === 'storybook') {
@@ -320,7 +442,13 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'travel') {
             return 'cinematic tourism campaign';
         }
-        if ($domain === 'product' || $domain === 'ecommerce' || $domain === 'beauty') {
+        if ($domain === 'beauty_poster_editorial') {
+            return 'luxury beauty campaign poster — editorial advertising finish';
+        }
+        if ($domain === 'beauty_model_campaign') {
+            return 'luxury beauty campaign photography with model and product';
+        }
+        if ($domain === 'beauty_product_packshot' || $domain === 'product' || $domain === 'ecommerce' || $domain === 'beauty') {
             return 'premium product photography';
         }
         if ($domain === 'storybook') {
@@ -348,7 +476,13 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'politics') {
             return 'magazine-cover hierarchy with headline space and message zones';
         }
-        if ($domain === 'product' || $domain === 'beauty') {
+        if ($domain === 'beauty_poster_editorial') {
+            return 'vertical advertising poster hierarchy — hero model/product balance with headline negative space';
+        }
+        if ($domain === 'beauty_model_campaign') {
+            return 'balanced model-led campaign framing; product legible in hand or beside model; usable copy space';
+        }
+        if ($domain === 'product' || $domain === 'beauty_product_packshot' || $domain === 'beauty') {
             return 'hero product centered composition with elegant negative space';
         }
         if ($domain === 'storybook' || $domain === 'fantasy') {
@@ -376,8 +510,8 @@ final class YooY_Studio_Intent_Analyzer {
         if ($domain === 'architecture') {
             return 'natural daylight materials, realistic façade colors';
         }
-        if ($domain === 'product' || $domain === 'beauty') {
-            return 'clean brand neutrals with controlled accent color';
+        if ($this->is_beauty_family($domain) || $domain === 'product') {
+            return 'clean luminous beauty neutrals with soft champagne / pearl accents';
         }
         if ($domain === 'storybook' || $domain === 'fantasy') {
             return 'sophisticated child-friendly cinematic palette with luminous night accents';
@@ -402,6 +536,16 @@ final class YooY_Studio_Intent_Analyzer {
             $req[] = 'civic campaign atmosphere';
             $req[] = 'space for Korean headline';
         }
+        if ($this->is_beauty_family($domain)) {
+            if ($domain !== 'beauty_product_packshot') {
+                $req[] = 'healthy attractive model with luminous skin';
+                $req[] = 'skincare product clearly visible';
+                $req[] = 'premium K-beauty campaign composition';
+                $req[] = 'usable negative space for poster copy';
+            } else {
+                $req[] = 'hero skincare product with accurate packaging geometry';
+            }
+        }
         if ($domain === 'architecture') {
             $req[] = 'accurate building scale and proportions';
             $req[] = 'detailed façade materials';
@@ -412,8 +556,15 @@ final class YooY_Studio_Intent_Analyzer {
 
     /** @return string[] */
     private function forbidden_for_domain(string $domain): array {
-        if (in_array($domain, ['product', 'ecommerce', 'fashion', 'food', 'beauty'], true)) {
-            return ['political poster unrelated to product', 'random celebrity unless requested', 'invented logos', 'random Hangul product text'];
+        if ($this->is_beauty_family($domain) || in_array($domain, ['product', 'ecommerce', 'fashion', 'food'], true)) {
+            return [
+                'political poster unrelated to product',
+                'random celebrity unless requested',
+                'invented long fake marketing paragraphs on packaging',
+                'pharmacy bottle aesthetic',
+                'cheap home-shopping mood',
+                'anger / hostile facial expression',
+            ];
         }
         if ($domain === 'storybook' || $domain === 'fantasy') {
             return [

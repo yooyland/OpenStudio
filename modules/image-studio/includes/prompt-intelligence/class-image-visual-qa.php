@@ -111,9 +111,9 @@ final class YooY_Image_Visual_QA {
 
         // Heuristic only: prompt asked for blank packaging.
         $unrequested_text_policy = false;
-        if (in_array($domain, ['product', 'beauty', 'ecommerce'], true)
+        if (in_array($domain, ['product', 'beauty', 'beauty_product_packshot', 'beauty_model_campaign', 'beauty_poster_editorial', 'ecommerce'], true)
             && !preg_match('/텍스트|로고|타이포|label|logo|typography/u', $user_l)
-            && preg_match('/blank|unbranded|no invented|no.*label text/u', $final_l)) {
+            && preg_match('/blank|unbranded|no invented|no.*label text|short user brand token|BRAND MARK/u', $final_l)) {
             $unrequested_text_policy = true;
             $notes[] = 'Blank-packaging policy present in prompt; pixel OCR/vision not run.';
         }

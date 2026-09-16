@@ -73,13 +73,18 @@ final class YooY_Image_Art_Direction {
             }
             return self::HIGH_END_ARCHVIZ;
         }
-        if ($domain === 'product' || $domain === 'ecommerce') {
+        if ($domain === 'product' || $domain === 'ecommerce' || $domain === 'beauty_product_packshot') {
+            if (self::looks_beauty($raw) && $domain !== 'beauty_product_packshot'
+                && !preg_match('/제품만|누끼|상세페이지|packshot|product\s*only/u', $raw)) {
+                return self::BEAUTY_CAMPAIGN_PREMIUM;
+            }
             if (self::looks_beauty($raw)) {
                 return self::BEAUTY_CAMPAIGN_PREMIUM;
             }
             return self::ELEVATED_PRODUCT_HERO;
         }
-        if ($domain === 'beauty') {
+        if (in_array($domain, ['beauty', 'beauty_model_campaign', 'beauty_poster_editorial'], true)
+            || self::looks_beauty($raw)) {
             return self::BEAUTY_CAMPAIGN_PREMIUM;
         }
         if ($domain === 'fashion') {
@@ -181,7 +186,7 @@ final class YooY_Image_Art_Direction {
     }
 
     public static function looks_beauty(string $raw): bool {
-        return (bool) preg_match('/화장품|스킨케어|크림|세럼|향수|뷰티|cosmetic|skincare|beauty|serum|perfume/u', $raw);
+        return (bool) preg_match('/화장품|스킨케어|크림|세럼|향수|뷰티|안티에이징|cosmetic|skincare|beauty|serum|perfume|anti.?aging/u', $raw);
     }
 
     public static function looks_commercial(string $raw): bool {
@@ -213,10 +218,13 @@ final class YooY_Image_Art_Direction {
                     'natural styling, believable people, non-stock composition',
                 ]);
             case self::BEAUTY_EDITORIAL_PREMIUM:
+            case self::BEAUTY_CAMPAIGN_PREMIUM:
             case self::LUXURY_PRODUCT_CAMPAIGN:
                 return array_merge($common, [
-                    'quiet luxury product / beauty still, magazine double-page quality',
-                    'refined packaging presentation, elegant lighting, no invented labels',
+                    'modern premium beauty campaign / K-beauty advertising finish',
+                    'luminous skin, soft flattering beauty light, elegant commercial polish',
+                    'model + product campaign hierarchy when campaign/poster intent is present',
+                    'refined packaging presentation — short brand marks allowed when user-provided',
                 ]);
             case self::ARCHITECTURAL_VISUALIZATION_PREMIUM:
                 return array_merge($common, [
@@ -255,11 +263,14 @@ final class YooY_Image_Art_Direction {
                     'avoid dated clip-art, flat mural, toy-like oversaturation, cheap poster look',
                 ];
             case self::BEAUTY_EDITORIAL_PREMIUM:
+            case self::BEAUTY_CAMPAIGN_PREMIUM:
             case self::LUXURY_PRODUCT_CAMPAIGN:
                 return [
-                    'premium product photography with accurate geometry',
-                    'realistic glass/metal/plastic materials and controlled speculars',
-                    'do not invent readable logos or random label text unless requested',
+                    'premium beauty campaign photography with accurate product geometry',
+                    'luminous natural skin texture — no plastic or mannequin faces',
+                    'allow short user-given brand tokens; do not invent long fake packaging copy',
+                    'campaign-ready poster polish with usable negative space',
+                    'avoid pharmacy bottle aesthetic and cheap e-commerce snapshots',
                 ];
             case self::ARCHITECTURAL_VISUALIZATION_PREMIUM:
                 return [
@@ -324,6 +335,17 @@ final class YooY_Image_Art_Direction {
                 return [
                     'warped bottle geometry',
                     'melted packaging',
+                    'anger face',
+                    'hostile expression',
+                    'pharmacy bottle aesthetic',
+                    'cheap home-shopping mood',
+                    'plastic skin',
+                    'mannequin face',
+                    'generic stock cosmetic',
+                    'product-only empty tabletop when campaign/poster was requested',
+                    'invented long packaging paragraphs',
+                    'kitschy beauty styling',
+                ];
                     'invented Hangul text',
                     'fake logos',
                     'glitter overload',
