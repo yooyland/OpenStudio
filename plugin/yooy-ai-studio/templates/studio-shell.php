@@ -414,16 +414,15 @@ $studio_quick = [
                 <div id="yai-projects-list"></div>
             </section>
             <section class="yai-view yai-view--workspace" data-page="project-detail">
-                <header class="yai-page-head yai-page-head--row">
-                    <div>
-                        <button type="button" class="yai-text-btn yai-back-btn" data-route="projects">← 프로젝트로</button>
-                        <p class="yai-eyebrow" id="yai-workspace-eyebrow">Project Workspace</p>
-                        <h1 id="yai-project-detail-title">Project Workspace</h1>
-                        <p id="yai-project-detail-desc">프로젝트 제작 공간</p>
+                <header class="yai-page-head yai-page-head--row yai-page-head--workspace">
+                    <div class="yai-workspace-head-main">
+                        <p class="yai-eyebrow" id="yai-workspace-eyebrow">PROJECT WORKSPACE</p>
+                        <h1 id="yai-project-detail-title">프로젝트</h1>
+                        <p id="yai-project-detail-desc" class="yai-workspace-meta">프로젝트 제작 공간</p>
                     </div>
                     <div class="yai-project-detail-actions">
-                        <button type="button" class="yai-btn--outline" id="yai-workspace-tab-settings-btn" data-workspace-goto="settings">Settings</button>
-                        <button type="button" class="yai-btn--outline yai-btn--danger" id="yai-project-detail-delete">Delete</button>
+                        <button type="button" class="yai-btn yai-btn--outline" id="yai-workspace-tab-settings-btn" data-workspace-goto="settings">설정</button>
+                        <button type="button" class="yai-btn yai-btn--outline yai-btn--danger" id="yai-project-detail-delete">삭제</button>
                     </div>
                 </header>
                 <nav class="yai-workspace-tabs" id="yai-workspace-tabs" aria-label="Workspace tabs"></nav>

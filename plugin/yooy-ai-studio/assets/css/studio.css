@@ -749,7 +749,6 @@ body.yoy-creator-os-active #content {
 .yai-work-menu[hidden] { display: none !important; }
 .yai-work-menu button { background: transparent; border: 0; color: #ddd; cursor: pointer; font-size: 12px; padding: 6px 8px; text-align: left; }
 .yai-work-menu button:hover { color: #ffd76a; }
-.yai-project-actions { display: flex; gap: 8px; margin-top: 12px; }
 
 .yai-profile--guest {
   display: flex;
@@ -1106,18 +1105,56 @@ button.yai-btn--danger {
 }
 
 /* Projects card actions — Rename / Delete must never use light-on-light */
+.yai-project-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.yai-project-actions .yai-project-action,
+.yai-project-actions .yai-btn,
+.yai-project-actions button {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex !important;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  height: 40px;
+  justify-content: center;
+  line-height: 1.2;
+  max-width: 100%;
+  min-height: 40px;
+  overflow: visible;
+  overflow-wrap: normal !important;
+  padding: 0 14px;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+}
+
+.yai-project-actions .yai-project-action--continue,
+.yai-project-actions .yai-btn--gold.yai-project-action {
+  min-width: 128px;
+}
+
+.yai-project-actions .yai-project-rename {
+  min-width: 92px;
+}
+
+.yai-project-actions .yai-project-delete {
+  min-width: 68px;
+}
+
 .yai-project-actions .yai-btn--outline:not(.yai-project-delete),
 .yai-project-actions button.yai-btn--outline:not(.yai-project-delete),
 .yai-project-rename {
-  align-items: center;
   background: var(--bg-elevated) !important;
   background-color: var(--bg-elevated) !important;
   border: 1px solid var(--border-default) !important;
+  border-radius: 10px !important;
   color: var(--text-primary) !important;
-  display: inline-flex !important;
-  justify-content: center;
-  line-height: 1.2;
-  min-height: 36px;
 }
 
 .yai-project-actions .yai-project-delete,
@@ -1125,15 +1162,11 @@ button.yai-btn--danger {
 .yai-btn--outline.yai-project-delete,
 button.yai-btn--outline.yai-project-delete,
 button.yai-project-delete {
-  align-items: center;
-  background: var(--danger-bg) !important;
-  background-color: var(--danger-bg) !important;
+  background: transparent !important;
+  background-color: transparent !important;
   border: 1px solid #5c2020 !important;
+  border-radius: 10px !important;
   color: var(--danger-text) !important;
-  display: inline-flex !important;
-  justify-content: center;
-  line-height: 1.2;
-  min-height: 36px;
 }
 
 .yai-project-rename:hover,
@@ -1148,6 +1181,25 @@ button.yai-project-delete:hover {
   background: #3a1515 !important;
   border-color: #7a2a2a !important;
   color: #ffc9c9 !important;
+}
+
+@media (max-width: 720px) {
+  .yai-project-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .yai-project-actions .yai-project-action,
+  .yai-project-actions .yai-btn,
+  .yai-project-actions button {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  .yai-project-actions .yai-project-action--continue {
+    flex: 1 1 100%;
+  }
 }
 
 .yai-app .yai-btn--outline.yai-btn--danger,
@@ -2259,7 +2311,8 @@ body.yai-failure-open { overflow: hidden; }
 .yai-project-grid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  width: 100%;
 }
 
 .yai-project-card {
@@ -2268,8 +2321,12 @@ body.yai-failure-open { overflow: hidden; }
   border-radius: 14px;
   color: var(--text-primary);
   cursor: pointer;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   padding: 14px;
   transition: border-color 0.2s;
 }
@@ -2287,8 +2344,10 @@ body.yai-failure-open { overflow: hidden; }
 
 .yai-project-card-cover {
   aspect-ratio: 16 / 9;
+  background: #0c0c0c;
   border-radius: 10px;
   overflow: hidden;
+  position: relative;
 }
 
 .yai-project-card-cover img {
@@ -2296,6 +2355,45 @@ body.yai-failure-open { overflow: hidden; }
   height: 100%;
   object-fit: cover;
   width: 100%;
+}
+
+.yai-project-card-cover--empty {
+  align-items: center;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(216, 166, 58, 0.22), transparent 52%),
+    linear-gradient(155deg, #16120a 0%, #0a0a0a 58%, #101010 100%);
+  border: 1px solid rgba(216, 166, 58, 0.14);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  justify-content: center;
+  min-height: 0;
+  padding: 16px 18px;
+  text-align: center;
+}
+
+.yai-project-card-cover__glyph {
+  color: rgba(216, 166, 58, 0.72);
+  font-size: 20px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.yai-project-card-cover__empty-title {
+  color: var(--text-primary, #f2f2f2) !important;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.yai-project-card-cover__empty-sub {
+  color: var(--text-secondary, #9a9a9a) !important;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 220px;
 }
 
 .yai-project-card-cover--gold {
@@ -2308,6 +2406,33 @@ body.yai-failure-open { overflow: hidden; }
   font-size: 12px;
   font-weight: 700;
   justify-content: center;
+}
+
+.yai-project-card__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.yai-project-card__title {
+  color: var(--text-primary);
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yai-project-card__meta {
+  color: var(--text-secondary);
+  display: block;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .yai-project-detail-cover {
@@ -2616,8 +2741,8 @@ button.yai-project-detail-cover:focus-visible {
 
 .yai-project-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
 .yai-project-card p {
@@ -3986,18 +4111,72 @@ body:not(.yai-is-admin) .yoy-sys-widget { display: none !important; }
 .yai-recent-work-actions { margin-top: 8px; }
 .yai-empty--reserved { border-style: dashed; }
 .yai-project-card--creative {
-  gap: 12px;
+  gap: 0;
+  min-height: 0;
   padding: 0 0 14px;
 }
 .yai-project-card--creative .yai-project-card-cover {
   aspect-ratio: 16 / 10;
   border-radius: 14px 14px 0 0;
+  min-height: 0;
 }
-.yai-project-card--creative strong,
-.yai-project-card--creative span,
+.yai-project-card--creative .yai-project-card__body {
+  gap: 8px;
+  padding: 12px 14px 0;
+}
 .yai-project-card--creative .yai-project-actions {
-  padding-left: 14px;
-  padding-right: 14px;
+  margin-top: 4px;
+  padding-left: 0;
+  padding-right: 0;
+}
+.yai-empty--project {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 48px 20px;
+  text-align: center;
+}
+.yai-empty--project h3 {
+  margin: 0;
+}
+.yai-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.yai-page-head--workspace {
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.yai-workspace-head-main {
+  min-width: 0;
+}
+.yai-workspace-head-main .yai-eyebrow {
+  margin-bottom: 6px;
+}
+.yai-workspace-head-main h1 {
+  margin: 0 0 4px;
+}
+.yai-workspace-meta {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+.yai-workspace-tabs {
+  align-items: center;
+}
+.yai-workspace-tab {
+  align-items: center;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  white-space: nowrap;
 }
 .yai-project-detail-cover--large {
   aspect-ratio: auto;

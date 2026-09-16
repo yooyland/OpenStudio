@@ -399,7 +399,7 @@
     }
 
     if (id === 'project-detail') {
-      return { label: '프로젝트로', aria: '프로젝트 목록으로', route: 'projects' };
+      return { label: '← 프로젝트로', aria: '프로젝트 목록으로', route: 'projects' };
     }
     if (id === 'history') {
       return { label: 'Gallery로', aria: 'Gallery로', route: 'works' };

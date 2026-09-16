@@ -331,13 +331,23 @@
 .yai-project-card {
   border-radius: 22px;
   gap: 14px;
-  min-height: 320px;
+  min-height: 0;
   padding: 20px;
+}
+
+.yai-project-card--creative {
+  min-height: 0;
+  padding: 0 0 16px;
 }
 
 .yai-project-card-cover {
   border-radius: 16px;
-  min-height: 180px;
+  min-height: 0;
+}
+
+.yai-project-card--creative .yai-project-card-cover {
+  border-radius: 22px 22px 0 0;
+  min-height: 0;
 }
 
 .yai-project-card strong {
