@@ -219,6 +219,14 @@ final class YooY_AI_Studio {
         );
 
         wp_enqueue_script(
+            'yoy-runtime-contract',
+            YOY_AI_STUDIO_URL . 'assets/js/runtime-contract.js',
+            ['yoy-ai-studio-core'],
+            YOY_AI_STUDIO_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
             'yoy-diagnostics',
             YOY_AI_STUDIO_URL . 'assets/js/diagnostics.js',
             ['yoy-ai-studio-core'],
@@ -264,7 +272,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-creative-canvas',
             YOY_AI_STUDIO_URL . 'assets/js/creative-canvas.js',
-            ['yoy-ai-studio-core', 'yoy-gallery-image', 'yoy-original-image-viewer'],
+            ['yoy-ai-studio-core', 'yoy-runtime-contract', 'yoy-gallery-image', 'yoy-original-image-viewer'],
             YOY_AI_STUDIO_VERSION,
             true
         );
@@ -347,7 +355,7 @@ final class YooY_AI_Studio {
         wp_enqueue_script(
             'yoy-ai-studio',
             YOY_AI_STUDIO_URL . 'assets/js/studio.js',
-            ['yoy-ai-studio-core', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-original-image-viewer', 'yoy-creative-canvas', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-home-onboarding', 'yoy-credits-ui', 'yoy-my-account', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
+            ['yoy-ai-studio-core', 'yoy-runtime-contract', 'yoy-active-project', 'yoy-studio-navigation', 'yoy-studio-nav-adapters', 'yoy-gallery-api', 'yoy-gallery', 'yoy-gallery-image', 'yoy-original-image-viewer', 'yoy-creative-canvas', 'yoy-reference-assets-panel', 'yoy-create-ux', 'yoy-home-dashboard', 'yoy-home-intent', 'yoy-home-bottom-composer', 'yoy-home-onboarding', 'yoy-credits-ui', 'yoy-my-account', 'yoy-studio-handoff', 'yoy-creation-templates', 'yoy-studio-simple-mode'],
             YOY_AI_STUDIO_VERSION,
             true
         );

@@ -587,9 +587,14 @@
       return;
     }
     if (!projectsApi()) {
+      if (global.YooYRuntimeContract && typeof global.YooYRuntimeContract.verifyPage === 'function') {
+        global.YooYRuntimeContract.verifyPage('project-detail');
+      }
+      var userMsg = (global.YooYRuntimeContract && global.YooYRuntimeContract.userMessage)
+        || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.';
       container.innerHTML = errorHtml(
-        { kind: 'client', message: 'Canvas 연결 모듈을 불러오지 못했습니다.' },
-        'YooYCore.projects / YooYProjectsAPI'
+        { kind: 'client', message: 'Canvas를 불러오지 못했습니다.' },
+        userMsg
       );
       var earlyRetry = container.querySelector('[data-ycc-retry]');
       if (earlyRetry) {

@@ -2679,6 +2679,15 @@ button.yai-project-detail-cover:focus-visible {
 .yai-empty h3 { font-size: 15px; font-weight: 700; margin: 0; }
 .yai-empty p { color: var(--yai-muted); font-size: 12px; line-height: 1.5; margin: 0; max-width: 260px; }
 
+.yai-empty--contract {
+  gap: 12px;
+  max-width: 420px;
+  margin: 24px auto;
+}
+.yai-empty--contract .yai-btn--gold {
+  margin-top: 4px;
+}
+
 .yai-empty .yai-btn--outline {
   background: var(--bg-elevated) !important;
   border: 1px solid var(--border-default) !important;

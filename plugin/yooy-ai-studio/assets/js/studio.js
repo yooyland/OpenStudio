@@ -264,8 +264,19 @@
       if (!window.YooYCore) {
         if (attempt < 80) {
           setTimeout(function () { startStudioBoot(attempt + 1); }, 50);
-        } else if (window.console && console.error) {
-          console.error('[YooYStudio] YooYCore missing — Studio boot aborted (Create Dialog still available)');
+        } else {
+          var RC0 = window.YooYRuntimeContract;
+          if (RC0 && typeof RC0.verifyBoot === 'function') {
+            RC0.verifyBoot();
+          } else if (window.console && console.error && ((window.YooYStudio && window.YooYStudio.isAdmin) || (window.YooYStudio && window.YooYStudio.debug))) {
+            console.error('[YooYStudio] YooYCore missing — Studio boot aborted');
+          }
+          var main0 = document.getElementById('yai-main');
+          if (main0 && RC0 && typeof RC0.renderFallback === 'function') {
+            RC0.renderFallback(main0, '스튜디오를 불러오지 못했습니다');
+          } else if (typeof window.showToast === 'function') {
+            window.showToast('일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.', true);
+          }
         }
         return;
       }
@@ -274,12 +285,25 @@
       bootYooYStudio(window.YooYCore);
     } catch (bootErr) {
       window.__YOOY_STUDIO_BOOTED__ = false;
-      if (window.console && console.error) console.error('[YooYStudio] init failed', bootErr);
+      var RC1 = window.YooYRuntimeContract;
+      if (RC1 && RC1.isDevAudience && RC1.isDevAudience() && window.console && console.error) {
+        console.error('[YooYStudio] init failed', bootErr);
+      } else if (window.console && console.error && window.YooYStudio && window.YooYStudio.isAdmin) {
+        console.error('[YooYStudio] init failed', bootErr);
+      }
+      if (typeof window.showToast === 'function') {
+        window.showToast((RC1 && RC1.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.', true);
+      }
     }
   }
 
   function bootYooYStudio(Core) {
   var Y = window;
+  var RuntimeContract = Y.YooYRuntimeContract || null;
+
+  if (RuntimeContract && typeof RuntimeContract.verifyBoot === 'function') {
+    RuntimeContract.verifyBoot();
+  }
 
   var loaded = {};
   var currentPage = 'home';
@@ -884,6 +908,19 @@
     }
     hydrate(name);
     syncProjectContextBanner(name);
+    runPageContract(name);
+  }
+
+  function runPageContract(name) {
+    if (!RuntimeContract || typeof RuntimeContract.verifyPage !== 'function') return;
+    var report = RuntimeContract.verifyPage(name);
+    var studioLate = ['image', 'video', 'music', 'voice', 'avatar', 'translator', 'assistant'];
+    if (report && !report.ok && studioLate.indexOf(name) !== -1) {
+      setTimeout(function () {
+        if (currentPage !== name) return;
+        RuntimeContract.verifyPage(name);
+      }, 3500);
+    }
   }
 
   function hydrate(name) {
@@ -979,7 +1016,18 @@
           mountStudio(page, globalName);
           return;
         }
-        if (attempts < 60) setTimeout(retry, 100);
+        if (attempts < 60) {
+          setTimeout(retry, 100);
+          return;
+        }
+        if (RuntimeContract && typeof RuntimeContract.verifyPage === 'function') {
+          RuntimeContract.verifyPage(page);
+        }
+        if (RuntimeContract && typeof RuntimeContract.renderFallback === 'function') {
+          RuntimeContract.renderFallback(el, '스튜디오를 불러오지 못했습니다');
+        } else {
+          el.innerHTML = '<div class="yai-empty yai-empty--contract"><h3>스튜디오를 불러오지 못했습니다</h3><p class="yai-muted">일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</p></div>';
+        }
       })();
       return;
     }
@@ -1919,7 +1967,7 @@
       return Promise.reject(new Error('프로젝트 또는 Gallery Asset이 없습니다.'));
     }
     if (!Core.projects || typeof Core.projects.addAsset !== 'function') {
-      return Promise.reject(new Error('Projects API를 사용할 수 없습니다.'));
+      return Promise.reject(new Error((RuntimeContract && RuntimeContract.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.'));
     }
     yoyProjectsLog('asset link started', projectId, galleryId);
     return Core.projects.addAsset(projectId, { gallery_id: galleryId }).then(function (res) {
@@ -1938,7 +1986,7 @@
       return Promise.reject(new Error('프로젝트 또는 Gallery Asset이 없습니다.'));
     }
     if (!Core.projects || typeof Core.projects.removeAsset !== 'function') {
-      return Promise.reject(new Error('Projects API를 사용할 수 없습니다.'));
+      return Promise.reject(new Error((RuntimeContract && RuntimeContract.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.'));
     }
     return Core.projects.removeAsset(projectId, galleryId);
   }
@@ -2001,7 +2049,8 @@
 
   function submitProjectCreate(form) {
     if (!Core.projects || typeof Core.projects.create !== 'function') {
-      showToast('Projects API를 사용할 수 없습니다.', true);
+      if (RuntimeContract && typeof RuntimeContract.verifyPage === 'function') RuntimeContract.verifyPage('projects');
+      showToast((RuntimeContract && RuntimeContract.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.', true);
       return;
     }
 
@@ -2086,7 +2135,8 @@
   function saveGalleryItemToProject(galleryId) {
     if (!galleryId || !requireLogin()) return;
     if (!Core.projects || typeof Core.projects.list !== 'function') {
-      showToast('Projects API를 사용할 수 없습니다.', true);
+      if (RuntimeContract && typeof RuntimeContract.verifyPage === 'function') RuntimeContract.verifyPage('projects');
+      showToast((RuntimeContract && RuntimeContract.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.', true);
       return;
     }
     Core.projects.list().then(function (res) {
@@ -3016,7 +3066,14 @@
       if (canvasRoot && window.YooYCreativeCanvas && typeof window.YooYCreativeCanvas.mount === 'function') {
         window.YooYCreativeCanvas.mount(canvasRoot, pid);
       } else if (canvasRoot) {
-        canvasRoot.innerHTML = '<div class="yai-empty"><h3>Creative Canvas</h3><p>Canvas 모듈을 불러오는 중… 새로고침 후 다시 시도하세요.</p></div>';
+        if (RuntimeContract && typeof RuntimeContract.verifyPage === 'function') {
+          RuntimeContract.verifyPage('project-detail');
+        }
+        if (RuntimeContract && typeof RuntimeContract.renderFallback === 'function') {
+          RuntimeContract.renderFallback(canvasRoot, 'Canvas를 불러오지 못했습니다');
+        } else {
+          canvasRoot.innerHTML = '<div class="yai-empty yai-empty--contract"><h3>Canvas를 불러오지 못했습니다</h3><p class="yai-muted">일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</p></div>';
+        }
       }
     }
 
@@ -3447,7 +3504,7 @@
   function friendlyProjectError(err) {
     if (!err) return '';
     if (err.restNoRoute || err.code === 'rest_no_route') {
-      return 'Projects API에 연결할 수 없습니다. 페이지를 새로고침하거나 관리자에게 문의해 주세요.';
+      return (RuntimeContract && RuntimeContract.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.';
     }
     var msg = String(err.message || '');
     if (/stack|exception|undefined index|fatal|wpdb|mysql/i.test(msg)) {
@@ -3489,8 +3546,15 @@
     }
     el.innerHTML = '<div class="yai-empty"><p>Loading projects…</p></div>';
     if (!Core.projects || typeof Core.projects.list !== 'function') {
-      renderProjectsEmpty(el);
-      showToast('Projects API를 사용할 수 없습니다.', true);
+      if (RuntimeContract && typeof RuntimeContract.verifyPage === 'function') {
+        RuntimeContract.verifyPage('projects');
+      }
+      if (RuntimeContract && typeof RuntimeContract.renderFallback === 'function') {
+        RuntimeContract.renderFallback(el, '프로젝트를 불러오지 못했습니다');
+      } else {
+        renderProjectsEmpty(el);
+        showToast((RuntimeContract && RuntimeContract.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.', true);
+      }
       return;
     }
     Core.projects.list().then(function (res) {
@@ -4884,7 +4948,8 @@
     function addTo(pid2) {
       try { sessionStorage.removeItem('yoy_pending_canvas_add_project'); } catch (eClr) { /* ignore */ }
       if (!Core.projects || typeof Core.projects.addCanvasNode !== 'function') {
-        showToast('Canvas API를 불러오지 못했습니다.', true);
+        if (RuntimeContract && typeof RuntimeContract.verifyPage === 'function') RuntimeContract.verifyPage('project-detail');
+        showToast((RuntimeContract && RuntimeContract.userMessage) || '일부 기능을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.', true);
         return Promise.reject(new Error('canvas api'));
       }
       return Core.projects.addCanvasNode(pid2, {
